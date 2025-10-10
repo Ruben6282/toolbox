@@ -28,6 +28,20 @@ import { MarkdownPreview } from "@/components/tools/MarkdownPreview";
 import { DateCalculator } from "@/components/tools/DateCalculator";
 import { LoanCalculator } from "@/components/tools/LoanCalculator";
 import { ImageResizer } from "@/components/tools/ImageResizer";
+import { HashGenerator } from "@/components/tools/HashGenerator";
+import { BinaryConverter } from "@/components/tools/BinaryConverter";
+import { CssMinifier } from "@/components/tools/CssMinifier";
+import { JsMinifier } from "@/components/tools/JsMinifier";
+import { BmiCalculator } from "@/components/tools/BmiCalculator";
+import { AgeCalculator } from "@/components/tools/AgeCalculator";
+import { StringReverser } from "@/components/tools/StringReverser";
+import { WhitespaceRemover } from "@/components/tools/WhitespaceRemover";
+import { DuplicateRemover } from "@/components/tools/DuplicateRemover";
+import { SortLines } from "@/components/tools/SortLines";
+import { ImageToBase64 } from "@/components/tools/ImageToBase64";
+import { GradientGenerator } from "@/components/tools/GradientGenerator";
+import { JwtDecoder } from "@/components/tools/JwtDecoder";
+import { TextToSlug } from "@/components/tools/TextToSlug";
 
 const ToolPage = () => {
   const { toolId } = useParams();
@@ -94,6 +108,34 @@ const ToolPage = () => {
         return <ImageResizer />;
       case "color-picker":
         return <ColorPicker />;
+      case "hash-generator":
+        return <HashGenerator />;
+      case "binary-converter":
+        return <BinaryConverter />;
+      case "css-minifier":
+        return <CssMinifier />;
+      case "js-minifier":
+        return <JsMinifier />;
+      case "bmi-calculator":
+        return <BmiCalculator />;
+      case "age-calculator":
+        return <AgeCalculator />;
+      case "string-reverser":
+        return <StringReverser />;
+      case "whitespace-remover":
+        return <WhitespaceRemover />;
+      case "duplicate-remover":
+        return <DuplicateRemover />;
+      case "sort-lines":
+        return <SortLines />;
+      case "image-to-base64":
+        return <ImageToBase64 />;
+      case "gradient-generator":
+        return <GradientGenerator />;
+      case "jwt-decoder":
+        return <JwtDecoder />;
+      case "text-to-slug":
+        return <TextToSlug />;
       default:
         return (
           <Card className="shadow-lg">
