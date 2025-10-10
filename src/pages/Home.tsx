@@ -5,10 +5,16 @@ import { ToolCard } from "@/components/ToolCard";
 import { categories, tools, popularSearches } from "@/data/tools";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const navigate = useNavigate();
   const popularTools = tools.filter((tool) => tool.isPopular);
   const newTools = tools.filter((tool) => tool.isNew);
+
+  const handlePopularSearchClick = (search: string) => {
+    navigate(`/search?q=${encodeURIComponent(search)}`);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,7 +36,12 @@ const Home = () => {
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <span className="text-sm text-muted-foreground">Popular:</span>
               {popularSearches.map((search) => (
-                <Badge key={search} variant="secondary" className="cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground">
+                <Badge 
+                  key={search} 
+                  variant="secondary" 
+                  className="cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground"
+                  onClick={() => handlePopularSearchClick(search)}
+                >
                   {search}
                 </Badge>
               ))}
