@@ -42,6 +42,15 @@ import { ImageToBase64 } from "@/components/tools/ImageToBase64";
 import { GradientGenerator } from "@/components/tools/GradientGenerator";
 import { JwtDecoder } from "@/components/tools/JwtDecoder";
 import { TextToSlug } from "@/components/tools/TextToSlug";
+import { CharacterCounter } from "@/components/tools/CharacterCounter";
+import { RandomNamePicker } from "@/components/tools/RandomNamePicker";
+import { DiceRoller } from "@/components/tools/DiceRoller";
+import { CoinFlip } from "@/components/tools/CoinFlip";
+import { RandomYesNo } from "@/components/tools/RandomYesNo";
+import { PrimeNumberChecker } from "@/components/tools/PrimeNumberChecker";
+import { TextToBinary } from "@/components/tools/TextToBinary";
+import { BinaryToText } from "@/components/tools/BinaryToText";
+import { EmailValidator } from "@/components/tools/EmailValidator";
 
 const ToolPage = () => {
   const { toolId } = useParams();
@@ -136,6 +145,24 @@ const ToolPage = () => {
         return <JwtDecoder />;
       case "text-to-slug":
         return <TextToSlug />;
+      case "character-counter":
+        return <CharacterCounter />;
+      case "random-name-picker":
+        return <RandomNamePicker />;
+      case "dice-roller":
+        return <DiceRoller />;
+      case "coin-flip":
+        return <CoinFlip />;
+      case "random-yes-no":
+        return <RandomYesNo />;
+      case "prime-number-checker":
+        return <PrimeNumberChecker />;
+      case "text-to-binary":
+        return <TextToBinary />;
+      case "binary-to-text":
+        return <BinaryToText />;
+      case "email-validator":
+        return <EmailValidator />;
       default:
         return (
           <Card className="shadow-lg">
