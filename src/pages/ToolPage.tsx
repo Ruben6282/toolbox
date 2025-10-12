@@ -7,6 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import * as Icons from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { CaseConverter } from "@/components/tools/CaseConverter";
 import { WordCounter } from "@/components/tools/WordCounter";
 import { TextDiff } from "@/components/tools/TextDiff";
@@ -72,6 +80,7 @@ const ToolPage = () => {
   }
 
   const IconComponent = (Icons[tool.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
+  const CategoryIconComponent = (Icons[category.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
 
   const renderToolComponent = () => {
     switch (toolId) {
@@ -193,12 +202,28 @@ const ToolPage = () => {
 
       <section className="bg-gradient-to-br from-primary/5 via-accent/5 to-background py-12">
         <div className="container">
-          <Link to={`/category/${category.id}`}>
-            <Button variant="ghost" className="mb-6 gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to {category.name}
-            </Button>
-          </Link>
+          <Breadcrumb className="mb-6">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={`/category/${category.id}`} className="flex items-center gap-2">
+                    <CategoryIconComponent className="h-4 w-4" />
+                    {category.name}
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{tool.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
             <div className="flex-1">
