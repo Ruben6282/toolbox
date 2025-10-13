@@ -2,10 +2,17 @@ import { useParams, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ToolCard } from "@/components/ToolCard";
 import { categories, tools } from "@/data/tools";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import * as Icons from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const CategoryPage = () => {
   const { categoryId } = useParams();
@@ -34,12 +41,22 @@ const CategoryPage = () => {
 
       <section className="bg-gradient-to-br from-primary/5 via-accent/5 to-background py-16">
         <div className="container">
-          <Link to="/">
-            <Button variant="ghost" className="mb-6 gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </Button>
-          </Link>
+          <Breadcrumb className="mb-6">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="flex items-center gap-2">
+                  <IconComponent className="h-4 w-4" />
+                  {category.name}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           <div className="flex items-center gap-4">
             <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">

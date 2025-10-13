@@ -21,13 +21,14 @@ const Home = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-accent/5 to-background py-20">
-        <div className="container">
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-accent/5 to-background py-24">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDAwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAgNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
+        <div className="container relative">
           <div className="mx-auto max-w-3xl text-center">
-            <h1 className="mb-6 text-5xl font-bold tracking-tight">
+            <h1 className="mb-6 text-5xl font-bold tracking-tight sm:text-6xl">
               All Your <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Tools</span> in One Place
             </h1>
-            <p className="mb-8 text-lg text-muted-foreground">
+            <p className="mb-10 text-lg text-muted-foreground sm:text-xl">
               A comprehensive collection of free online tools and utilities for developers, designers, and creators.
             </p>
             <SearchBar />
@@ -39,7 +40,7 @@ const Home = () => {
                 <Badge 
                   key={search} 
                   variant="secondary" 
-                  className="cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground"
+                  className="cursor-pointer transition-all hover:scale-105 hover:bg-primary hover:text-primary-foreground hover:shadow-md"
                   onClick={() => handlePopularSearchClick(search)}
                 >
                   {search}

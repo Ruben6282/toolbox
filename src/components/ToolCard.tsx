@@ -19,10 +19,10 @@ export const ToolCard = ({ id, name, description, category, icon, isNew, isPopul
 
   return (
     <Link to={`/tool/${id}`}>
-      <Card className="group h-full cursor-pointer transition-all hover:shadow-[var(--shadow-hover)] border hover:border-primary/50">
+      <Card className="group h-full cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 border hover:border-primary/30">
         <CardContent className="p-5">
           <div className="mb-4 flex items-start justify-between">
-            <div className="inline-flex rounded-lg bg-secondary p-2.5 transition-transform group-hover:scale-110">
+            <div className="inline-flex rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-2.5 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md group-hover:shadow-primary/20">
               <IconComponent className="h-5 w-5 text-primary" />
             </div>
             <div className="flex gap-1">
@@ -30,8 +30,8 @@ export const ToolCard = ({ id, name, description, category, icon, isNew, isPopul
               {isPopular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
             </div>
           </div>
-          <h3 className="mb-2 font-semibold">{name}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <h3 className="mb-2 font-semibold group-hover:text-primary transition-colors">{name}</h3>
+          <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
         </CardContent>
       </Card>
     </Link>
