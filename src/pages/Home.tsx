@@ -4,8 +4,10 @@ import { CategoryCard } from "@/components/CategoryCard";
 import { ToolCard } from "@/components/ToolCard";
 import { categories, tools, popularSearches } from "@/data/tools";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Clock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, Clock, Github } from "lucide-react";
+import * as Icons from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -105,15 +107,65 @@ const Home = () => {
       {/* Footer */}
       <footer className="border-t bg-card py-12">
         <div className="container">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+          <div className="grid gap-8 md:grid-cols-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-gradient-to-br from-primary to-accent p-2">
+                  <Icons.Wrench className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <span className="font-bold">ToolBox</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your one-stop collection of free online tools and utilities.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-3">Quick Links</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
+                <li><Link to="/#categories" className="text-muted-foreground hover:text-foreground transition-colors">Categories</Link></li>
+                <li><Link to="/#popular" className="text-muted-foreground hover:text-foreground transition-colors">Popular Tools</Link></li>
+                <li><Link to="/search" className="text-muted-foreground hover:text-foreground transition-colors">Search</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-3">Resources</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">About Us</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">API</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Submit Tool</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-3">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Cookie Policy</a></li>
+                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
               © 2024 ToolBox. All tools are free to use.
             </p>
-            <div className="flex gap-6 text-sm text-muted-foreground">
-              <a href="#" className="transition-colors hover:text-foreground">About</a>
-              <a href="#" className="transition-colors hover:text-foreground">Privacy</a>
-              <a href="#" className="transition-colors hover:text-foreground">Terms</a>
-              <a href="#" className="transition-colors hover:text-foreground">Contact</a>
+            <div className="flex gap-4">
+              <Button variant="ghost" size="icon" asChild>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+                  <Github className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+                  <Icons.Twitter className="h-5 w-5" />
+                </a>
+              </Button>
             </div>
           </div>
         </div>
