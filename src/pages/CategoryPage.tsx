@@ -73,11 +73,26 @@ const CategoryPage = () => {
 
       <section className="py-12">
         <div className="container">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {categoryTools.map((tool) => (
-              <ToolCard key={tool.id} {...tool} />
-            ))}
-          </div>
+          {categoryTools.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {categoryTools.map((tool) => (
+                <ToolCard key={tool.id} {...tool} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="mb-4 inline-flex rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">
+                <IconComponent className="h-16 w-16 text-primary opacity-50" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">No tools yet</h2>
+              <p className="text-muted-foreground mb-6">
+                This category is empty. Check back soon for new tools!
+              </p>
+              <Button asChild>
+                <Link to="/">Explore Other Categories</Link>
+              </Button>
+            </div>
+          )}
         </div>
       </section>
     </div>
