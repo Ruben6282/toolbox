@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Home from "./pages/Home";
 import CategoryPage from "./pages/CategoryPage";
+import CategoriesPage from "./pages/CategoriesPage";
+import PopularPage from "./pages/PopularPage";
 import ToolPage from "./pages/ToolPage";
 import SearchPage from "./pages/SearchPage";
 import NotFound from "./pages/NotFound";
@@ -21,6 +23,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/popular" element={<PopularPage />} />
             <Route path="/category/:categoryId" element={<CategoryPage />} />
             <Route path="/tool/:toolId" element={<ToolPage />} />
             <Route path="/search" element={<SearchPage />} />
