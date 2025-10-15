@@ -92,7 +92,7 @@ export const SearchBar = () => {
             setSelectedIndex(0);
           }}
           onFocus={() => search && setShowResults(true)}
-          className="h-14 pl-12 pr-20 text-base shadow-lg border-2 focus-visible:ring-primary"
+          className="h-12 pl-12 pr-20 text-base shadow-md border-2 focus-visible:ring-primary rounded-2xl transition-all"
         />
         <Badge 
           variant="secondary" 
@@ -104,7 +104,7 @@ export const SearchBar = () => {
       </form>
 
       {showResults && filteredTools.length > 0 && (
-        <Card className="absolute top-full left-0 right-0 mt-2 z-50 p-2 shadow-xl max-h-96 overflow-y-auto">
+        <Card className="absolute top-full left-0 right-0 mt-2 z-50 p-2 shadow-xl max-h-96 overflow-y-auto rounded-2xl border-2 animate-in fade-in slide-in-from-top-2 duration-200">
           {filteredTools.map((tool, index) => {
             const IconComponent = (Icons[tool.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
             return (

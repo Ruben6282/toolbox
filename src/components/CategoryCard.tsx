@@ -15,11 +15,11 @@ export const CategoryCard = ({ id, name, description, icon, toolCount }: Categor
   const IconComponent = (Icons[icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
 
   return (
-    <Link to={`/category/${id}`}>
-      <Card className="group cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 border hover:border-primary/30">
+    <Link to={`/category/${id}`} className="block group">
+      <Card className="h-full cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 border hover:border-primary/30 hover:-translate-y-1">
         <CardContent className="p-6">
-          <div className="mb-4 inline-flex rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md group-hover:shadow-primary/20">
-            <IconComponent className="h-6 w-6 text-primary" />
+          <div className="mb-4 inline-flex rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md group-hover:shadow-primary/20 group-hover:from-primary/20 group-hover:to-accent/20">
+            <IconComponent className="h-6 w-6 text-primary transition-transform duration-300 group-hover:rotate-6" />
           </div>
           <h3 className="mb-2 text-lg font-semibold group-hover:text-primary transition-colors">{name}</h3>
           <p className="mb-3 text-sm text-muted-foreground line-clamp-2">{description}</p>

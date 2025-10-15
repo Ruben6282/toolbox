@@ -23,21 +23,34 @@ const Home = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-accent/5 to-background py-24">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDAwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAtNHYyaDJ2LTJoLTJ6bTAgNHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
+      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background py-20 sm:py-32">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="container relative">
-          <div className="mx-auto max-w-3xl text-center">
-            <h1 className="mb-6 text-5xl font-bold tracking-tight sm:text-6xl">
-              All Your <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Tools</span> in One Place
+          <div className="mx-auto max-w-3xl text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              <span className="text-muted-foreground">Free online tools for everyone</span>
+            </div>
+            <h1 className="mb-6 text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+              All Your Essential
+              <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-in slide-in-from-left duration-1000">
+                Tools in One Place
+              </span>
             </h1>
-            <p className="mb-10 text-lg text-muted-foreground sm:text-xl">
-              A comprehensive collection of free online tools and utilities for developers, designers, and creators.
+            <p className="mb-10 text-lg text-muted-foreground sm:text-xl animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-150">
+              Discover a comprehensive collection of free, easy-to-use online tools.
+              From calculators to converters, we've got everything you need.
             </p>
-            <SearchBar />
+            <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+              <SearchBar />
+            </div>
 
             {/* Popular Searches */}
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <span className="text-sm text-muted-foreground">Popular:</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground animate-in fade-in duration-1000 delay-500">
+              <span>Popular searches:</span>
               {popularSearches.map((search) => (
                 <Badge 
                   key={search} 
@@ -54,31 +67,31 @@ const Home = () => {
       </section>
 
       {/* Categories Section */}
-      <section id="categories" className="py-16">
-        <div className="container">
-          <div className="mb-10 text-center">
-            <h2 className="mb-3 text-3xl font-bold">Browse by Category</h2>
-            <p className="text-muted-foreground">Find the right tool for your needs</p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
-              <CategoryCard key={category.id} {...category} />
-            ))}
-          </div>
+      <section id="categories" className="container py-20">
+        <div className="mb-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Browse by Category</h2>
+          <p className="text-lg text-muted-foreground">
+            Find the perfect tool for your needs
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {categories.map((category) => (
+            <CategoryCard key={category.id} {...category} />
+          ))}
         </div>
       </section>
 
       {/* Popular Tools Section */}
-      <section id="popular" className="bg-secondary/30 py-16">
+      <section id="popular" className="bg-secondary/20 py-20">
         <div className="container">
-          <div className="mb-10 flex items-center gap-3">
+          <div className="mb-12 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <TrendingUp className="h-8 w-8 text-primary" />
             <div>
-              <h2 className="text-3xl font-bold">Popular Tools</h2>
+              <h2 className="text-3xl font-bold sm:text-4xl">Popular Tools</h2>
               <p className="text-muted-foreground">Most used tools by our community</p>
             </div>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {popularTools.map((tool) => (
               <ToolCard key={tool.id} {...tool} />
             ))}
@@ -87,20 +100,18 @@ const Home = () => {
       </section>
 
       {/* New Tools Section */}
-      <section className="py-16">
-        <div className="container">
-          <div className="mb-10 flex items-center gap-3">
-            <Clock className="h-8 w-8 text-accent" />
-            <div>
-              <h2 className="text-3xl font-bold">Recently Added</h2>
-              <p className="text-muted-foreground">Check out our latest tools</p>
-            </div>
+      <section className="container py-20">
+        <div className="mb-12 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <Clock className="h-8 w-8 text-accent" />
+          <div>
+            <h2 className="text-3xl font-bold sm:text-4xl">Recently Added</h2>
+            <p className="text-muted-foreground">Check out our latest tools</p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {newTools.map((tool) => (
-              <ToolCard key={tool.id} {...tool} />
-            ))}
-          </div>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {newTools.map((tool) => (
+            <ToolCard key={tool.id} {...tool} />
+          ))}
         </div>
       </section>
 
