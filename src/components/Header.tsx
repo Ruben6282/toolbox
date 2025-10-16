@@ -16,7 +16,7 @@ export const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-20 items-center justify-between gap-4">
+      <div className="container flex h-20 items-center gap-4">
         <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80 shrink-0">
           <div className="rounded-lg bg-gradient-to-br from-primary to-accent p-2">
             <Wrench className="h-5 w-5 text-primary-foreground" />
@@ -26,13 +26,13 @@ export const Header = () => {
           </span>
         </Link>
 
-        {/* Desktop Search Bar */}
-        <div className="hidden lg:block flex-1 max-w-md">
+        {/* Desktop Search Bar - Right next to logo */}
+        <div className="hidden lg:block flex-1 max-w-sm">
           <SearchBar />
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-6 shrink-0">
+        <nav className="hidden lg:flex items-center gap-6 shrink-0 ml-auto">
           <Link to="/" className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground whitespace-nowrap">
             Home
           </Link>

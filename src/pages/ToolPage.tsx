@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { AdSense } from "@/components/AdSense";
 import { tools, categories } from "@/data/tools";
 import { ArrowLeft, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -253,6 +254,9 @@ const ToolPage = () => {
       <section className="py-12">
         <div className="container">
           {renderToolComponent()}
+
+          {/* AdSense - After Tool */}
+          <AdSense slot="3344556677" />
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <Card>

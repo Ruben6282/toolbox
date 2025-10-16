@@ -22,7 +22,7 @@ export const categories: Category[] = [
     name: "Text Tools",
     description: "Tools for manipulating and analyzing text",
     icon: "FileText",
-    toolCount: 15,
+    toolCount: 17,
   },
   {
     id: "image-tools",
@@ -50,14 +50,14 @@ export const categories: Category[] = [
     name: "Number Tools",
     description: "Tools for working with numbers",
     icon: "Hash",
-    toolCount: 9,
+    toolCount: 10,
   },
   {
     id: "random-generators",
     name: "Random Generators",
     description: "Generate random data and values",
     icon: "Sparkles",
-    toolCount: 11,
+    toolCount: 12,
   },
   {
     id: "social-tools",
@@ -71,7 +71,7 @@ export const categories: Category[] = [
     name: "Developer Tools",
     description: "Tools for web developers",
     icon: "Code",
-    toolCount: 14,
+    toolCount: 16,
   },
   {
     id: "date-time-tools",

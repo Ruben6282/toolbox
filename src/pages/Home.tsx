@@ -2,6 +2,7 @@ import { Header } from "@/components/Header";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryCard } from "@/components/CategoryCard";
 import { ToolCard } from "@/components/ToolCard";
+import { AdSense } from "@/components/AdSense";
 import { categories, tools, popularSearches } from "@/data/tools";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,9 @@ const Home = () => {
         </div>
       </section>
 
+      {/* AdSense - After Hero */}
+      <AdSense slot="1234567890" />
+
       {/* Categories Section */}
       <section id="categories" className="container py-20">
         <div className="mb-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -80,6 +84,9 @@ const Home = () => {
           ))}
         </div>
       </section>
+
+      {/* AdSense - After Categories */}
+      <AdSense slot="0987654321" />
 
       {/* Popular Tools Section */}
       <section id="popular" className="bg-secondary/20 py-20">
@@ -98,6 +105,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* AdSense - After Popular Tools */}
+      <AdSense slot="1122334455" />
 
       {/* New Tools Section */}
       <section className="container py-20">

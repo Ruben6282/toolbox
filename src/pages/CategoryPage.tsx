@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { ToolCard } from "@/components/ToolCard";
+import { AdSense } from "@/components/AdSense";
 import { categories, tools } from "@/data/tools";
 import * as Icons from "lucide-react";
 import { LucideIcon } from "lucide-react";
@@ -70,6 +71,9 @@ const CategoryPage = () => {
           </div>
         </div>
       </section>
+
+      {/* AdSense - Before Tools */}
+      <AdSense slot="2233445566" />
 
       <section className="py-12">
         <div className="container">

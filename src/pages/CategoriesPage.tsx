@@ -1,5 +1,6 @@
 import { Header } from "@/components/Header";
 import { CategoryCard } from "@/components/CategoryCard";
+import { AdSense } from "@/components/AdSense";
 import { categories } from "@/data/tools";
 import {
   Breadcrumb,
@@ -34,6 +35,9 @@ const CategoriesPage = () => {
             Browse our collection of tools organized by category
           </p>
         </div>
+
+        {/* AdSense - Before Categories */}
+        <AdSense slot="4455667788" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (
