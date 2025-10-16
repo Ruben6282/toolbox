@@ -60,7 +60,7 @@ export const Header = () => {
         </nav>
 
         {/* Mobile/Tablet Actions */}
-        <div className="flex lg:hidden items-center gap-2">
+        <div className="flex lg:hidden items-center gap-2 ml-auto">
           <Button 
             variant="ghost" 
             size="icon"

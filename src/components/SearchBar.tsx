@@ -92,7 +92,7 @@ export const SearchBar = () => {
             setSelectedIndex(0);
           }}
           onFocus={() => search && setShowResults(true)}
-          className="h-12 pl-12 pr-20 text-base shadow-md border-2 focus-visible:ring-primary rounded-2xl transition-all"
+          className="h-12 pl-12 pr-20 text-base shadow-md border-2 focus-visible:ring-primary rounded-full transition-all"
         />
         <Badge 
           variant="secondary" 
