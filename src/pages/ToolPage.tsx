@@ -256,7 +256,7 @@ const ToolPage = () => {
           {renderToolComponent()}
 
           {/* AdSense - After Tool */}
-          <AdSense slot="3344556677" />
+          <AdSense slot="4540396335" />
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <Card>

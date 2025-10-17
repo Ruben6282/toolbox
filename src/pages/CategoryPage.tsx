@@ -73,7 +73,7 @@ const CategoryPage = () => {
       </section>
 
       {/* AdSense - Before Tools */}
-      <AdSense slot="2233445566" />
+      <AdSense slot="4540396335" />
 
       <section className="py-12">
         <div className="container">

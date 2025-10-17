@@ -86,7 +86,7 @@ const Home = () => {
       </section>
 
       {/* AdSense - After Categories */}
-      <AdSense slot="0987654321" />
+      <AdSense slot="4540396335" />
 
       {/* Popular Tools Section */}
       <section id="popular" className="bg-secondary/20 py-20">
@@ -107,7 +107,7 @@ const Home = () => {
       </section>
 
       {/* AdSense - After Popular Tools */}
-      <AdSense slot="1122334455" />
+      <AdSense slot="4540396335" />
 
       {/* New Tools Section */}
       <section className="container py-20">

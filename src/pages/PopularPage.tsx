@@ -39,7 +39,7 @@ const PopularPage = () => {
         </div>
 
         {/* AdSense - Before Popular Tools */}
-        <AdSense slot="5566778899" />
+        <AdSense slot="4540396335" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {popularTools.map((tool) => (
