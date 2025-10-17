@@ -45,7 +45,7 @@ const Home = () => {
               Discover a comprehensive collection of free, easy-to-use online tools.
               From calculators to converters, we've got everything you need.
             </p>
-            <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+            <div className="mb-12 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
               <SearchBar />
             </div>
 
@@ -68,7 +68,7 @@ const Home = () => {
       </section>
 
       {/* AdSense - After Hero */}
-      <AdSense slot="1234567890" />
+      <AdSense slot="4540396335" />
 
       {/* Categories Section */}
       <section id="categories" className="container py-20">
@@ -178,17 +178,18 @@ const Home = () => {
             </p>
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-                  <Github className="h-5 w-5" />
-                </a>
-              </Button>
-              <Button variant="ghost" size="icon" asChild>
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                  <Icons.Twitter className="h-5 w-5" />
+                <a
+                  href="https://www.instagram.com/toolbox.free.tools"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                >
+                  <Icons.Instagram className="h-5 w-5" />
                 </a>
               </Button>
             </div>
           </div>
+
         </div>
       </footer>
     </div>
