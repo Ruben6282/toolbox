@@ -60,6 +60,48 @@ import { PrimeNumberChecker } from "@/components/tools/PrimeNumberChecker";
 import { TextToBinary } from "@/components/tools/TextToBinary";
 import { BinaryToText } from "@/components/tools/BinaryToText";
 import { EmailValidator } from "@/components/tools/EmailValidator";
+import { AsciiArtGenerator } from "@/components/tools/AsciiArtGenerator";
+import { RandomWordGenerator } from "@/components/tools/RandomWordGenerator";
+import { TextToSpeech } from "@/components/tools/TextToSpeech";
+import { SpeechToText } from "@/components/tools/SpeechToText";
+import { TipCalculator } from "@/components/tools/TipCalculator";
+import { DiscountCalculator } from "@/components/tools/DiscountCalculator";
+import { MortgageCalculator } from "@/components/tools/MortgageCalculator";
+import { LcmGcdCalculator } from "@/components/tools/LcmGcdCalculator";
+import { RomanToNumber } from "@/components/tools/RomanToNumber";
+import { UsernameGenerator } from "@/components/tools/UsernameGenerator";
+import { BusinessNameGenerator } from "@/components/tools/BusinessNameGenerator";
+import { HtmlMinifier } from "@/components/tools/HtmlMinifier";
+import { CompoundInterestCalculator } from "@/components/tools/CompoundInterestCalculator";
+import { CurrencyConverter } from "@/components/tools/CurrencyConverter";
+import { MetaTagGenerator } from "@/components/tools/MetaTagGenerator";
+import { ImageCropper } from "@/components/tools/ImageCropper";
+import { ImageGrayscale } from "@/components/tools/ImageGrayscale";
+import { TwitterCharacterCounter } from "@/components/tools/TwitterCharacterCounter";
+import { YouTubeTitleGenerator } from "@/components/tools/YouTubeTitleGenerator";
+import { TimeZoneConverter } from "@/components/tools/TimeZoneConverter";
+import { SecurePasswordGenerator } from "@/components/tools/SecurePasswordGenerator";
+import { VoiceRecorder } from "@/components/tools/VoiceRecorder";
+import { ImageFormatConverter } from "@/components/tools/ImageFormatConverter";
+import { AddWatermark } from "@/components/tools/AddWatermark";
+import { RoiCalculator } from "@/components/tools/RoiCalculator";
+import { TaxCalculator } from "@/components/tools/TaxCalculator";
+import { HashtagGenerator } from "@/components/tools/HashtagGenerator";
+import { FortuneCookie } from "@/components/tools/FortuneCookie";
+import { FuelCostCalculator } from "@/components/tools/FuelCostCalculator";
+import { GpaCalculator } from "@/components/tools/GpaCalculator";
+import { CalorieCalculator } from "@/components/tools/CalorieCalculator";
+import { BinaryToDecimalConverter } from "@/components/tools/BinaryToDecimalConverter";
+import { DecimalToBinaryConverter } from "@/components/tools/DecimalToBinaryConverter";
+import { BoxShadowGenerator } from "@/components/tools/BoxShadowGenerator";
+import { HexToDecimalConverter } from "@/components/tools/HexToDecimalConverter";
+import { DecimalToHexConverter } from "@/components/tools/DecimalToHexConverter";
+import { Magic8Ball } from "@/components/tools/Magic8Ball";
+import { HtmlTableGenerator } from "@/components/tools/HtmlTableGenerator";
+import { BorderRadiusGenerator } from "@/components/tools/BorderRadiusGenerator";
+import { BootstrapButtonGenerator } from "@/components/tools/BootstrapButtonGenerator";
+import { StopwatchTimer } from "@/components/tools/StopwatchTimer";
+import { WorldClock } from "@/components/tools/WorldClock";
 
 const ToolPage = () => {
   const { toolId } = useParams();
@@ -173,6 +215,92 @@ const ToolPage = () => {
         return <BinaryToText />;
       case "email-validator":
         return <EmailValidator />;
+      case "ascii-art-generator":
+        return <AsciiArtGenerator />;
+      case "random-word-generator":
+        return <RandomWordGenerator />;
+      case "text-to-speech":
+        return <TextToSpeech />;
+      case "speech-to-text":
+        return <SpeechToText />;
+      case "tip-calculator":
+        return <TipCalculator />;
+      case "discount-calculator":
+        return <DiscountCalculator />;
+      case "mortgage-calculator":
+        return <MortgageCalculator />;
+      case "lcm-gcd-calculator":
+        return <LcmGcdCalculator />;
+      case "roman-to-number":
+        return <RomanToNumber />;
+      case "number-to-roman":
+        return <RomanToNumber />;
+      case "username-generator":
+        return <UsernameGenerator />;
+      case "business-name-generator":
+        return <BusinessNameGenerator />;
+      case "html-minifier":
+        return <HtmlMinifier />;
+      case "compound-interest-calculator":
+        return <CompoundInterestCalculator />;
+      case "currency-converter":
+        return <CurrencyConverter />;
+      case "meta-tag-generator":
+        return <MetaTagGenerator />;
+      case "image-cropper":
+        return <ImageCropper />;
+      case "image-grayscale":
+        return <ImageGrayscale />;
+      case "twitter-character-counter":
+        return <TwitterCharacterCounter />;
+      case "youtube-title-generator":
+        return <YouTubeTitleGenerator />;
+      case "time-zone-converter":
+        return <TimeZoneConverter />;
+      case "secure-password-generator":
+        return <SecurePasswordGenerator />;
+      case "voice-recorder":
+        return <VoiceRecorder />;
+      case "image-format-converter":
+        return <ImageFormatConverter />;
+      case "add-watermark":
+        return <AddWatermark />;
+      case "roi-calculator":
+        return <RoiCalculator />;
+      case "tax-calculator":
+        return <TaxCalculator />;
+      case "hashtag-generator":
+        return <HashtagGenerator />;
+      case "fortune-cookie":
+        return <FortuneCookie />;
+      case "fuel-cost-calculator":
+        return <FuelCostCalculator />;
+      case "gpa-calculator":
+        return <GpaCalculator />;
+      case "calorie-calculator":
+        return <CalorieCalculator />;
+      case "binary-to-decimal":
+        return <BinaryToDecimalConverter />;
+      case "decimal-to-binary":
+        return <DecimalToBinaryConverter />;
+      case "box-shadow-generator":
+        return <BoxShadowGenerator />;
+      case "hex-to-decimal":
+        return <HexToDecimalConverter />;
+      case "decimal-to-hex":
+        return <DecimalToHexConverter />;
+      case "magic-8-ball":
+        return <Magic8Ball />;
+      case "html-table-generator":
+        return <HtmlTableGenerator />;
+      case "border-radius-generator":
+        return <BorderRadiusGenerator />;
+      case "bootstrap-button-generator":
+        return <BootstrapButtonGenerator />;
+      case "stopwatch-timer":
+        return <StopwatchTimer />;
+      case "world-clock":
+        return <WorldClock />;
       default:
         return (
           <Card className="shadow-lg">
