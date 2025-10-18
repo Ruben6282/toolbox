@@ -130,11 +130,9 @@ const Home = () => {
         <div className="container">
           <div className="grid gap-8 md:grid-cols-4">
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-gradient-to-br from-primary to-accent p-2">
-                  <Icons.Wrench className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <span className="font-bold">ToolBox</span>
+              <div className="flex items-center gap-2">              
+                <img src="/logo.png" alt="ToolBox Logo" className="h-6 w-6 object-contain" />          
+                <span className="font-bold">ToolCheetah</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Your one-stop collection of free online tools and utilities.
@@ -145,8 +143,8 @@ const Home = () => {
               <h4 className="font-semibold mb-3">Quick Links</h4>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
-                <li><Link to="/#categories" className="text-muted-foreground hover:text-foreground transition-colors">Categories</Link></li>
-                <li><Link to="/#popular" className="text-muted-foreground hover:text-foreground transition-colors">Popular Tools</Link></li>
+                <li><Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">Categories</Link></li>
+                <li><Link to="/popular" className="text-muted-foreground hover:text-foreground transition-colors">Popular Tools</Link></li>
                 <li><Link to="/search" className="text-muted-foreground hover:text-foreground transition-colors">Search</Link></li>
               </ul>
             </div>
@@ -174,7 +172,7 @@ const Home = () => {
           
           <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 ToolBox. All tools are free to use.
+              © 2024 ToolCheetah. All tools are free to use.
             </p>
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>

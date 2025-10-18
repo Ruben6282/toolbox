@@ -16,15 +16,14 @@ export const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-20 items-center gap-4">
-        <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80 shrink-0">
-          <div className="rounded-lg bg-gradient-to-br from-primary to-accent p-2">
-            <Wrench className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            ToolBox
+      <div className="container flex h-20 items-center gap-4 bg-tr">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="ToolCheetah Logo" className="h-10 w-10 object-contain" />
+          <span className="text-xl font-bold text-black dark:text-white">
+            ToolCheetah
           </span>
         </Link>
+
 
         {/* Desktop Search Bar - Right next to logo */}
         <div className="hidden lg:block flex-1 max-w-sm">
