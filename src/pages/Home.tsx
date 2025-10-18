@@ -177,7 +177,7 @@ const Home = () => {
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>
                 <a
-                  href="https://www.instagram.com/toolbox.free.tools"
+                  href="https://www.instagram.com/toolcheetah"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Instagram"

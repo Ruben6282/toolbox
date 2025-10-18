@@ -52,10 +52,17 @@ export const Header = () => {
             <span className="sr-only">Toggle theme</span>
           </Button>
           
-          <Button size="sm" className="gap-2">
-            <Heart className="h-4 w-4" />
-            Donate
+          <Button asChild size="sm" className="gap-2">
+            <a
+              href="https://buymeacoffee.com/toolcheetah"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Heart className="h-4 w-4" />
+              Donate
+            </a>
           </Button>
+
         </nav>
 
         {/* Mobile/Tablet Actions */}
@@ -104,9 +111,15 @@ export const Header = () => {
                 </Link>
                 
                 <div className="border-t pt-4 mt-4">
-                  <Button className="w-full gap-2">
-                    <Heart className="h-4 w-4" />
-                    Donate
+                  <Button asChild className="w-full gap-2">
+                    <a
+                      href="https://buymeacoffee.com/toolcheetah"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Heart className="h-4 w-4" />
+                      Donate
+                    </a>
                   </Button>
                 </div>
               </nav>
