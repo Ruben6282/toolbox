@@ -172,8 +172,9 @@ const Home = () => {
           
           <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 ToolCheetah. All tools are free to use.
+              © {new Date().getFullYear()} ToolCheetah. All tools are free to use.
             </p>
+
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>
                 <a

@@ -5,6 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const MarkdownPreview = () => {
   const [markdown, setMarkdown] = useState("# Hello World\n\nThis is **bold** and this is *italic*.\n\n- List item 1\n- List item 2\n\n```javascript\nconst hello = 'world';\n```");
 
+  const sanitizeHtml = (html: string) => {
+    // Basic HTML sanitization to prevent XSS
+    return html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+      .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
+      .replace(/<link\b[^>]*>/gi, '')
+      .replace(/<meta\b[^>]*>/gi, '')
+      .replace(/on\w+="[^"]*"/gi, '')
+      .replace(/on\w+='[^']*'/gi, '')
+      .replace(/javascript:/gi, '');
+  };
+
   const convertMarkdown = (md: string) => {
     let html = md;
     
@@ -25,8 +39,14 @@ export const MarkdownPreview = () => {
     // Inline code
     html = html.replace(/`(.*?)`/gim, '<code>$1</code>');
     
-    // Links
-    html = html.replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>');
+    // Links (with security check)
+    html = html.replace(/\[(.*?)\]\((.*?)\)/gim, (match, text, url) => {
+      // Only allow http, https, and mailto protocols
+      if (url.match(/^(https?:\/\/|mailto:|#)/)) {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      }
+      return text; // Return just the text if URL is not safe
+    });
     
     // Lists
     html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
@@ -35,7 +55,8 @@ export const MarkdownPreview = () => {
     // Line breaks
     html = html.replace(/\n/gim, '<br>');
     
-    return html;
+    // Sanitize the final HTML
+    return sanitizeHtml(html);
   };
 
   return (

@@ -102,6 +102,26 @@ import { BorderRadiusGenerator } from "@/components/tools/BorderRadiusGenerator"
 import { BootstrapButtonGenerator } from "@/components/tools/BootstrapButtonGenerator";
 import { StopwatchTimer } from "@/components/tools/StopwatchTimer";
 import { WorldClock } from "@/components/tools/WorldClock";
+import { MemeGenerator } from "@/components/tools/MemeGenerator";
+import { RobotsTxtGenerator } from "@/components/tools/RobotsTxtGenerator";
+import { OgMetaGenerator } from "@/components/tools/OgMetaGenerator";
+import { CanonicalUrlGenerator } from "@/components/tools/CanonicalUrlGenerator";
+import { XmlSitemapGenerator } from "@/components/tools/XmlSitemapGenerator";
+import { KeywordDensityChecker } from "@/components/tools/KeywordDensityChecker";
+import { PageSpeedTest } from "@/components/tools/PageSpeedTest";
+import { GoogleSerpSimulator } from "@/components/tools/GoogleSerpSimulator";
+import { FacebookPostPreview } from "@/components/tools/FacebookPostPreview";
+import { HashtagCounter } from "@/components/tools/HashtagCounter";
+import { JavaScriptObfuscator } from "@/components/tools/JavaScriptObfuscator";
+import { CountdownTimer } from "@/components/tools/CountdownTimer";
+import { SleepCycleCalculator } from "@/components/tools/SleepCycleCalculator";
+import { FakeNameGenerator } from "@/components/tools/FakeNameGenerator";
+import { UrlSafetyChecker } from "@/components/tools/UrlSafetyChecker";
+import { YouTubeThumbnailDownloader } from "@/components/tools/YouTubeThumbnailDownloader";
+import { Mp3ToWavConverter } from "@/components/tools/Mp3ToWavConverter";
+import { AudioCutter } from "@/components/tools/AudioCutter";
+import { VideoCutter } from "@/components/tools/VideoCutter";
+import { RemoveAudioFromVideo } from "@/components/tools/RemoveAudioFromVideo";
 
 const ToolPage = () => {
   const { toolId } = useParams();
@@ -301,6 +321,46 @@ const ToolPage = () => {
         return <StopwatchTimer />;
       case "world-clock":
         return <WorldClock />;
+      case "meme-generator":
+        return <MemeGenerator />;
+      case "robots-txt-generator":
+        return <RobotsTxtGenerator />;
+      case "og-meta-generator":
+        return <OgMetaGenerator />;
+      case "canonical-url-generator":
+        return <CanonicalUrlGenerator />;
+      case "xml-sitemap-generator":
+        return <XmlSitemapGenerator />;
+      case "keyword-density-checker":
+        return <KeywordDensityChecker />;
+      case "page-speed-test":
+        return <PageSpeedTest />;
+      case "google-serp-simulator":
+        return <GoogleSerpSimulator />;
+      case "facebook-post-preview":
+        return <FacebookPostPreview />;
+      case "hashtag-counter":
+        return <HashtagCounter />;
+      case "javascript-obfuscator":
+        return <JavaScriptObfuscator />;
+      case "countdown-timer":
+        return <CountdownTimer />;
+      case "sleep-cycle-calculator":
+        return <SleepCycleCalculator />;
+      case "fake-name-generator":
+        return <FakeNameGenerator />;
+      case "url-safety-checker":
+        return <UrlSafetyChecker />;
+      case "youtube-thumbnail-downloader":
+        return <YouTubeThumbnailDownloader />;
+      case "mp3-to-wav-converter":
+        return <Mp3ToWavConverter />;
+      case "audio-cutter":
+        return <AudioCutter />;
+      case "video-cutter":
+        return <VideoCutter />;
+      case "remove-audio-from-video":
+        return <RemoveAudioFromVideo />;
       default:
         return (
           <Card className="shadow-lg">
