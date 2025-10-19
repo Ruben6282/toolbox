@@ -20,6 +20,7 @@ const CategoryPage = () => {
   const category = categories.find((c) => c.id === categoryId);
   const categoryTools = tools.filter((tool) => tool.category === categoryId);
 
+
   if (!category) {
     return (
       <div className="min-h-screen bg-background">

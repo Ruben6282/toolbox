@@ -128,6 +128,7 @@ const ToolPage = () => {
   const tool = tools.find((t) => t.id === toolId);
   const category = tool ? categories.find((c) => c.id === tool.category) : null;
 
+
   if (!tool || !category) {
     return (
       <div className="min-h-screen bg-background">
