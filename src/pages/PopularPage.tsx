@@ -2,6 +2,7 @@ import { Header } from "@/components/Header";
 import { ToolCard } from "@/components/ToolCard";
 import { AdSense } from "@/components/AdSense";
 import { tools } from "@/data/tools";
+import { Link } from "react-router-dom";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,7 +23,9 @@ const PopularPage = () => {
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              <BreadcrumbLink asChild>
+                <Link to="/">Home</Link>
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

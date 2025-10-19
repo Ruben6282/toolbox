@@ -2,6 +2,7 @@ import { Header } from "@/components/Header";
 import { CategoryCard } from "@/components/CategoryCard";
 import { AdSense } from "@/components/AdSense";
 import { categories } from "@/data/tools";
+import { Link } from "react-router-dom";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -20,7 +21,9 @@ const CategoriesPage = () => {
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              <BreadcrumbLink asChild>
+                <Link to="/">Home</Link>
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

@@ -131,7 +131,7 @@ const Home = () => {
           <div className="grid gap-8 md:grid-cols-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">              
-                <img src="/logo.png" alt="ToolBox Logo" className="h-6 w-6 object-contain" />          
+                <img src="/logo.png" alt="ToolCheetah Logo" className="h-6 w-6 object-contain" />          
                 <span className="font-bold">ToolCheetah</span>
               </div>
               <p className="text-sm text-muted-foreground">
