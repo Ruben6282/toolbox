@@ -1,12 +1,28 @@
-import { useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useRef, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Download, RotateCcw, Upload, Type } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Download,
+  RotateCcw,
+  Upload,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 const MEME_TEMPLATES = [
   { id: "drake", name: "Drake Pointing", url: "https://i.imgflip.com/30b1.jpg" },
@@ -14,241 +30,297 @@ const MEME_TEMPLATES = [
   { id: "woman", name: "Woman Yelling at Cat", url: "https://i.imgflip.com/345v97.jpg" },
   { id: "change", name: "Change My Mind", url: "https://i.imgflip.com/24y43o.jpg" },
   { id: "two", name: "Two Buttons", url: "https://i.imgflip.com/1g8my4.jpg" },
-  { id: "expanding", name: "Expanding Brain", url: "https://i.imgflip.com/1jwhww.jpg" },
-  { id: "this", name: "This is Fine", url: "https://i.imgflip.com/26am.jpg" },
-  { id: "roll", name: "Roll Safe", url: "https://i.imgflip.com/1h7in3.jpg" }
+  { id: "roll", name: "Roll Safe", url: "https://i.imgflip.com/1h7in3.jpg" },
 ];
 
+interface TextBox {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+  stroke: string;
+  strokeWidth: number;
+}
+
 export const MemeGenerator = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState(MEME_TEMPLATES[0]);
-  const [topText, setTopText] = useState("");
-  const [bottomText, setBottomText] = useState("");
-  const [fontSize, setFontSize] = useState(40);
-  const [textColor, setTextColor] = useState("#FFFFFF");
-  const [strokeColor, setStrokeColor] = useState("#000000");
-  const [strokeWidth, setStrokeWidth] = useState(2);
-  const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null);
+  const [customImage, setCustomImage] = useState<string | null>(null);
+  const [textBoxes, setTextBoxes] = useState<TextBox[]>([
+    { id: "1", text: "TOP TEXT", x: 150, y: 50, fontSize: 40, color: "#FFFFFF", stroke: "#000000", strokeWidth: 3 },
+    { id: "2", text: "BOTTOM TEXT", x: 150, y: 350, fontSize: 40, color: "#FFFFFF", stroke: "#000000", strokeWidth: 3 },
+  ]);
+  const [activeText, setActiveText] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [imageSize, setImageSize] = useState({ width: 500, height: 500 });
 
-  const addTextToImage = () => {
-    if (!canvasRef) return;
-
-    const canvas = canvasRef;
-    const ctx = canvas.getContext('2d');
+  /** Helper: draw meme on canvas */
+  const drawMeme = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const img = new Image();
     img.crossOrigin = "anonymous";
+    img.src = customImage || selectedTemplate.url;
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Draw the template image
-      ctx.drawImage(img, 0, 0);
-      
-      // Set text properties
-      ctx.font = `bold ${fontSize}px Impact, Arial, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      
-      // Add stroke
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = strokeWidth;
-      ctx.lineJoin = 'round';
-      
-      // Add top text
-      if (topText) {
-        ctx.fillStyle = textColor;
-        const topY = 20;
-        ctx.strokeText(topText, canvas.width / 2, topY);
-        ctx.fillText(topText, canvas.width / 2, topY);
-      }
-      
-      // Add bottom text
-      if (bottomText) {
-        ctx.fillStyle = textColor;
-        const bottomY = canvas.height - fontSize - 20;
-        ctx.strokeText(bottomText, canvas.width / 2, bottomY);
-        ctx.fillText(bottomText, canvas.width / 2, bottomY);
-      }
+      const scale = 600 / img.width;
+      const width = img.width * scale;
+      const height = img.height * scale;
+      setImageSize({ width, height });
+      canvas.width = width;
+      canvas.height = height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      textBoxes.forEach((box) => {
+        ctx.font = `bold ${box.fontSize}px Impact, Arial, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = box.strokeWidth;
+        ctx.strokeStyle = box.stroke;
+        ctx.fillStyle = box.color;
+        ctx.strokeText(box.text, box.x, box.y);
+        ctx.fillText(box.text, box.x, box.y);
+      });
     };
-    img.src = selectedTemplate.url;
+  };
+
+  useEffect(() => {
+    drawMeme();
+  }, [selectedTemplate, customImage, textBoxes]);
+
+  /** Handle drag of text */
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // detect clicked text
+    const clicked = textBoxes.find(
+      (t) =>
+        Math.abs(x - t.x) < t.text.length * (t.fontSize / 3) &&
+        Math.abs(y - t.y) < t.fontSize
+    );
+    if (clicked) {
+      setActiveText(clicked.id);
+      setDragOffset({ x: x - clicked.x, y: y - clicked.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!activeText || !dragOffset) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - dragOffset.x;
+    const y = e.clientY - rect.top - dragOffset.y;
+
+    setTextBoxes((prev) =>
+      prev.map((t) => (t.id === activeText ? { ...t, x, y } : t))
+    );
+  };
+
+  const handleMouseUp = () => setActiveText(null);
+
+  /** Add new text box */
+  const addTextBox = () => {
+    setTextBoxes((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        text: "NEW TEXT",
+        x: imageSize.width / 2,
+        y: imageSize.height / 2,
+        fontSize: 40,
+        color: "#FFFFFF",
+        stroke: "#000000",
+        strokeWidth: 3,
+      },
+    ]);
+  };
+
+  const deleteTextBox = (id: string) =>
+    setTextBoxes((prev) => prev.filter((t) => t.id !== id));
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setCustomImage(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const downloadMeme = () => {
-    if (!canvasRef) return;
-
-    const link = document.createElement('a');
-    link.download = `meme-${selectedTemplate.id}.png`;
-    link.href = canvasRef.toDataURL('image/png');
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = "meme.png";
+    link.href = canvas.toDataURL("image/png");
     link.click();
   };
 
-  const clearMeme = () => {
-    setTopText("");
-    setBottomText("");
-    setFontSize(40);
-    setTextColor("#FFFFFF");
-    setStrokeColor("#000000");
-    setStrokeWidth(2);
+  const resetMeme = () => {
+    setTextBoxes([]);
+    setCustomImage(null);
+    setSelectedTemplate(MEME_TEMPLATES[0]);
   };
 
+  /** Render */
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Meme Generator</CardTitle>
+          <CardTitle>🔥 Meme Generator Pro</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Template + Upload */}
           <div className="space-y-2">
-            <Label htmlFor="template-select">Meme Template</Label>
-            <Select value={selectedTemplate.id} onValueChange={(value) => {
-              const template = MEME_TEMPLATES.find(t => t.id === value);
-              if (template) setSelectedTemplate(template);
-            }}>
+            <Label>Template</Label>
+            <Select
+              value={selectedTemplate.id}
+              onValueChange={(value) => {
+                const t = MEME_TEMPLATES.find((tpl) => tpl.id === value);
+                if (t) setSelectedTemplate(t);
+                setCustomImage(null);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select template" />
               </SelectTrigger>
               <SelectContent>
-                {MEME_TEMPLATES.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
+                {MEME_TEMPLATES.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="top-text">Top Text</Label>
-              <Input
-                id="top-text"
-                placeholder="Enter top text..."
-                value={topText}
-                onChange={(e) => setTopText(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bottom-text">Bottom Text</Label>
-              <Input
-                id="bottom-text"
-                placeholder="Enter bottom text..."
-                value={bottomText}
-                onChange={(e) => setBottomText(e.target.value)}
-              />
+            <div className="flex items-center gap-2">
+              <Input type="file" accept="image/*" onChange={handleUpload} />
+              <Button variant="outline" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" /> Upload
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Font Size: {fontSize}px</Label>
-              <Slider
-                value={[fontSize]}
-                onValueChange={(value) => setFontSize(value[0])}
-                min={20}
-                max={80}
-                step={2}
-                className="w-full"
-              />
+          {/* Text Boxes */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Label className="text-lg font-semibold">Text Layers</Label>
+              <Button onClick={addTextBox} size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" /> Add Text
+              </Button>
             </div>
-
-            <div className="space-y-2">
-              <Label>Stroke Width: {strokeWidth}px</Label>
-              <Slider
-                value={[strokeWidth]}
-                onValueChange={(value) => setStrokeWidth(value[0])}
-                min={0}
-                max={8}
-                step={1}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="text-color">Text Color</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="text-color"
-                  type="color"
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  className="w-16 h-10"
-                />
-                <Input
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  className="flex-1"
-                />
+            {textBoxes.map((t) => (
+              <div key={t.id} className="p-3 border rounded-lg space-y-2 bg-muted">
+                <div className="flex justify-between items-center">
+                  <Input
+                    value={t.text}
+                    onChange={(e) =>
+                      setTextBoxes((prev) =>
+                        prev.map((tb) =>
+                          tb.id === t.id ? { ...tb, text: e.target.value } : tb
+                        )
+                      )
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => deleteTextBox(t.id)}
+                    variant="ghost"
+                    size="icon"
+                    className="ml-2"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label>Font Size</Label>
+                    <Slider
+                      min={20}
+                      max={80}
+                      step={2}
+                      value={[t.fontSize]}
+                      onValueChange={(v) =>
+                        setTextBoxes((prev) =>
+                          prev.map((tb) =>
+                            tb.id === t.id ? { ...tb, fontSize: v[0] } : tb
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Text</Label>
+                    <Input
+                      type="color"
+                      value={t.color}
+                      onChange={(e) =>
+                        setTextBoxes((prev) =>
+                          prev.map((tb) =>
+                            tb.id === t.id ? { ...tb, color: e.target.value } : tb
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Stroke</Label>
+                    <Input
+                      type="color"
+                      value={t.stroke}
+                      onChange={(e) =>
+                        setTextBoxes((prev) =>
+                          prev.map((tb) =>
+                            tb.id === t.id ? { ...tb, stroke: e.target.value } : tb
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stroke-color">Stroke Color</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="stroke-color"
-                  type="color"
-                  value={strokeColor}
-                  onChange={(e) => setStrokeColor(e.target.value)}
-                  className="w-16 h-10"
-                />
-                <Input
-                  value={strokeColor}
-                  onChange={(e) => setStrokeColor(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={addTextToImage} className="flex items-center gap-2">
-              <Type className="h-4 w-4" />
-              Generate Meme
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={downloadMeme} className="flex items-center gap-2">
+              <Download className="h-4 w-4" /> Download
             </Button>
-            <Button onClick={downloadMeme} variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
-            <Button onClick={clearMeme} variant="outline">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear
+            <Button onClick={resetMeme} variant="outline" className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" /> Reset
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Canvas */}
       <Card>
         <CardHeader>
-          <CardTitle>Meme Preview</CardTitle>
+          <CardTitle>Meme Preview (Drag to Move Text)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg p-4 bg-muted">
+          <div className="border rounded-lg p-4 bg-muted flex justify-center">
             <canvas
-              ref={(ref) => setCanvasRef(ref)}
-              className="max-w-full h-auto rounded"
-              style={{ display: 'block', margin: '0 auto' }}
+              ref={canvasRef}
+              width={imageSize.width}
+              height={imageSize.height}
+              className="cursor-move rounded shadow"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
             />
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Meme Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Keep text short and punchy for maximum impact</li>
-            <li>• Use contrasting colors for better readability</li>
-            <li>• Top text is usually the setup, bottom text is the punchline</li>
-            <li>• Adjust font size based on the template and text length</li>
-            <li>• Stroke helps text stand out against busy backgrounds</li>
-            <li>• Popular memes work best with relatable content</li>
-          </ul>
         </CardContent>
       </Card>
     </div>

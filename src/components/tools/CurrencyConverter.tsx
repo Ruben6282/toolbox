@@ -226,10 +226,6 @@ export const CurrencyConverter = () => {
           <CardContent>
             <div className="text-sm text-muted-foreground">
               <p>Last updated: {lastUpdated}</p>
-              <p className="mt-2">
-                <strong>Note:</strong> Exchange rates are for demonstration purposes only. 
-                For real-time rates, please use a reliable financial data provider.
-              </p>
             </div>
           </CardContent>
         </Card>
