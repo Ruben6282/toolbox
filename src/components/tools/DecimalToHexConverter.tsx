@@ -226,7 +226,8 @@ export const DecimalToHexConverter = () => {
                 </p>
                 {parseInt(decimal) > 0 && (
                   <p>
-                    <strong>Power of 16:</strong> 16^{Math.log16(parseInt(decimal))} = {parseInt(decimal)}
+                    <strong>Power of 16:</strong>{" "}
+                    16^{(Math.log(parseInt(decimal)) / Math.log(16)).toFixed(4)} = {parseInt(decimal)}
                   </p>
                 )}
               </div>

@@ -3,14 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Play, Pause, Scissors, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const AudioCutter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string>("");
+  const [audioUrl, setAudioUrl] = useState("");
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -19,120 +18,182 @@ export const AudioCutter = () => {
   const [isCutting, setIsCutting] = useState(false);
   const [cutProgress, setCutProgress] = useState(0);
   const [cutAudioBlob, setCutAudioBlob] = useState<Blob | null>(null);
-  
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Format time as mm:ss
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   useEffect(() => {
-    if (audioUrl && audioRef.current) {
-      const audio = audioRef.current;
-      
-      const updateTime = () => setCurrentTime(audio.currentTime);
-      const updateDuration = () => {
-        setDuration(audio.duration);
-        setEndTime(audio.duration);
-      };
-      
-      audio.addEventListener('timeupdate', updateTime);
-      audio.addEventListener('loadedmetadata', updateDuration);
-      audio.addEventListener('ended', () => setIsPlaying(false));
-      
-      return () => {
-        audio.removeEventListener('timeupdate', updateTime);
-        audio.removeEventListener('loadedmetadata', updateDuration);
-        audio.removeEventListener('ended', () => setIsPlaying(false));
-      };
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => {
+      setDuration(audio.duration);
+      setEndTime(audio.duration);
+    };
+
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("loadedmetadata", updateDuration);
+    audio.addEventListener("ended", () => setIsPlaying(false));
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("loadedmetadata", updateDuration);
+      audio.removeEventListener("ended", () => setIsPlaying(false));
+    };
   }, [audioUrl]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type.startsWith('audio/')) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setAudioUrl(url);
-      setCutAudioBlob(null);
-      toast.success("Audio file loaded!");
-    } else {
+  // File selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("audio/")) {
       toast.error("Please select a valid audio file!");
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const seekTo = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const cutAudio = async () => {
-    if (!selectedFile || startTime >= endTime) {
-      toast.error("Please select valid start and end times!");
       return;
     }
 
+    const url = URL.createObjectURL(file);
+    setSelectedFile(file);
+    setAudioUrl(url);
+    setCutAudioBlob(null);
+    setStartTime(0);
+    setEndTime(0);
+    setCurrentTime(0);
+    toast.success(`Loaded: ${file.name}`);
+  };
+
+  // Play / Pause
+  const togglePlayPause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) audio.pause();
+    else audio.play();
+    setIsPlaying(!isPlaying);
+  };
+
+  const seekTo = (t: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  const setStartToCurrent = () => {
+    setStartTime(currentTime);
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  };
+
+  const setEndToCurrent = () => {
+    setEndTime(currentTime);
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  };
+
+  // Real audio cutting using Web Audio API
+  const cutAudio = async () => {
+    if (!selectedFile) return toast.error("No audio loaded.");
+    if (startTime >= endTime) return toast.error("Invalid start/end times.");
+
     setIsCutting(true);
-    setCutProgress(0);
+    setCutProgress(10);
 
     try {
-      // Simulate cutting process
-      const steps = [
-        { progress: 20, message: "Loading audio data..." },
-        { progress: 40, message: "Processing audio segment..." },
-        { progress: 60, message: "Cutting audio..." },
-        { progress: 80, message: "Encoding cut audio..." },
-        { progress: 100, message: "Cut complete!" }
-      ];
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const audioCtx = new AudioContext();
+      setCutProgress(30);
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      setCutProgress(50);
 
-      for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setCutProgress(step.progress);
+      const startSample = Math.floor(startTime * audioBuffer.sampleRate);
+      const endSample = Math.floor(endTime * audioBuffer.sampleRate);
+      const length = endSample - startSample;
+
+      const cutBuffer = audioCtx.createBuffer(
+        audioBuffer.numberOfChannels,
+        length,
+        audioBuffer.sampleRate
+      );
+
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        cutBuffer
+          .getChannelData(i)
+          .set(audioBuffer.getChannelData(i).slice(startSample, endSample));
       }
 
-      // In a real implementation, you would use Web Audio API to cut the audio
-      // For this demo, we'll create a mock cut audio blob
-      const cutDuration = endTime - startTime;
-      const mockCutData = new Uint8Array(Math.floor(cutDuration * 1000)); // Mock data
-      const cutBlob = new Blob([mockCutData], { type: selectedFile.type });
-      
-      setCutAudioBlob(cutBlob);
+      setCutProgress(80);
+
+      // Convert to WAV blob
+      const wavBlob = audioBufferToWav(cutBuffer);
+      setCutAudioBlob(wavBlob);
+
+      setCutProgress(100);
       toast.success("Audio cut successfully!");
-    } catch (error) {
-      toast.error("Failed to cut audio. Please try again.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to cut audio.");
     } finally {
       setIsCutting(false);
     }
   };
 
+  // Convert AudioBuffer → WAV Blob
+  const audioBufferToWav = (buffer: AudioBuffer) => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length * numChannels * 2 + 44;
+    const arrayBuffer = new ArrayBuffer(length);
+    const view = new DataView(arrayBuffer);
+
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+
+    // RIFF header
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + buffer.length * numChannels * 2, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, buffer.length * numChannels * 2, true);
+
+    // PCM samples
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        let sample = buffer.getChannelData(ch)[i];
+        sample = Math.max(-1, Math.min(1, sample));
+        view.setInt16(offset, sample * 0x7fff, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([arrayBuffer], { type: "audio/wav" });
+  };
+
   const downloadCutAudio = () => {
     if (!cutAudioBlob || !selectedFile) return;
-
     const url = URL.createObjectURL(cutAudioBlob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${selectedFile.name.replace(/\.[^/.]+$/, '')}_cut.${selectedFile.name.split('.').pop()}`;
-    document.body.appendChild(a);
+    a.download = `${selectedFile.name.replace(/\.[^/.]+$/, "")}_cut.wav`;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
     toast.success("Cut audio downloaded!");
   };
 
@@ -147,20 +208,12 @@ export const AudioCutter = () => {
     setCutAudioBlob(null);
     setCutProgress(0);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
+    }    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  };
-
-  const setStartToCurrent = () => {
-    setStartTime(currentTime);
-  };
-
-  const setEndToCurrent = () => {
-    setEndTime(currentTime);
   };
 
   return (
@@ -170,129 +223,110 @@ export const AudioCutter = () => {
           <CardTitle>Audio Cutter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="file-input">Select Audio File</Label>
+          <div>
+            <Label>Select Audio File</Label>
             <div className="flex items-center gap-4">
               <input
-                ref={fileInputRef}
-                id="file-input"
                 type="file"
                 accept="audio/*"
+                ref={fileInputRef}
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                Choose File
+              <Button onClick={() => fileInputRef.current?.click()} variant="outline">
+                <Upload className="h-4 w-4 mr-2" /> Choose File
               </Button>
               {selectedFile && (
-                <div className="flex items-center gap-2">
-                  <Volume2 className="h-4 w-4" />
-                  <span className="text-sm">{selectedFile.name}</span>
-                </div>
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Volume2 className="h-4 w-4" /> {selectedFile.name}
+                </span>
               )}
             </div>
           </div>
 
           {audioUrl && (
             <>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Button onClick={togglePlayPause} size="sm">
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  <div className="flex-1">
-                    <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                      <span>{formatTime(currentTime)}</span>
-                      <span>{formatTime(duration)}</span>
-                    </div>
+              <div className="flex items-center gap-4">
+                <Button onClick={togglePlayPause} size="sm">
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </Button>
+                <div className="flex-1">
+                  <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                  <Slider
+                    value={[currentTime]}
+                    onValueChange={(v) => seekTo(v[0])}
+                    max={duration}
+                    step={0.1}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Start Time: {formatTime(startTime)}</Label>
+                  <div className="flex gap-2">
                     <Slider
-                      value={[currentTime]}
-                      onValueChange={(value) => seekTo(value[0])}
+                      value={[startTime]}
+                      onValueChange={(v) => setStartTime(v[0])}
                       max={duration}
                       step={0.1}
-                      className="w-full"
+                      className="flex-1"
+                    />
+                    <Button size="sm" variant="outline" onClick={setStartToCurrent}>
+                      Set
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>End Time: {formatTime(endTime)}</Label>
+                  <div className="flex gap-2">
+                    <Slider
+                      value={[endTime]}
+                      onValueChange={(v) => setEndTime(v[0])}
+                      max={duration}
+                      step={0.1}
+                      className="flex-1"
+                    />
+                    <Button size="sm" variant="outline" onClick={setEndToCurrent}>
+                      Set
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-muted rounded-lg flex justify-between text-sm">
+                <span>Cut Duration:</span>
+                <Badge variant="outline">{formatTime(endTime - startTime)}</Badge>
+              </div>
+
+              <div className="flex gap-2">
+                <Button onClick={cutAudio} disabled={isCutting || startTime >= endTime}>
+                  <Scissors className="h-4 w-4 mr-2" />
+                  {isCutting ? "Cutting..." : "Cut Audio"}
+                </Button>
+                <Button onClick={clearAll} variant="outline">
+                  <RotateCcw className="h-4 w-4 mr-2" /> Clear
+                </Button>
+              </div>
+
+              {isCutting && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Processing...</span>
+                    <span>{cutProgress}%</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${cutProgress}%` }}
                     />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Start Time: {formatTime(startTime)}</Label>
-                    <div className="flex gap-2">
-                      <Slider
-                        value={[startTime]}
-                        onValueChange={(value) => setStartTime(value[0])}
-                        max={duration}
-                        step={0.1}
-                        className="flex-1"
-                      />
-                      <Button onClick={setStartToCurrent} size="sm" variant="outline">
-                        Set
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>End Time: {formatTime(endTime)}</Label>
-                    <div className="flex gap-2">
-                      <Slider
-                        value={[endTime]}
-                        onValueChange={(value) => setEndTime(value[0])}
-                        max={duration}
-                        step={0.1}
-                        className="flex-1"
-                      />
-                      <Button onClick={setEndToCurrent} size="sm" variant="outline">
-                        Set
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="flex justify-between text-sm">
-                    <span>Cut Duration:</span>
-                    <Badge variant="outline">
-                      {formatTime(endTime - startTime)}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={cutAudio} 
-                    disabled={isCutting || startTime >= endTime}
-                    className="flex items-center gap-2"
-                  >
-                    <Scissors className="h-4 w-4" />
-                    {isCutting ? "Cutting..." : "Cut Audio"}
-                  </Button>
-                  <Button onClick={clearAll} variant="outline">
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Clear
-                  </Button>
-                </div>
-
-                {isCutting && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Cutting audio...</span>
-                      <span>{cutProgress}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${cutProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               <audio ref={audioRef} src={audioUrl} />
             </>
@@ -303,95 +337,24 @@ export const AudioCutter = () => {
       {cutAudioBlob && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Scissors className="h-5 w-5" />
-              Cut Audio Ready
-            </CardTitle>
+            <CardTitle>Cut Audio Ready</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 text-green-800">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="font-medium">Audio successfully cut!</span>
-              </div>
+          <CardContent className="space-y-3">
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700">
+              Audio cut successfully!
             </div>
-
-            <div className="space-y-2">
-              <Label>Cut Audio Information</Label>
-              <div className="p-3 bg-muted rounded-lg space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Duration:</span>
-                  <span>{formatTime(endTime - startTime)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Start Time:</span>
-                  <span>{formatTime(startTime)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>End Time:</span>
-                  <span>{formatTime(endTime)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>File Size:</span>
-                  <span>{(cutAudioBlob.size / 1024).toFixed(1)} KB</span>
-                </div>
-              </div>
+            <div className="text-sm text-muted-foreground">
+              <p>Duration: {formatTime(endTime - startTime)}</p>
+              <p>Start: {formatTime(startTime)}</p>
+              <p>End: {formatTime(endTime)}</p>
+              <p>Size: {(cutAudioBlob.size / 1024).toFixed(1)} KB</p>
             </div>
-
-            <Button 
-              onClick={downloadCutAudio}
-              className="w-full flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download Cut Audio
+            <Button onClick={downloadCutAudio} className="w-full">
+              <Download className="h-4 w-4 mr-2" /> Download WAV
             </Button>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Audio Cutting Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Use the play button to preview your audio before cutting</li>
-            <li>• Set precise start and end times for accurate cuts</li>
-            <li>• The "Set" buttons help you mark the current playback position</li>
-            <li>• Cut duration is displayed in real-time as you adjust the times</li>
-            <li>• Supported formats: MP3, WAV, M4A, OGG, and more</li>
-            <li>• For best results, use high-quality source audio files</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Use Cases</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <h4 className="font-semibold mb-2">Content Creation:</h4>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• Extract audio clips for videos</li>
-                <li>• Create sound effects</li>
-                <li>• Make ringtones</li>
-                <li>• Podcast editing</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2">Music Production:</h4>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• Sample extraction</li>
-                <li>• Loop creation</li>
-                <li>• Remix preparation</li>
-                <li>• Audio analysis</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
