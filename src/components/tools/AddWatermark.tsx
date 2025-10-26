@@ -1,311 +1,394 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Download, RotateCcw, Upload, Droplet } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Trash2, Copy, X } from "lucide-react";
+
+type Watermark = {
+  id: string;
+  type: "text" | "image";
+  text?: string;
+  src?: string;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+  color?: string;
+};
 
 export const AddWatermark = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [watermarkText, setWatermarkText] = useState("SAMPLE");
-  const [watermarkType, setWatermarkType] = useState("text");
-  const [position, setPosition] = useState("bottom-right");
-  const [opacity, setOpacity] = useState(50);
-  const [fontSize, setFontSize] = useState(24);
-  const [textColor, setTextColor] = useState("#FFFFFF");
-  const [backgroundColor, setBackgroundColor] = useState("#000000");
-  const [canvasRef, setCanvasRef] = useState<HTMLCanvasElement | null>(null);
+  const [watermarks, setWatermarks] = useState<Watermark[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
 
-  const positions = [
-    { label: "Top Left", value: "top-left" },
-    { label: "Top Center", value: "top-center" },
-    { label: "Top Right", value: "top-right" },
-    { label: "Center Left", value: "center-left" },
-    { label: "Center", value: "center" },
-    { label: "Center Right", value: "center-right" },
-    { label: "Bottom Left", value: "bottom-left" },
-    { label: "Bottom Center", value: "bottom-center" },
-    { label: "Bottom Right", value: "bottom-right" },
-  ];
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wmRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+  // ------------------- Event Handlers -------------------
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSelectedImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) =>
+      setWatermarks((prev) =>
+        prev.map((wm) => (wm.id === id ? { ...wm, src: ev.target?.result as string } : wm))
+      );
+    reader.readAsDataURL(file);
+  };
+
+  const addWatermark = (type: "text" | "image") => {
+    const newWM: Watermark = {
+      id: crypto.randomUUID(),
+      type,
+      text: type === "text" ? "Your Text" : undefined,
+      src: type === "image" ? undefined : undefined,
+      x: 150,
+      y: 150,
+      scale: 1,
+      rotation: 0,
+      opacity: 100,
+      color: "#000000",
+    };
+    setWatermarks((prev) => [...prev, newWM]);
+    setActiveId(newWM.id);
+  };
+
+  const removeAll = () => {
+    setWatermarks([]);
+    setActiveId(null);
+  };
+
+  const updateWatermark = (id: string, changes: Partial<Watermark>) => {
+    setWatermarks((prev) => prev.map((wm) => (wm.id === id ? { ...wm, ...changes } : wm)));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDraggingId(id);
+    setLastPos({ x: e.clientX, y: e.clientY });
+    setActiveId(id);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!draggingId || !containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const wmEl = wmRefs.current[draggingId];
+    if (!wmEl) return;
+
+    const dx = e.clientX - lastPos.x;
+    const dy = e.clientY - lastPos.y;
+
+    setWatermarks((prev) =>
+      prev.map((wm) => {
+        if (wm.id !== draggingId) return wm;
+
+        let newX = wm.x + dx;
+        let newY = wm.y + dy;
+
+        const halfWidth = (wmEl.offsetWidth * wm.scale) / 2;
+        const halfHeight = (wmEl.offsetHeight * wm.scale) / 2;
+
+        newX = Math.max(halfWidth, Math.min(containerRect.width - halfWidth, newX));
+        newY = Math.max(halfHeight, Math.min(containerRect.height - halfHeight, newY));
+
+        return { ...wm, x: newX, y: newY };
+      })
+    );
+
+    setLastPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => setDraggingId(null);
+
+  const handleClickOutside = (e: MouseEvent) => {
+    if (!containerRef.current || !activeId) return;
+    const target = e.target as Node;
+    const activeWMEl = wmRefs.current[activeId];
+    const popup = document.querySelector("#watermark-popup");
+    if (activeWMEl && !activeWMEl.contains(target) && popup && !popup.contains(target)) {
+      setActiveId(null);
     }
   };
 
-  const addWatermark = () => {
-    if (!selectedImage || !canvasRef) return;
+  useEffect(() => {
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [draggingId, lastPos, activeId]);
 
-    const canvas = canvasRef;
-    const ctx = canvas.getContext('2d');
+  // ------------------- Generate Final Image -------------------
+  const generateFinalImage = () => {
+    if (!selectedImage || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Draw the original image
-      ctx.drawImage(img, 0, 0);
-      
-      // Calculate watermark position
-      const { x, y } = getWatermarkPosition(canvas.width, canvas.height, position);
-      
-      // Set font properties
-      ctx.font = `bold ${fontSize}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Add background if needed
-      if (backgroundColor !== 'transparent') {
-        const textMetrics = ctx.measureText(watermarkText);
-        const textWidth = textMetrics.width;
-        const textHeight = fontSize;
-        const padding = 10;
-        
-        ctx.fillStyle = backgroundColor;
-        ctx.globalAlpha = opacity / 100;
-        ctx.fillRect(
-          x - textWidth / 2 - padding,
-          y - textHeight / 2 - padding,
-          textWidth + padding * 2,
-          textHeight + padding * 2
-        );
+    const baseImg = new Image();
+    baseImg.onload = async () => {
+      canvas.width = baseImg.width;
+      canvas.height = baseImg.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+
+      const scaleX = canvas.width / containerRef.current!.offsetWidth;
+      const scaleY = canvas.height / containerRef.current!.offsetHeight;
+
+      // Draw all watermarks
+      for (const wm of watermarks) {
+        ctx.save();
+        ctx.globalAlpha = wm.opacity / 100;
+
+        const wmEl = wmRefs.current[wm.id];
+        if (!wmEl) continue;
+
+        const cx = wm.x * scaleX;
+        const cy = wm.y * scaleY;
+
+        ctx.translate(cx, cy);
+        ctx.rotate((wm.rotation * Math.PI) / 180);
+        ctx.scale(wm.scale, wm.scale);
+
+        if (wm.type === "text" && wm.text) {
+          const style = window.getComputedStyle(wmEl);
+          const fontSize = parseInt(style.fontSize);
+          const fontWeight = style.fontWeight || "bold";
+          const fontFamily = style.fontFamily || "Arial";
+          ctx.font = `${fontWeight} ${fontSize * scaleY}px ${fontFamily}`;
+          ctx.fillStyle = wm.color || "#000";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(wm.text, 0, 0);
+          ctx.restore();
+        } else if (wm.type === "image" && wm.src) {
+          await new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const aspect = img.width / img.height;
+              let drawWidth = wmEl.offsetWidth * scaleX;
+              let drawHeight = wmEl.offsetHeight * scaleY;
+              if (aspect > 1) drawHeight = drawWidth / aspect;
+              else drawWidth = drawHeight * aspect;
+
+              ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+              ctx.restore();
+              resolve();
+            };
+            img.src = wm.src!;
+          });
+        }
       }
-      
-      // Add text watermark
-      ctx.fillStyle = textColor;
-      ctx.globalAlpha = opacity / 100;
-      ctx.fillText(watermarkText, x, y);
-      
-      // Reset global alpha
-      ctx.globalAlpha = 1;
+
+      // Trigger download after all watermarks are drawn
+      const link = document.createElement("a");
+      link.download = "watermarked-image.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
     };
-    img.src = selectedImage;
+    baseImg.src = selectedImage;
   };
 
-  const getWatermarkPosition = (canvasWidth: number, canvasHeight: number, pos: string) => {
-    const margin = 20;
-    
-    switch (pos) {
-      case 'top-left':
-        return { x: margin + 50, y: margin + 20 };
-      case 'top-center':
-        return { x: canvasWidth / 2, y: margin + 20 };
-      case 'top-right':
-        return { x: canvasWidth - margin - 50, y: margin + 20 };
-      case 'center-left':
-        return { x: margin + 50, y: canvasHeight / 2 };
-      case 'center':
-        return { x: canvasWidth / 2, y: canvasHeight / 2 };
-      case 'center-right':
-        return { x: canvasWidth - margin - 50, y: canvasHeight / 2 };
-      case 'bottom-left':
-        return { x: margin + 50, y: canvasHeight - margin - 20 };
-      case 'bottom-center':
-        return { x: canvasWidth / 2, y: canvasHeight - margin - 20 };
-      case 'bottom-right':
-        return { x: canvasWidth - margin - 50, y: canvasHeight - margin - 20 };
-      default:
-        return { x: canvasWidth - margin - 50, y: canvasHeight - margin - 20 };
-    }
-  };
-
-  const downloadWatermarkedImage = () => {
-    if (!canvasRef) return;
-
-    const link = document.createElement('a');
-    link.download = 'watermarked-image.png';
-    link.href = canvasRef.toDataURL('image/png');
-    link.click();
-  };
-
-  const clearAll = () => {
-    setSelectedImage(null);
-    setWatermarkText("SAMPLE");
-    setPosition("bottom-right");
-    setOpacity(50);
-    setFontSize(24);
-    setTextColor("#FFFFFF");
-    setBackgroundColor("#000000");
-    if (canvasRef) {
-      const ctx = canvasRef.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
-      }
-    }
-  };
-
+  // ------------------- Render -------------------
   return (
     <div className="space-y-6">
+      {/* Upload */}
       <Card>
         <CardHeader>
-          <CardTitle>Add Watermark</CardTitle>
+          <CardTitle>Upload Image</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="image-upload">Upload Image</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="image-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={clearAll}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Clear
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="watermark-text">Watermark Text</Label>
-            <Textarea
-              id="watermark-text"
-              placeholder="Enter watermark text"
-              value={watermarkText}
-              onChange={(e) => setWatermarkText(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="position">Position</Label>
-              <Select value={position} onValueChange={setPosition}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select position" />
-                </SelectTrigger>
-                <SelectContent>
-                  {positions.map((pos) => (
-                    <SelectItem key={pos.value} value={pos.value}>
-                      {pos.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="font-size">Font Size: {fontSize}px</Label>
-              <Slider
-                value={[fontSize]}
-                onValueChange={(value) => setFontSize(value[0])}
-                min={12}
-                max={72}
-                step={2}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="text-color">Text Color</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="text-color"
-                  type="color"
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  className="w-16 h-10"
-                />
-                <Input
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="background-color">Background Color</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="background-color"
-                  type="color"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="w-16 h-10"
-                />
-                <Input
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Opacity: {opacity}%</Label>
-            <Slider
-              value={[opacity]}
-              onValueChange={(value) => setOpacity(value[0])}
-              min={10}
-              max={100}
-              step={5}
-              className="w-full"
-            />
-          </div>
-
-          <Button onClick={addWatermark} disabled={!selectedImage} className="w-full">
-            <Droplet className="h-4 w-4 mr-2" />
-            Add Watermark
-          </Button>
+        <CardContent>
+          <Input type="file" accept="image/*" onChange={handleImageUpload} />
         </CardContent>
       </Card>
 
+      {/* Toolbar */}
       {selectedImage && (
         <Card>
           <CardHeader>
-            <CardTitle>Watermarked Image</CardTitle>
+            <CardTitle>Watermark Toolbar</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg p-4 bg-muted">
-              <canvas
-                ref={(ref) => setCanvasRef(ref)}
-                className="max-w-full h-auto rounded"
-                style={{ display: 'block', margin: '0 auto' }}
-              />
-            </div>
-            
-            <div className="mt-4">
-              <Button onClick={downloadWatermarkedImage} className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Download Watermarked Image
-              </Button>
-            </div>
+          <CardContent className="flex gap-2">
+            <Button onClick={() => addWatermark("text")}>
+              <Type className="w-4 h-4 mr-2 inline" /> Add Text
+            </Button>
+            <Button onClick={() => addWatermark("image")}>
+              <ImageIcon className="w-4 h-4 mr-2 inline" /> Add Logo
+            </Button>
+            <Button variant="destructive" onClick={removeAll}>
+              <Trash2 className="w-4 h-4 mr-2 inline" /> Remove All
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Watermark Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Use contrasting colors for better visibility</li>
-            <li>• Position watermarks where they won't interfere with the main content</li>
-            <li>• Adjust opacity to make watermarks subtle but visible</li>
-            <li>• Consider using your logo or brand name as watermark text</li>
-            <li>• Test different positions to find the best placement</li>
-            <li>• Higher resolution images work better for watermarks</li>
-          </ul>
-        </CardContent>
-      </Card>
+      {/* Preview */}
+      {selectedImage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              ref={containerRef}
+              className="relative inline-block border rounded-lg overflow-hidden"
+            >
+              <img src={selectedImage} alt="Uploaded" className="max-w-full block" />
+              {watermarks.map((wm) => (
+                <div
+                  key={wm.id}
+                  ref={(el) => (wmRefs.current[wm.id] = el)}
+                  className={`absolute cursor-move select-none ${
+                    activeId === wm.id ? "outline outline-blue-500" : ""
+                  }`}
+                  style={{
+                    left: wm.x,
+                    top: wm.y,
+                    transform: `translate(-50%, -50%) scale(${wm.scale}) rotate(${wm.rotation}deg)`,
+                    opacity: wm.opacity / 100,
+                    color: wm.color,
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    zIndex: 10,
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, wm.id)}
+                  onClick={() => setActiveId(wm.id)}
+                >
+                  {wm.type === "text" ? (
+                    <span>{wm.text}</span>
+                  ) : wm.src ? (
+                    <img src={wm.src} alt="logo" className="w-32 h-32 object-contain" draggable={false} />
+                  ) : (
+                    <Input type="file" accept="image/*" onChange={(e) => handleLogoUpload(wm.id, e)} />
+                  )}
+                </div>
+              ))}
+
+              {/* Popup */}
+              {activeId && draggingId === null && (() => {
+                const wm = watermarks.find((w) => w.id === activeId);
+                if (!wm || !containerRef.current) return null;
+                const wmEl = wmRefs.current[wm.id];
+                if (!wmEl) return null;
+
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const wmRect = wmEl.getBoundingClientRect();
+
+                let popupLeft = wmRect.right - containerRect.left + 10;
+                let popupTop = wmRect.top - containerRect.top + wmRect.height / 2;
+                const popupWidth = 320;
+                const popupHeight = 400;
+
+                if (popupLeft + popupWidth > containerRect.width) popupLeft = wmRect.left - containerRect.left - popupWidth - 10;
+                if (popupLeft < 0) popupLeft = 10;
+                if (popupTop - popupHeight / 2 < 0) popupTop = popupHeight / 2 + 10;
+                if (popupTop + popupHeight / 2 > containerRect.height) popupTop = containerRect.height - popupHeight / 2 - 10;
+
+                return (
+                  <Card
+                    id="watermark-popup"
+                    className="absolute z-50 p-4 w-80 shadow-lg"
+                    style={{ left: popupLeft, top: popupTop, transform: "translate(0, -50%)" }}
+                  >
+                    <div className="flex justify-end mb-2">
+                      <X className="cursor-pointer" onClick={() => setActiveId(null)} />
+                    </div>
+                    <CardContent className="space-y-3">
+                      {wm.type === "text" && (
+                        <div>
+                          <Label>Text</Label>
+                          <Textarea
+                            rows={2}
+                            value={wm.text}
+                            onChange={(e) => updateWatermark(activeId, { text: e.target.value })}
+                          />
+                          <Label>Color</Label>
+                          <Input
+                            type="color"
+                            value={wm.color}
+                            onChange={(e) => updateWatermark(activeId, { color: e.target.value })}
+                          />
+                        </div>
+                      )}
+                      {wm.type === "image" && !wm.src && (
+                        <div>
+                          <Label>Upload Logo</Label>
+                          <Input type="file" accept="image/*" onChange={(e) => handleLogoUpload(activeId, e)} />
+                        </div>
+                      )}
+                      <Label>Opacity: {wm.opacity}%</Label>
+                      <Slider
+                        value={[wm.opacity]}
+                        onValueChange={(v) => updateWatermark(activeId, { opacity: v[0] })}
+                        min={10}
+                        max={100}
+                      />
+                      <Label>Scale: {wm.scale.toFixed(2)}</Label>
+                      <Slider
+                        value={[wm.scale]}
+                        onValueChange={(v) => updateWatermark(activeId, { scale: v[0] })}
+                        min={0.2}
+                        max={3}
+                        step={0.1}
+                      />
+                      <Label>Rotation: {wm.rotation}°</Label>
+                      <Slider
+                        value={[wm.rotation]}
+                        onValueChange={(v) => updateWatermark(activeId, { rotation: v[0] })}
+                        min={-180}
+                        max={180}
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          onClick={() =>
+                            setWatermarks((prev) => [
+                              ...prev,
+                              { ...wm, id: crypto.randomUUID(), x: wm.x + 20, y: wm.y + 20 },
+                            ])
+                          }
+                        >
+                          <Copy className="w-4 h-4 mr-1" /> Duplicate
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => setWatermarks((prev) => prev.filter((w) => w.id !== activeId))}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> Delete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              <Button onClick={generateFinalImage} className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" /> Download Watermarked Image
+              </Button>
+            </div>
+            <canvas ref={canvasRef} className="hidden" />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

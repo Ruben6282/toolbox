@@ -1041,9 +1041,9 @@ const ToolPage = () => {
         return <FakeNameGenerator />;
       case "url-safety-checker":
         return <UrlSafetyChecker />;
-      case "youtube-thumbnail-downloader":
+      case "youtube-thumbnail":
         return <YouTubeThumbnailDownloader />;
-      case "mp3-to-wav-converter":
+      case "mp3-to-wav":
         return <Mp3ToWavConverter />;
       case "audio-cutter":
         return <AudioCutter />;
