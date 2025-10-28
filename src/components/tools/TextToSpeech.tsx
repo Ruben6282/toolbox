@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,29 +18,33 @@ export const TextToSpeech = () => {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
+  // Load voices
   const loadVoices = () => {
     const voices = speechSynthesis.getVoices();
     setAvailableVoices(voices);
   };
 
+  useEffect(() => {
+    loadVoices();
+    speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => {
+      speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+    };
+  }, []);
+
   const speak = () => {
     if (!text.trim()) return;
 
-    // Stop any current speech
-    speechSynthesis.cancel();
+    stop(); // Ensure no overlapping speech
 
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance;
 
-    // Set voice
     if (voice !== "default" && availableVoices.length > 0) {
       const selectedVoice = availableVoices.find(v => v.name === voice);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
+      if (selectedVoice) utterance.voice = selectedVoice;
     }
 
-    // Set speech parameters
     utterance.rate = rate;
     utterance.pitch = pitch;
     utterance.volume = volume;
@@ -49,16 +53,8 @@ export const TextToSpeech = () => {
       setIsPlaying(true);
       setIsPaused(false);
     };
-
-    utterance.onend = () => {
-      setIsPlaying(false);
-      setIsPaused(false);
-    };
-
-    utterance.onerror = () => {
-      setIsPlaying(false);
-      setIsPaused(false);
-    };
+    utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
 
     speechSynthesis.speak(utterance);
   };
@@ -83,16 +79,6 @@ export const TextToSpeech = () => {
     setText("");
     stop();
   };
-
-  // Load voices when component mounts
-  useState(() => {
-    loadVoices();
-    speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    
-    return () => {
-      speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-    };
-  });
 
   return (
     <div className="space-y-6">
@@ -121,9 +107,9 @@ export const TextToSpeech = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Default Voice</SelectItem>
-                  {availableVoices.map((voice, index) => (
-                    <SelectItem key={index} value={voice.name}>
-                      {voice.name} ({voice.lang})
+                  {availableVoices.map((v, i) => (
+                    <SelectItem key={i} value={v.name}>
+                      {v.name} ({v.lang})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -134,7 +120,7 @@ export const TextToSpeech = () => {
               <Label>Speech Rate: {rate.toFixed(1)}x</Label>
               <Slider
                 value={[rate]}
-                onValueChange={(value) => setRate(value[0])}
+                onValueChange={(v) => setRate(v[0])}
                 min={0.1}
                 max={3}
                 step={0.1}
@@ -146,7 +132,7 @@ export const TextToSpeech = () => {
               <Label>Pitch: {pitch.toFixed(1)}</Label>
               <Slider
                 value={[pitch]}
-                onValueChange={(value) => setPitch(value[0])}
+                onValueChange={(v) => setPitch(v[0])}
                 min={0.1}
                 max={2}
                 step={0.1}
@@ -158,7 +144,7 @@ export const TextToSpeech = () => {
               <Label>Volume: {Math.round(volume * 100)}%</Label>
               <Slider
                 value={[volume]}
-                onValueChange={(value) => setVolume(value[0])}
+                onValueChange={(v) => setVolume(v[0])}
                 min={0}
                 max={1}
                 step={0.1}
@@ -168,42 +154,19 @@ export const TextToSpeech = () => {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <Button 
-              onClick={speak} 
-              disabled={!text.trim() || isPlaying}
-              className="flex items-center gap-2"
-            >
+            <Button onClick={speak} disabled={!text.trim() || isPlaying} className="flex items-center gap-2">
               <Play className="h-4 w-4" />
               {isPlaying ? "Speaking..." : "Speak"}
             </Button>
-            
-            <Button 
-              onClick={pause} 
-              disabled={!isPlaying && !isPaused}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={pause} disabled={!isPlaying && !isPaused} variant="outline" className="flex items-center gap-2">
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               {isPaused ? "Resume" : "Pause"}
             </Button>
-            
-            <Button 
-              onClick={stop} 
-              disabled={!isPlaying && !isPaused}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Square className="h-4 w-4" />
-              Stop
+            <Button onClick={stop} disabled={!isPlaying && !isPaused} variant="outline" className="flex items-center gap-2">
+              <Square className="h-4 w-4" /> Stop
             </Button>
-            
-            <Button 
-              onClick={clearText} 
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Clear
+            <Button onClick={clearText} variant="outline" className="flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" /> Clear
             </Button>
           </div>
         </CardContent>

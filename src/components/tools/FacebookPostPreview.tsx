@@ -18,7 +18,6 @@ export const FacebookPostPreview = () => {
     linkDescription: "",
     linkImage: "",
     imageUrl: "",
-    videoUrl: "",
     postType: "text"
   });
 
@@ -42,7 +41,7 @@ export const FacebookPostPreview = () => {
   };
 
   const generatePostHTML = () => {
-    const { pageName, pageAvatar, postText, linkUrl, linkTitle, linkDescription, linkImage, imageUrl, videoUrl, postType } = postData;
+    const { pageName, pageAvatar, postText, linkUrl, linkTitle, linkDescription, linkImage, imageUrl, postType } = postData;
     
     let html = `<!-- Facebook Post Preview -->\n`;
     html += `<div class="facebook-post" style="max-width: 500px; border: 1px solid #dadde1; border-radius: 8px; background: white; font-family: Helvetica, Arial, sans-serif;">\n`;
@@ -158,7 +157,6 @@ export const FacebookPostPreview = () => {
       linkDescription: "",
       linkImage: "",
       imageUrl: "",
-      videoUrl: "",
       postType: "text"
     });
     setPreviewImage(null);
@@ -192,7 +190,6 @@ export const FacebookPostPreview = () => {
                   <SelectItem value="text">Text Post</SelectItem>
                   <SelectItem value="image">Image Post</SelectItem>
                   <SelectItem value="link">Link Post</SelectItem>
-                  <SelectItem value="video">Video Post</SelectItem>
                 </SelectContent>
               </Select>
             </div>

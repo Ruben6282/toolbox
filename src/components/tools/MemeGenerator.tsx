@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -16,22 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Download,
-  RotateCcw,
-  Upload,
-  Plus,
-  Trash2,
-} from "lucide-react";
-
-const MEME_TEMPLATES = [
-  { id: "drake", name: "Drake Pointing", url: "https://i.imgflip.com/30b1.jpg" },
-  { id: "distracted", name: "Distracted Boyfriend", url: "https://i.imgflip.com/1ur9b0.jpg" },
-  { id: "woman", name: "Woman Yelling at Cat", url: "https://i.imgflip.com/345v97.jpg" },
-  { id: "change", name: "Change My Mind", url: "https://i.imgflip.com/24y43o.jpg" },
-  { id: "two", name: "Two Buttons", url: "https://i.imgflip.com/1g8my4.jpg" },
-  { id: "roll", name: "Roll Safe", url: "https://i.imgflip.com/1h7in3.jpg" },
-];
+import { Download, RotateCcw, Upload, Plus, Trash2 } from "lucide-react";
 
 interface TextBox {
   id: string;
@@ -42,59 +27,83 @@ interface TextBox {
   color: string;
   stroke: string;
   strokeWidth: number;
+  rotation: number; // degrees
+  fontFamily: string;
 }
+
+interface MemeTemplate {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const MEME_TEMPLATES: MemeTemplate[] = [
+  { id: "drake", name: "Drake Pointing", url: "/memes/drake.jpg" },
+  { id: "distracted", name: "Distracted Boyfriend", url: "/memes/distracted.jpg" },
+  { id: "woman", name: "Woman Yelling at Cat", url: "/memes/woman.jpg" },
+  { id: "change", name: "Change My Mind", url: "/memes/change.jpg" },
+  { id: "two", name: "Two Buttons", url: "/memes/two.jpg" },
+  { id: "roll", name: "Roll Safe", url: "/memes/roll.jpg" },
+];
+
+const FONT_FAMILIES = ["Impact", "Arial", "Comic Sans MS", "Verdana", "Tahoma"];
 
 export const MemeGenerator = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(MEME_TEMPLATES[0]);
+
+  const [selectedTemplate, setSelectedTemplate] = useState<MemeTemplate>(MEME_TEMPLATES[0]);
   const [customImage, setCustomImage] = useState<string | null>(null);
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([
-    { id: "1", text: "TOP TEXT", x: 150, y: 50, fontSize: 40, color: "#FFFFFF", stroke: "#000000", strokeWidth: 3 },
-    { id: "2", text: "BOTTOM TEXT", x: 150, y: 350, fontSize: 40, color: "#FFFFFF", stroke: "#000000", strokeWidth: 3 },
+    { id: "1", text: "TOP TEXT", x: 250, y: 50, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
+    { id: "2", text: "BOTTOM TEXT", x: 250, y: 450, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
   ]);
-  const [activeText, setActiveText] = useState<string | null>(null);
+  const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [imageSize, setImageSize] = useState({ width: 500, height: 500 });
+  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 500 });
 
-  /** Helper: draw meme on canvas */
-  const drawMeme = () => {
+  /** Draw Meme */
+  const drawMeme = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.src = customImage || selectedTemplate.url;
     img.onload = () => {
-      const scale = 600 / img.width;
+      const scale = Math.min(600 / img.width, 600 / img.height);
       const width = img.width * scale;
       const height = img.height * scale;
-      setImageSize({ width, height });
+
       canvas.width = width;
       canvas.height = height;
+      setCanvasSize({ width, height });
 
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
       textBoxes.forEach((box) => {
-        ctx.font = `bold ${box.fontSize}px Impact, Arial, sans-serif`;
+        ctx.save();
+        ctx.translate(box.x, box.y);
+        ctx.rotate((box.rotation * Math.PI) / 180);
+        ctx.font = `bold ${box.fontSize}px ${box.fontFamily}, Arial, sans-serif`;
         ctx.textAlign = "center";
-        ctx.lineJoin = "round";
+        ctx.textBaseline = "middle";
         ctx.lineWidth = box.strokeWidth;
         ctx.strokeStyle = box.stroke;
         ctx.fillStyle = box.color;
-        ctx.strokeText(box.text, box.x, box.y);
-        ctx.fillText(box.text, box.x, box.y);
+        ctx.strokeText(box.text, 0, 0);
+        ctx.fillText(box.text, 0, 0);
+        ctx.restore();
       });
     };
-  };
+  }, [selectedTemplate, customImage, textBoxes]);
 
   useEffect(() => {
     drawMeme();
-  }, [selectedTemplate, customImage, textBoxes]);
+  }, [drawMeme]);
 
-  /** Handle drag of text */
+  /** Drag Handlers */
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -102,20 +111,19 @@ export const MemeGenerator = () => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // detect clicked text
-    const clicked = textBoxes.find(
+    const clickedBox = textBoxes.find(
       (t) =>
         Math.abs(x - t.x) < t.text.length * (t.fontSize / 3) &&
         Math.abs(y - t.y) < t.fontSize
     );
-    if (clicked) {
-      setActiveText(clicked.id);
-      setDragOffset({ x: x - clicked.x, y: y - clicked.y });
+    if (clickedBox) {
+      setActiveTextId(clickedBox.id);
+      setDragOffset({ x: x - clickedBox.x, y: y - clickedBox.y });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!activeText || !dragOffset) return;
+    if (!activeTextId || !dragOffset) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -123,83 +131,123 @@ export const MemeGenerator = () => {
     const y = e.clientY - rect.top - dragOffset.y;
 
     setTextBoxes((prev) =>
-      prev.map((t) => (t.id === activeText ? { ...t, x, y } : t))
+      prev.map((t) => (t.id === activeTextId ? { ...t, x, y } : t))
     );
   };
 
-  const handleMouseUp = () => setActiveText(null);
+  const handleMouseUp = () => {
+    setActiveTextId(null);
+    setDragOffset(null);
+  };
 
-  /** Add new text box */
+  /** Add/Delete Text */
   const addTextBox = () => {
     setTextBoxes((prev) => [
       ...prev,
       {
-        id: Math.random().toString(36).substring(2, 9),
+        id: crypto.randomUUID(),
         text: "NEW TEXT",
-        x: imageSize.width / 2,
-        y: imageSize.height / 2,
+        x: canvasSize.width / 2,
+        y: canvasSize.height / 2,
         fontSize: 40,
-        color: "#FFFFFF",
+        color: "#ffffff",
         stroke: "#000000",
         strokeWidth: 3,
+        rotation: 0,
+        fontFamily: "Impact",
       },
     ]);
   };
 
-  const deleteTextBox = (id: string) =>
+  const deleteTextBox = (id: string) => {
     setTextBoxes((prev) => prev.filter((t) => t.id !== id));
-
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setCustomImage(ev.target?.result as string);
-      reader.readAsDataURL(file);
-    }
   };
 
+  /** Upload Image */
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setCustomImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  /** Download Meme High-Res */
   const downloadMeme = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const link = document.createElement("a");
-    link.download = "meme.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+
+    // create high-res canvas
+    const scale = 3;
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    const ctx = exportCanvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.src = customImage || selectedTemplate.url;
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
+      textBoxes.forEach((box) => {
+        ctx.save();
+        ctx.translate(box.x * scale, box.y * scale);
+        ctx.rotate((box.rotation * Math.PI) / 180);
+        ctx.font = `bold ${box.fontSize * scale}px ${box.fontFamily}, Arial, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = box.strokeWidth * scale;
+        ctx.strokeStyle = box.stroke;
+        ctx.fillStyle = box.color;
+        ctx.strokeText(box.text, 0, 0);
+        ctx.fillText(box.text, 0, 0);
+        ctx.restore();
+      });
+
+      const link = document.createElement("a");
+      link.download = "meme.png";
+      link.href = exportCanvas.toDataURL("image/png");
+      link.click();
+    };
   };
 
+  /** Reset Meme */
   const resetMeme = () => {
-    setTextBoxes([]);
+    setTextBoxes([
+      { id: "1", text: "TOP TEXT", x: 250, y: 50, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
+      { id: "2", text: "BOTTOM TEXT", x: 250, y: 450, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
+    ]);
     setCustomImage(null);
     setSelectedTemplate(MEME_TEMPLATES[0]);
   };
 
-  /** Render */
   return (
     <div className="space-y-6">
+      {/* Controls */}
       <Card>
         <CardHeader>
           <CardTitle>🔥 Meme Generator Pro</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Template + Upload */}
+          {/* Template selection */}
           <div className="space-y-2">
             <Label>Template</Label>
             <Select
               value={selectedTemplate.id}
               onValueChange={(value) => {
                 const t = MEME_TEMPLATES.find((tpl) => tpl.id === value);
-                if (t) setSelectedTemplate(t);
-                setCustomImage(null);
+                if (t) {
+                  setSelectedTemplate(t);
+                  setCustomImage(null);
+                }
               }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select template" />
               </SelectTrigger>
               <SelectContent>
-                {MEME_TEMPLATES.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
+                {MEME_TEMPLATES.map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>{tpl.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -211,7 +259,7 @@ export const MemeGenerator = () => {
             </div>
           </div>
 
-          {/* Text Boxes */}
+          {/* Text layers */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <Label className="text-lg font-semibold">Text Layers</Label>
@@ -219,80 +267,77 @@ export const MemeGenerator = () => {
                 <Plus className="h-4 w-4" /> Add Text
               </Button>
             </div>
-            {textBoxes.map((t) => (
-              <div key={t.id} className="p-3 border rounded-lg space-y-2 bg-muted">
+            {textBoxes.map((box) => (
+              <div key={box.id} className="p-3 border rounded-lg space-y-2 bg-muted">
                 <div className="flex justify-between items-center">
                   <Input
-                    value={t.text}
+                    value={box.text}
                     onChange={(e) =>
                       setTextBoxes((prev) =>
-                        prev.map((tb) =>
-                          tb.id === t.id ? { ...tb, text: e.target.value } : tb
-                        )
+                        prev.map((tb) => tb.id === box.id ? { ...tb, text: e.target.value } : tb)
                       )
                     }
                     className="flex-1"
                   />
-                  <Button
-                    onClick={() => deleteTextBox(t.id)}
-                    variant="ghost"
-                    size="icon"
-                    className="ml-2"
-                  >
+                  <Button onClick={() => deleteTextBox(box.id)} variant="ghost" size="icon">
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   <div>
                     <Label>Font Size</Label>
                     <Slider
-                      min={20}
-                      max={80}
-                      step={2}
-                      value={[t.fontSize]}
-                      onValueChange={(v) =>
-                        setTextBoxes((prev) =>
-                          prev.map((tb) =>
-                            tb.id === t.id ? { ...tb, fontSize: v[0] } : tb
-                          )
-                        )
-                      }
+                      min={20} max={80} step={2} value={[box.fontSize]}
+                      onValueChange={(v) => setTextBoxes((prev) =>
+                        prev.map((tb) => tb.id === box.id ? { ...tb, fontSize: v[0] } : tb)
+                      )}
                     />
                   </div>
                   <div>
-                    <Label>Text</Label>
-                    <Input
-                      type="color"
-                      value={t.color}
-                      onChange={(e) =>
-                        setTextBoxes((prev) =>
-                          prev.map((tb) =>
-                            tb.id === t.id ? { ...tb, color: e.target.value } : tb
-                          )
-                        )
-                      }
-                    />
+                    <Label>Text Color</Label>
+                    <Input type="color" value={box.color} onChange={(e) =>
+                      setTextBoxes((prev) =>
+                        prev.map((tb) => tb.id === box.id ? { ...tb, color: e.target.value } : tb)
+                      )
+                    }/>
                   </div>
                   <div>
-                    <Label>Stroke</Label>
-                    <Input
-                      type="color"
-                      value={t.stroke}
-                      onChange={(e) =>
-                        setTextBoxes((prev) =>
-                          prev.map((tb) =>
-                            tb.id === t.id ? { ...tb, stroke: e.target.value } : tb
-                          )
-                        )
-                      }
-                    />
+                    <Label>Stroke Color</Label>
+                    <Input type="color" value={box.stroke} onChange={(e) =>
+                      setTextBoxes((prev) =>
+                        prev.map((tb) => tb.id === box.id ? { ...tb, stroke: e.target.value } : tb)
+                      )
+                    }/>
                   </div>
+                  <div>
+                    <Label>Rotation</Label>
+                    <Slider min={0} max={360} step={1} value={[box.rotation]} onValueChange={(v) =>
+                      setTextBoxes((prev) =>
+                        prev.map((tb) => tb.id === box.id ? { ...tb, rotation: v[0] } : tb)
+                      )
+                    }/>
+                  </div>
+                </div>
+                <div>
+                  <Label>Font</Label>
+                  <Select value={box.fontFamily} onValueChange={(v) =>
+                    setTextBoxes((prev) =>
+                      prev.map((tb) => tb.id === box.id ? { ...tb, fontFamily: v } : tb)
+                    )
+                  }>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Font" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_FAMILIES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Action buttons */}
+          {/* Actions */}
           <div className="flex flex-wrap gap-2">
             <Button onClick={downloadMeme} className="flex items-center gap-2">
               <Download className="h-4 w-4" /> Download
@@ -304,21 +349,22 @@ export const MemeGenerator = () => {
         </CardContent>
       </Card>
 
-      {/* Canvas */}
+      {/* Canvas Preview */}
       <Card>
         <CardHeader>
-          <CardTitle>Meme Preview (Drag to Move Text)</CardTitle>
+          <CardTitle>Meme Preview (Drag text to move)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg p-4 bg-muted flex justify-center">
             <canvas
               ref={canvasRef}
-              width={imageSize.width}
-              height={imageSize.height}
+              width={canvasSize.width}
+              height={canvasSize.height}
               className="cursor-move rounded shadow"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             />
           </div>
         </CardContent>

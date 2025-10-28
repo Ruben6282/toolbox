@@ -23,7 +23,7 @@ export const BusinessNameGenerator = () => {
   const industries = {
     general: {
       prefixes: ["Prime", "Elite", "Pro", "Ultra", "Max", "Super", "Grand", "Royal", "Noble"],
-      suffixes: ["Solutions", "Systems", "Group", "Corp", "Ventures", "Dynamics"],
+      suffixes: ["Solutions", "Systems", "Group", "Ventures", "Dynamics", "Collective"],
     },
     tech: {
       prefixes: ["Cyber", "Digital", "Tech", "Data", "Cloud", "Quantum", "Neural", "Virtual", "Smart", "AI"],
@@ -50,24 +50,28 @@ export const BusinessNameGenerator = () => {
   const styles = {
     modern: ["Tech", "Digital", "Smart", "Prime", "Next", "Nova", "Pulse", "Edge"],
     classic: ["Royal", "Grand", "Noble", "Imperial", "Majestic", "Premier"],
-    creative: ["Creative", "Vivid", "Spark", "Idea", "Vision", "Wave", "Studio"],
-    professional: ["Expert", "Master", "Elite", "Advanced", "Quality", "Pro"],
+    creative: ["Creative", "Vivid", "Spark", "Idea", "Vision", "Wave", "Studio", "Forge"],
+    professional: ["Expert", "Master", "Elite", "Advanced", "Quality", "Pro", "Solutions"],
   };
 
-  const connectors = ["Labs", "Hub", "Works", "Studio", "Nexus", "Forge", "Collective"];
+  const connectors = ["Labs", "Hub", "Works", "Studio", "Nexus", "Forge", "Collective", "&"];
 
   const getRandom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
   const generateBusinessName = (): string => {
     const industryData = industries[industry as keyof typeof industries];
     const styleWords = styles[style as keyof typeof styles];
+
     const customList = customWords
       .split(",")
       .map((w) => w.trim())
       .filter((w) => w.length > 0);
 
-    const prefix = getRandom([...industryData.prefixes, ...styleWords, ...customList]);
-    const suffix = getRandom([...industryData.suffixes, ...customList]);
+    const prefixPool = [...industryData.prefixes, ...styleWords, ...customList];
+    const suffixPool = [...industryData.suffixes, ...customList];
+
+    const prefix = getRandom(prefixPool);
+    const suffix = getRandom(suffixPool);
     const connector = getRandom(connectors);
 
     const structures = [
@@ -76,28 +80,28 @@ export const BusinessNameGenerator = () => {
       `${prefix} ${connector}`,
       `${prefix} ${suffix} ${connector}`,
       `${prefix} & ${suffix}`,
+      `${suffix} by ${prefix}`,
       `${prefix}-${suffix}`,
       `${prefix} ${suffix} Co.`,
     ];
 
-    // Random domain suffix for realism
-    if (Math.random() < 0.15) {
-      const domainSuffix = getRandom([".com", ".io", ".co"]);
-      return `${getRandom(structures)}${domainSuffix}`;
-    }
+    let name = getRandom(structures).replace(/\s+/g, " ").trim();
 
-    const name = getRandom(structures).replace(/\s+/g, " ").trim();
-
-    // Remove duplicate word patterns (e.g., "Tech Tech")
+    // Remove consecutive duplicates (Tech Tech → Tech)
     const parts = name.split(" ");
     const uniqueParts = parts.filter((p, i) => p.toLowerCase() !== parts[i - 1]?.toLowerCase());
-    return uniqueParts.join(" ");
+    name = uniqueParts.join(" ");
+
+    // Limit to 4 words max
+    name = name.split(" ").slice(0, 4).join(" ");
+
+    return name;
   };
 
   const generateNames = () => {
     const uniqueNames = new Set<string>();
     let safety = 0;
-    while (uniqueNames.size < nameCount && safety < nameCount * 5) {
+    while (uniqueNames.size < nameCount && safety < nameCount * 10) {
       uniqueNames.add(generateBusinessName());
       safety++;
     }
@@ -129,20 +133,26 @@ export const BusinessNameGenerator = () => {
               <Label>Number of Names</Label>
               <Input
                 type="number"
-                min="1"
-                max="50"
+                min={1}
+                max={50}
                 value={nameCount}
-                onChange={(e) => setNameCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+                onChange={(e) =>
+                  setNameCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))
+                }
               />
             </div>
 
             <div className="space-y-2">
               <Label>Industry</Label>
               <Select value={industry} onValueChange={setIndustry}>
-                <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select industry" />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.keys(industries).map((key) => (
-                    <SelectItem key={key} value={key}>{key[0].toUpperCase() + key.slice(1)}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {key[0].toUpperCase() + key.slice(1)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -151,10 +161,14 @@ export const BusinessNameGenerator = () => {
             <div className="space-y-2">
               <Label>Style</Label>
               <Select value={style} onValueChange={setStyle}>
-                <SelectTrigger><SelectValue placeholder="Select style" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select style" />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.keys(styles).map((key) => (
-                    <SelectItem key={key} value={key}>{key[0].toUpperCase() + key.slice(1)}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {key[0].toUpperCase() + key.slice(1)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

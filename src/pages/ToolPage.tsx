@@ -947,7 +947,7 @@ const ToolPage = () => {
         return <RomanToNumber />;
       case "username-generator":
         return <UsernameGenerator />;
-      case "business-name-generator":
+      case "business-name-generator-dev":
         return <BusinessNameGenerator />;
       case "html-minifier":
         return <HtmlMinifier />;
@@ -1011,7 +1011,7 @@ const ToolPage = () => {
         return <StopwatchTimer />;
       case "world-clock":
         return <WorldClock />;
-      case "meme-generator":
+      case "meme-generator-dev":
         return <MemeGenerator />;
       case "robots-txt-generator":
         return <RobotsTxtGenerator />;
@@ -1047,9 +1047,9 @@ const ToolPage = () => {
         return <Mp3ToWavConverter />;
       case "audio-cutter":
         return <AudioCutter />;
-      case "video-cutter":
+      case "video-cutter-dev":
         return <VideoCutter />;
-      case "remove-audio-from-video":
+      case "remove-audio-from-video-dev":
         return <RemoveAudioFromVideo />;
       default:
         return (
