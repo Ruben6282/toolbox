@@ -180,12 +180,12 @@ export const HashtagGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateHashtags} disabled={!topic.trim()}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateHashtags} disabled={!topic.trim()} className="w-full sm:w-auto">
               <Hash className="h-4 w-4 mr-2" />
               Generate Hashtags
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -199,12 +199,12 @@ export const HashtagGenerator = () => {
             <CardTitle>Generated Hashtags</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-4 rounded-lg">
+            <div className="bg-muted p-3 sm:p-4 rounded-lg">
               <div className="flex flex-wrap gap-2">
                 {generatedHashtags.map((hashtag, index) => (
                   <span
                     key={index}
-                    className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:bg-blue-200 transition-colors"
+                    className="inline-block bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium cursor-pointer hover:bg-blue-200 transition-colors break-words"
                     onClick={() => copyToClipboard([hashtag])}
                   >
                     {hashtag}
@@ -214,7 +214,7 @@ export const HashtagGenerator = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground break-words px-2">
                 <strong>As text:</strong> {generatedHashtags.join(' ')}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -222,8 +222,8 @@ export const HashtagGenerator = () => {
               </p>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={copyAllToClipboard} variant="outline">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={copyAllToClipboard} variant="outline" className="w-full sm:w-auto">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy All Hashtags
               </Button>

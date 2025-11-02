@@ -59,8 +59,8 @@ export const PercentageCalculator = () => {
           </CardHeader>
           <CardContent>
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">{result.toFixed(2)}</div>
-              <p className="mt-2 text-muted-foreground">
+              <div className="text-3xl sm:text-4xl font-bold text-primary break-words px-2">{result.toFixed(2)}</div>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground break-words px-2">
                 {percentage}% of {value} = {result.toFixed(2)}
               </p>
             </div>

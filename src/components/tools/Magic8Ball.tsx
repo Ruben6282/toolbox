@@ -102,16 +102,16 @@ export const Magic8Ball = () => {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button 
               onClick={askQuestion} 
               disabled={!question.trim() || isShaking}
-              className="flex-1"
+              className="w-full sm:w-auto"
             >
               <HelpCircle className="h-4 w-4 mr-2" />
               {isShaking ? "Shaking..." : "Ask the Magic 8-Ball"}
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -125,13 +125,13 @@ export const Magic8Ball = () => {
             <CardTitle>The Magic 8-Ball Says...</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`p-8 rounded-lg border-2 text-center ${getAnswerBgColor(answer)}`}>
+            <div className={`p-4 sm:p-8 rounded-lg border-2 text-center ${getAnswerBgColor(answer)}`}>
               <div className="mb-4">
-                <div className={`w-16 h-16 mx-auto rounded-full border-4 border-gray-300 flex items-center justify-center text-2xl ${isShaking ? 'animate-bounce' : ''}`}>
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full border-4 border-gray-300 flex items-center justify-center text-2xl ${isShaking ? 'animate-bounce' : ''}`}>
                   🎱
                 </div>
               </div>
-              <div className={`text-2xl font-bold ${getAnswerColor(answer)} mb-2`}>
+              <div className={`text-xl sm:text-2xl font-bold ${getAnswerColor(answer)} mb-2 break-words px-2`}>
                 {answer}
               </div>
               {question && (

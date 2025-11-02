@@ -81,23 +81,23 @@ export const StopwatchTimer = () => {
   const averageLap = getAverageLap();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Stopwatch Timer</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <div className="text-6xl font-mono font-bold text-blue-600 mb-4">
+            <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold text-blue-600 mb-4 break-all">
               {formatTime(time)}
             </div>
             
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-center gap-2 w-full">
               <Button
                 onClick={startStop}
                 variant={isRunning ? "destructive" : "default"}
                 size="lg"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 {isRunning ? "Pause" : "Start"}
@@ -108,7 +108,7 @@ export const StopwatchTimer = () => {
                 variant="outline"
                 size="lg"
                 disabled={!isRunning}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 <Flag className="h-4 w-4" />
                 Lap
@@ -118,7 +118,7 @@ export const StopwatchTimer = () => {
                 onClick={reset}
                 variant="outline"
                 size="lg"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset
@@ -144,18 +144,18 @@ export const StopwatchTimer = () => {
                 return (
                   <div
                     key={index}
-                    className={`flex justify-between items-center p-3 rounded-lg border ${
-                      isFastest ? 'bg-green-50 border-green-200' :
-                      isSlowest ? 'bg-red-50 border-red-200' :
-                      'bg-gray-50 border-gray-200'
+                    className={`flex flex-col xs:flex-row justify-between items-start xs:items-center p-3 rounded-lg border gap-2 ${
+                      isFastest ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' :
+                      isSlowest ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' :
+                      'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">Lap {lapNumber}</span>
-                      {isFastest && <span className="text-green-600 text-xs">Fastest</span>}
-                      {isSlowest && <span className="text-red-600 text-xs">Slowest</span>}
+                      <span className="font-medium text-sm sm:text-base">Lap {lapNumber}</span>
+                      {isFastest && <span className="text-green-600 dark:text-green-400 text-xs">Fastest</span>}
+                      {isSlowest && <span className="text-red-600 dark:text-red-400 text-xs">Slowest</span>}
                     </div>
-                    <div className="font-mono text-lg">
+                    <div className="font-mono text-base sm:text-lg break-all">
                       {formatTime(lapDuration)}
                     </div>
                   </div>
@@ -172,26 +172,26 @@ export const StopwatchTimer = () => {
             <CardTitle>Lap Statistics</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-xl sm:text-2xl font-bold text-green-600 break-all">
                   {fastestLap ? formatTime(fastestLap) : "N/A"}
                 </div>
-                <div className="text-sm text-muted-foreground">Fastest Lap</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Fastest Lap</div>
               </div>
               
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-xl sm:text-2xl font-bold text-red-600 break-all">
                   {slowestLap ? formatTime(slowestLap) : "N/A"}
                 </div>
-                <div className="text-sm text-muted-foreground">Slowest Lap</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Slowest Lap</div>
               </div>
               
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-all">
                   {averageLap ? formatTime(averageLap) : "N/A"}
                 </div>
-                <div className="text-sm text-muted-foreground">Average Lap</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Average Lap</div>
               </div>
             </div>
           </CardContent>
@@ -203,7 +203,7 @@ export const StopwatchTimer = () => {
           <CardTitle>Stopwatch Tips</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+          <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <li>• Click "Start" to begin timing</li>
             <li>• Click "Lap" to record lap times while running</li>
             <li>• Click "Pause" to temporarily stop the timer</li>

@@ -272,16 +272,16 @@ export const FacebookPostPreview = () => {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button onClick={copyToClipboard} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyToClipboard} className="flex items-center gap-2 w-full sm:w-auto">
               <Copy className="h-4 w-4" />
               Copy HTML
             </Button>
-            <Button onClick={downloadPost} variant="outline" className="flex items-center gap-2">
+            <Button onClick={downloadPost} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
               <Download className="h-4 w-4" />
               Download
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -334,9 +334,9 @@ export const FacebookPostPreview = () => {
                   {postData.postType === 'link' && postData.linkUrl && (
                     <div className="p-3 border-t border-gray-200">
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
-                        <div className="flex">
+                        <div className="flex flex-col sm:flex-row">
                           {postData.linkImage && (
-                            <div className="w-24 h-24 bg-gray-100 flex-shrink-0">
+                            <div className="w-full h-40 sm:w-24 sm:h-24 bg-gray-100 flex-shrink-0">
                               <img
                                 src={postData.linkImage}
                                 alt="Link"
@@ -349,12 +349,12 @@ export const FacebookPostPreview = () => {
                               {postData.linkUrl ? new URL(postData.linkUrl).hostname : 'example.com'}
                             </div>
                             {postData.linkTitle && (
-                              <div className="font-semibold text-gray-900 text-sm mb-1">
+                              <div className="font-semibold text-gray-900 text-sm mb-1 break-words">
                                 {postData.linkTitle}
                               </div>
                             )}
                             {postData.linkDescription && (
-                              <div className="text-gray-600 text-xs leading-relaxed">
+                              <div className="text-gray-600 text-xs leading-relaxed break-words">
                                 {postData.linkDescription}
                               </div>
                             )}

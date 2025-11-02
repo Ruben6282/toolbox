@@ -7,7 +7,7 @@ import { RotateCcw } from "lucide-react";
 
 export const RomanToNumber = () => {
   const [romanNumeral, setRomanNumeral] = useState("");
-  const [result, setResult] = useState<number | null>(null);
+  const [result, setResult] = useState<number | string | null>(null);
   const [error, setError] = useState("");
 
   const romanToDecimal = (roman: string): number => {
@@ -84,7 +84,7 @@ export const RomanToNumber = () => {
 
     try {
       const roman = decimalToRoman(num);
-      setResult(roman as any);
+      setResult(roman);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid number");
@@ -132,14 +132,14 @@ export const RomanToNumber = () => {
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={convertRoman} disabled={!romanNumeral.trim()}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={convertRoman} disabled={!romanNumeral.trim()} className="w-full sm:w-auto">
               Convert Roman to Number
             </Button>
-            <Button onClick={convertDecimal} disabled={!romanNumeral.trim()}>
+            <Button onClick={convertDecimal} disabled={!romanNumeral.trim()} className="w-full sm:w-auto">
               Convert Number to Roman
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -161,9 +161,9 @@ export const RomanToNumber = () => {
             <CardTitle>Conversion Result</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-6 rounded-lg text-center">
-              <div className="text-3xl font-bold mb-2">{result}</div>
-              <p className="text-muted-foreground">
+            <div className="bg-muted p-4 sm:p-6 rounded-lg text-center">
+              <div className="text-2xl sm:text-3xl font-bold mb-2 break-words px-2">{result}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground break-words px-2">
                 {typeof result === 'number' 
                   ? `Roman numeral "${romanNumeral}" equals ${result}`
                   : `Number ${romanNumeral} equals "${result}" in Roman numerals`
@@ -179,11 +179,11 @@ export const RomanToNumber = () => {
           <CardTitle>Roman Numeral Examples</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {romanExamples.map((example, index) => (
-              <div key={index} className="bg-muted p-3 rounded-lg text-center">
-                <div className="font-medium">{example.roman}</div>
-                <div className="text-sm text-muted-foreground">{example.decimal}</div>
+              <div key={index} className="bg-muted p-2 sm:p-3 rounded-lg text-center">
+                <div className="font-medium text-sm sm:text-base">{example.roman}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">{example.decimal}</div>
               </div>
             ))}
           </div>

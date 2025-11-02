@@ -100,15 +100,15 @@ export const CountdownTimer = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Countdown Timer</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="hours">Hours</Label>
+              <Label htmlFor="hours" className="text-xs sm:text-sm">Hours</Label>
               <Input
                 id="hours"
                 type="number"
@@ -120,7 +120,7 @@ export const CountdownTimer = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minutes">Minutes</Label>
+              <Label htmlFor="minutes" className="text-xs sm:text-sm">Minutes</Label>
               <Input
                 id="minutes"
                 type="number"
@@ -132,7 +132,7 @@ export const CountdownTimer = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="seconds">Seconds</Label>
+              <Label htmlFor="seconds" className="text-xs sm:text-sm">Seconds</Label>
               <Input
                 id="seconds"
                 type="number"
@@ -153,22 +153,22 @@ export const CountdownTimer = () => {
               onChange={(e) => setSoundEnabled(e.target.checked)}
               className="rounded"
             />
-            <Label htmlFor="sound-enabled">Enable sound alert</Label>
+            <Label htmlFor="sound-enabled" className="text-xs sm:text-sm">Enable sound alert</Label>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             {!isRunning ? (
-              <Button onClick={startTimer} className="flex items-center gap-2">
+              <Button onClick={startTimer} className="flex items-center gap-2 w-full sm:w-auto">
                 <Play className="h-4 w-4" />
                 Start Timer
               </Button>
             ) : (
-              <Button onClick={pauseTimer} variant="outline" className="flex items-center gap-2">
+              <Button onClick={pauseTimer} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
                 <Pause className="h-4 w-4" />
                 Pause
               </Button>
             )}
-            <Button onClick={resetTimer} variant="outline">
+            <Button onClick={resetTimer} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset
             </Button>
@@ -178,14 +178,14 @@ export const CountdownTimer = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Clock className="h-5 w-5" />
             Timer Display
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center space-y-4">
-            <div className={`text-6xl font-mono font-bold ${showAlert ? 'text-red-500 animate-pulse' : 'text-primary'}`}>
+            <div className={`text-4xl sm:text-5xl md:text-6xl font-mono font-bold break-all ${showAlert ? 'text-red-500 animate-pulse' : 'text-primary'}`}>
               {formatTime(timeLeft)}
             </div>
             
@@ -197,21 +197,21 @@ export const CountdownTimer = () => {
                     style={{ width: `${getProgressPercentage()}%` }}
                   />
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs sm:text-sm text-muted-foreground">
                   {getProgressPercentage().toFixed(1)}% complete
                 </div>
               </div>
             )}
 
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {isRunning && (
-                <Badge variant="outline" className="flex items-center gap-1">
+                <Badge variant="outline" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   Running
                 </Badge>
               )}
               {showAlert && (
-                <Badge variant="destructive" className="flex items-center gap-1">
+                <Badge variant="destructive" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1">
                   <Bell className="h-3 w-3" />
                   Time's Up!
                 </Badge>
@@ -226,7 +226,7 @@ export const CountdownTimer = () => {
           <CardTitle>Quick Presets</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {[
               { label: "1 min", h: 0, m: 1, s: 0 },
               { label: "5 min", h: 0, m: 5, s: 0 },
@@ -249,6 +249,7 @@ export const CountdownTimer = () => {
                   }
                 }}
                 disabled={isRunning}
+                className="text-xs sm:text-sm"
               >
                 {preset.label}
               </Button>

@@ -220,17 +220,17 @@ export const YouTubeTitleGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateAll} disabled={!topic.trim()}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateAll} disabled={!topic.trim()} className="w-full sm:w-auto">
               Generate Titles & Descriptions
             </Button>
-            <Button onClick={generateTitles} disabled={!topic.trim()} variant="outline">
+            <Button onClick={generateTitles} disabled={!topic.trim()} variant="outline" className="w-full sm:w-auto">
               Generate Titles Only
             </Button>
-            <Button onClick={generateDescriptions} disabled={!topic.trim()} variant="outline">
+            <Button onClick={generateDescriptions} disabled={!topic.trim()} variant="outline" className="w-full sm:w-auto">
               Generate Descriptions Only
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -245,17 +245,18 @@ export const YouTubeTitleGenerator = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {generatedTitles.map((title, index) => (
-              <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+              <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between bg-muted p-3 rounded-lg gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <Youtube className="h-4 w-4 text-white" />
                   </div>
-                  <span className="font-medium">{title}</span>
+                  <span className="font-medium text-sm sm:text-base break-words">{title}</span>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => copyToClipboard(title)}
+                  className="w-full sm:w-auto"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -272,14 +273,14 @@ export const YouTubeTitleGenerator = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {generatedDescriptions.map((description, index) => (
-              <div key={index} className="bg-muted p-4 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm flex-1">{description}</p>
+              <div key={index} className="bg-muted p-3 sm:p-4 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <p className="text-sm flex-1 break-words">{description}</p>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => copyToClipboard(description)}
-                    className="ml-3"
+                    className="w-full sm:w-auto"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>

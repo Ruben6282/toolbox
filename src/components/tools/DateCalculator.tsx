@@ -54,48 +54,48 @@ export const DateCalculator = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.days}</div>
-              <div className="text-sm text-muted-foreground">Days</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.days}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Days</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.weeks}</div>
-              <div className="text-sm text-muted-foreground">Weeks</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.weeks}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Weeks</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.months}</div>
-              <div className="text-sm text-muted-foreground">Months</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.months}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Months</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.years}</div>
-              <div className="text-sm text-muted-foreground">Years</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.years}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Years</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.hours}</div>
-              <div className="text-sm text-muted-foreground">Hours (remaining)</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.hours}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Hours (remaining)</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{diff.minutes}</div>
-              <div className="text-sm text-muted-foreground">Minutes (remaining)</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary break-words px-2">{diff.minutes}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Minutes (remaining)</div>
             </div>
           </CardContent>
         </Card>

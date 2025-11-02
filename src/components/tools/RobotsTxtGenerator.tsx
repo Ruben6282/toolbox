@@ -27,7 +27,7 @@ export const RobotsTxtGenerator = () => {
     }
   };
 
-  const updateUserAgent = (index: number, field: string, value: any) => {
+  const updateUserAgent = (index: number, field: string, value: string | number | boolean) => {
     const updated = [...userAgents];
     updated[index] = { ...updated[index], [field]: value };
     setUserAgents(updated);
@@ -149,22 +149,23 @@ export const RobotsTxtGenerator = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <Label>User Agents</Label>
-              <Button onClick={addUserAgent} size="sm">
+              <Button onClick={addUserAgent} size="sm" className="w-full sm:w-auto">
                 Add User Agent
               </Button>
             </div>
 
             {userAgents.map((agent, index) => (
-              <div key={index} className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
+              <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <h4 className="font-medium">User Agent {index + 1}</h4>
                   {userAgents.length > 1 && (
                     <Button
                       onClick={() => removeUserAgent(index)}
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                     >
                       Remove
                     </Button>
@@ -204,28 +205,31 @@ export const RobotsTxtGenerator = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <Label>Disallow Paths</Label>
                     <Button
                       onClick={() => addDisallowPath(index)}
                       size="sm"
                       variant="outline"
+                      className="w-full sm:w-auto"
                     >
                       Add Path
                     </Button>
                   </div>
 
                   {agent.disallow.map((path, pathIndex) => (
-                    <div key={pathIndex} className="flex gap-2">
+                    <div key={pathIndex} className="flex flex-col sm:flex-row gap-2">
                       <Input
                         placeholder="/admin, /private, etc."
                         value={path}
                         onChange={(e) => updateDisallowPath(index, pathIndex, e.target.value)}
+                        className="flex-1"
                       />
                       <Button
                         onClick={() => removeDisallowPath(index, pathIndex)}
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                       >
                         Remove
                       </Button>
@@ -247,12 +251,12 @@ export const RobotsTxtGenerator = () => {
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateRobotsTxt} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateRobotsTxt} className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Bot className="h-4 w-4" />
               Generate Robots.txt
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -263,14 +267,14 @@ export const RobotsTxtGenerator = () => {
       {generatedRobots && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Generated Robots.txt
-              <div className="flex gap-2">
-                <Button onClick={copyToClipboard} variant="outline" size="sm">
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span>Generated Robots.txt</span>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={copyToClipboard} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Copy className="h-4 w-4 mr-2" />
                   Copy
                 </Button>
-                <Button onClick={downloadRobotsTxt} variant="outline" size="sm">
+                <Button onClick={downloadRobotsTxt} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
@@ -278,8 +282,8 @@ export const RobotsTxtGenerator = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="whitespace-pre-wrap font-mono text-sm">{generatedRobots}</pre>
+            <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">{generatedRobots}</pre>
             </div>
           </CardContent>
         </Card>

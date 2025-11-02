@@ -71,8 +71,8 @@ export const LoanCalculator = () => {
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <div className="text-5xl font-bold text-primary">${result.monthlyPayment}</div>
-                <p className="mt-2 text-muted-foreground">per month</p>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary break-words">${result.monthlyPayment}</div>
+                <p className="mt-2 text-sm sm:text-base text-muted-foreground">per month</p>
               </div>
             </CardContent>
           </Card>
@@ -84,8 +84,8 @@ export const LoanCalculator = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">${result.totalPayment}</div>
-                  <p className="mt-1 text-sm text-muted-foreground">over {years} years</p>
+                  <div className="text-2xl sm:text-3xl font-bold text-primary break-words">${result.totalPayment}</div>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground">over {years} years</p>
                 </div>
               </CardContent>
             </Card>
@@ -96,8 +96,8 @@ export const LoanCalculator = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-accent">${result.totalInterest}</div>
-                  <p className="mt-1 text-sm text-muted-foreground">interest paid</p>
+                  <div className="text-2xl sm:text-3xl font-bold text-accent break-words">${result.totalInterest}</div>
+                  <p className="mt-1 text-xs sm:text-sm text-muted-foreground">interest paid</p>
                 </div>
               </CardContent>
             </Card>

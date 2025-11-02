@@ -135,20 +135,20 @@ export const LcmGcdCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <h4 className="font-semibold">Greatest Common Divisor (GCD)</h4>
-                <div className="bg-muted p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-center mb-2">{gcdResult}</div>
-                  <p className="text-sm text-muted-foreground text-center">
+                <h4 className="font-semibold text-sm sm:text-base">Greatest Common Divisor (GCD)</h4>
+                <div className="bg-muted p-3 sm:p-4 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-center mb-2 break-words">{gcdResult}</div>
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center break-words px-2">
                     GCD of {allNumbers.join(", ")}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="font-semibold">Least Common Multiple (LCM)</h4>
-                <div className="bg-muted p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-center mb-2">{lcmResult}</div>
-                  <p className="text-sm text-muted-foreground text-center">
+                <h4 className="font-semibold text-sm sm:text-base">Least Common Multiple (LCM)</h4>
+                <div className="bg-muted p-3 sm:p-4 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-center mb-2 break-words">{lcmResult}</div>
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center break-words px-2">
                     LCM of {allNumbers.join(", ")}
                   </p>
                 </div>
@@ -156,14 +156,14 @@ export const LcmGcdCalculator = () => {
             </div>
 
             <div className="space-y-3">
-              <h4 className="font-semibold">Prime Factorization</h4>
+              <h4 className="font-semibold text-sm sm:text-base">Prime Factorization</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {allNumbers.map((num, index) => {
                   const factors = getPrimeFactors(num);
                   return (
                     <div key={index} className="bg-muted p-3 rounded-lg">
-                      <div className="font-medium mb-1">{num}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="font-medium text-sm sm:text-base mb-1 break-words">{num}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground break-words">
                         {factors.length > 0 ? factors.join(" × ") : "Prime number"}
                       </div>
                     </div>

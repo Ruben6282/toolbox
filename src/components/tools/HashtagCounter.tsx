@@ -150,16 +150,16 @@ export const HashtagCounter = () => {
             <Label htmlFor="show-positions">Show hashtag positions</Label>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={copyHashtags} variant="outline" className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyHashtags} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
               <Copy className="h-4 w-4" />
               Copy Hashtags
             </Button>
-            <Button onClick={copyResults} variant="outline" className="flex items-center gap-2">
+            <Button onClick={copyResults} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
               <Copy className="h-4 w-4" />
               Copy Results
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -178,23 +178,23 @@ export const HashtagCounter = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">{hashtagAnalysis.totalHashtags}</div>
-                  <div className="text-sm text-muted-foreground">Total Hashtags</div>
+                <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold break-words">{hashtagAnalysis.totalHashtags}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Total Hashtags</div>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">{hashtagAnalysis.uniqueHashtags}</div>
-                  <div className="text-sm text-muted-foreground">Unique Hashtags</div>
+                <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold break-words">{hashtagAnalysis.uniqueHashtags}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Unique Hashtags</div>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">{hashtagAnalysis.totalCharacters}</div>
-                  <div className="text-sm text-muted-foreground">Total Characters</div>
+                <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold break-words">{hashtagAnalysis.totalCharacters}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Total Characters</div>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">
+                <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold break-words">
                     {hashtagAnalysis.hashtags.length > 0 ? hashtagAnalysis.hashtags[0].count : 0}
                   </div>
-                  <div className="text-sm text-muted-foreground">Most Used</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Most Used</div>
                 </div>
               </div>
             </CardContent>
@@ -210,10 +210,10 @@ export const HashtagCounter = () => {
             <CardContent>
               <div className="space-y-3">
                 {hashtagAnalysis.hashtags.map((hashtag, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex-1">
+                  <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-lg font-medium">{hashtag.hashtag}</span>
+                        <span className="font-mono text-base sm:text-lg font-medium break-words">{hashtag.hashtag}</span>
                         <Badge className={getPopularityColor(hashtag.popularity)}>
                           <div className="flex items-center gap-1">
                             {getPopularityIcon(hashtag.popularity)}
@@ -221,14 +221,14 @@ export const HashtagCounter = () => {
                           </div>
                         </Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         Used {hashtag.count} time{hashtag.count !== 1 ? 's' : ''}
                         {showPositions && (
                           <span> at position{hashtag.positions.length !== 1 ? 's' : ''}: {hashtag.positions.join(', ')}</span>
                         )}
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-primary">
+                    <div className="text-xl sm:text-2xl font-bold text-primary">
                       {hashtag.count}
                     </div>
                   </div>

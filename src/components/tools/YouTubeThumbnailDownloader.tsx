@@ -165,7 +165,7 @@ export const YouTubeThumbnailDownloader = () => {
   };
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>YouTube Thumbnail Downloader</CardTitle>
@@ -184,16 +184,16 @@ export const YouTubeThumbnailDownloader = () => {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button 
               onClick={getThumbnails} 
               disabled={isLoading || !videoUrl.trim()}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
             >
               <Play className="h-4 w-4" />
               {isLoading ? "Processing..." : "Get Thumbnails"}
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -213,13 +213,13 @@ export const YouTubeThumbnailDownloader = () => {
       {thumbnails.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-base sm:text-lg">
                 <Image className="h-5 w-5" />
                 Available Thumbnails
               </span>
-              <div className="flex gap-2">
-                <Button onClick={downloadAllThumbnails} variant="outline" size="sm">
+              <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={downloadAllThumbnails} variant="outline" size="sm" className="w-full xs:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download All
                 </Button>
@@ -227,6 +227,7 @@ export const YouTubeThumbnailDownloader = () => {
                   onClick={() => window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank')} 
                   variant="outline" 
                   size="sm"
+                  className="w-full xs:w-auto"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Watch Video
@@ -238,12 +239,12 @@ export const YouTubeThumbnailDownloader = () => {
             <div className="space-y-4">
               {videoTitle && (
                 <div className="p-3 bg-muted rounded-lg">
-                  <div className="font-medium">Video: {videoTitle}</div>
-                  <div className="text-sm text-muted-foreground">ID: {videoId}</div>
+                  <div className="font-medium break-words text-xs sm:text-sm">Video: {videoTitle}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground break-all">ID: {videoId}</div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {thumbnails.map((thumbnail, index) => (
                   <div key={index} className="border rounded-lg p-4 space-y-3">
                     <div className="relative">
@@ -256,25 +257,25 @@ export const YouTubeThumbnailDownloader = () => {
                           e.currentTarget.nextElementSibling?.classList.remove('hidden');
                         }}
                       />
-                      <div className="hidden w-full h-32 bg-muted rounded border flex items-center justify-center">
+                      <div className="hidden w-full h-32 bg-muted rounded border items-center justify-center">
                         <div className="text-center text-muted-foreground">
                           <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                          <div className="text-sm">Image not available</div>
+                          <div className="text-xs sm:text-sm">Image not available</div>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge className={getQualityColor(thumbnail.quality)}>
+                      <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2">
+                        <Badge className={getQualityColor(thumbnail.quality) + " text-xs sm:text-sm px-2 py-1"}>
                           {thumbnail.quality}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs sm:text-sm text-muted-foreground">
                           {thumbnail.resolution}
                         </span>
                       </div>
 
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         Size: {thumbnail.size}
                       </div>
 
@@ -300,17 +301,17 @@ export const YouTubeThumbnailDownloader = () => {
           <CardTitle>Supported URL Formats</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="font-mono bg-muted p-2 rounded">
+          <div className="space-y-2 text-xs sm:text-sm">
+            <div className="font-mono bg-muted p-2 rounded break-all">
               https://www.youtube.com/watch?v=VIDEO_ID
             </div>
-            <div className="font-mono bg-muted p-2 rounded">
+            <div className="font-mono bg-muted p-2 rounded break-all">
               https://youtu.be/VIDEO_ID
             </div>
-            <div className="font-mono bg-muted p-2 rounded">
+            <div className="font-mono bg-muted p-2 rounded break-all">
               https://www.youtube.com/embed/VIDEO_ID
             </div>
-            <div className="font-mono bg-muted p-2 rounded">
+            <div className="font-mono bg-muted p-2 rounded break-all">
               https://www.youtube.com/v/VIDEO_ID
             </div>
           </div>
@@ -322,7 +323,7 @@ export const YouTubeThumbnailDownloader = () => {
           <CardTitle>Thumbnail Quality Guide</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-xs sm:text-sm">
             <div>
               <strong>Maximum Resolution (1280x720):</strong> Best quality, HD resolution
             </div>
@@ -347,7 +348,7 @@ export const YouTubeThumbnailDownloader = () => {
           <CardTitle>Important Notes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <p>• Thumbnails are provided by YouTube's public API</p>
             <p>• Some thumbnails may not be available for all videos</p>
             <p>• Respect YouTube's terms of service when using thumbnails</p>

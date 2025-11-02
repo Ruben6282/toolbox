@@ -186,16 +186,16 @@ export const GoogleSerpSimulator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button 
               onClick={generateSerpResults} 
               disabled={isLoading || !query.trim()}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Search className="h-4 w-4" />
               {isLoading ? "Simulating..." : "Simulate SERP"}
             </Button>
-            <Button onClick={clearResults} variant="outline">
+            <Button onClick={clearResults} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -223,16 +223,16 @@ export const GoogleSerpSimulator = () => {
           <CardContent>
             <div className="space-y-4">
               {results.map((result, index) => (
-                <div key={index} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm text-muted-foreground">#{result.position}</span>
+                <div key={index} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex flex-col lg:flex-row items-start justify-between gap-3">
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="text-xs sm:text-sm text-muted-foreground">#{result.position}</span>
                         <Badge className={getResultTypeColor(result.type)}>
                           {getResultTypeIcon(result.type)} {result.type.toUpperCase()}
                         </Badge>
                         {result.rating && (
-                          <div className="flex items-center gap-1 text-sm">
+                          <div className="flex items-center gap-1 text-xs sm:text-sm">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                             <span>{result.rating}</span>
                             <span className="text-muted-foreground">({result.reviews} reviews)</span>
@@ -240,16 +240,16 @@ export const GoogleSerpSimulator = () => {
                         )}
                       </div>
                       
-                      <h3 className="text-lg font-medium text-blue-600 hover:underline cursor-pointer mb-2">
+                      <h3 className="text-base sm:text-lg font-medium text-blue-600 hover:underline cursor-pointer mb-2 break-words">
                         {result.title}
                       </h3>
                       
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-2 break-words">
                         {result.description}
                       </p>
                       
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="font-mono">{result.url}</span>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
+                        <span className="font-mono break-all">{result.url}</span>
                         {result.type === 'local' && (
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
@@ -266,11 +266,11 @@ export const GoogleSerpSimulator = () => {
                     </div>
                     
                     {result.image && (
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 w-full lg:w-auto">
                         <img
                           src={result.image}
                           alt={result.title}
-                          className="w-32 h-24 object-cover rounded border"
+                          className="w-full lg:w-32 h-24 object-cover rounded border"
                         />
                       </div>
                     )}
@@ -287,7 +287,7 @@ export const GoogleSerpSimulator = () => {
           <CardTitle>SERP Features Explained</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Badge className="bg-blue-100 text-blue-800 border-blue-200">🔵 AD</Badge>

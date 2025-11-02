@@ -133,7 +133,7 @@ export const DecimalToHexConverter = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="decimal">Decimal Number</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="decimal"
                 placeholder="Enter decimal number (e.g., 255)"
@@ -145,6 +145,7 @@ export const DecimalToHexConverter = () => {
                 onClick={() => copyToClipboard(decimal)}
                 variant="outline"
                 disabled={!decimal}
+                className="w-full sm:w-auto"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -159,7 +160,7 @@ export const DecimalToHexConverter = () => {
 
           <div className="space-y-2">
             <Label htmlFor="hex">Hexadecimal Number</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="hex"
                 placeholder="Enter hex number (e.g., FF)"
@@ -171,6 +172,7 @@ export const DecimalToHexConverter = () => {
                 onClick={() => copyToClipboard(hex)}
                 variant="outline"
                 disabled={!hex}
+                className="w-full sm:w-auto"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -197,24 +199,24 @@ export const DecimalToHexConverter = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600 mb-2">
+              <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-green-600 mb-2 break-words px-2">
                   {decimal}
                 </div>
-                <div className="text-sm text-muted-foreground">Decimal</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Decimal</div>
               </div>
               
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600 mb-2">
+              <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-2 break-words px-2">
                   {hex}
                 </div>
-                <div className="text-sm text-muted-foreground">Hexadecimal</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Hexadecimal</div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h4 className="font-semibold">Conversion Details</h4>
-              <div className="text-sm space-y-2">
+              <h4 className="font-semibold text-sm sm:text-base">Conversion Details</h4>
+              <div className="text-xs sm:text-sm space-y-2 break-words">
                 <p>
                   <strong>Decimal:</strong> {decimal} (base 10)
                 </p>
@@ -233,9 +235,9 @@ export const DecimalToHexConverter = () => {
               </div>
             </div>
 
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Step-by-Step Conversion</h4>
-              <div className="text-sm space-y-1">
+            <div className="bg-muted p-3 sm:p-4 rounded-lg">
+              <h4 className="font-medium mb-2 text-sm sm:text-base">Step-by-Step Conversion</h4>
+              <div className="text-xs sm:text-sm space-y-1 break-words">
                 {parseInt(decimal) > 0 && (
                   <div>
                     <p className="font-medium">Converting {decimal} to hexadecimal:</p>

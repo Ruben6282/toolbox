@@ -217,11 +217,11 @@ export const HtmlMinifier = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleMinify} disabled={!htmlInput.trim()}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleMinify} disabled={!htmlInput.trim()} className="w-full sm:w-auto">
               Minify HTML
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -235,37 +235,37 @@ export const HtmlMinifier = () => {
             <CardTitle>Minified HTML</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+            <div className="bg-muted p-3 sm:p-4 rounded-lg">
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs sm:text-sm overflow-x-auto">
                 {minifiedHtml}
               </pre>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-blue-600">{originalSize.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Original Size</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-words">{originalSize.toLocaleString()}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Original Size</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-green-600">{minifiedSize.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Minified Size</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-600 break-words">{minifiedSize.toLocaleString()}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Minified Size</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-purple-600">{savings.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Bytes Saved</div>
+                <div className="text-xl sm:text-2xl font-bold text-purple-600 break-words">{savings.toLocaleString()}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Bytes Saved</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-orange-600">{savingsPercent}%</div>
-                <div className="text-sm text-muted-foreground">Reduction</div>
+                <div className="text-xl sm:text-2xl font-bold text-orange-600 break-words">{savingsPercent}%</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Reduction</div>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={copyToClipboard} variant="outline">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={copyToClipboard} variant="outline" className="w-full sm:w-auto">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Minified HTML
               </Button>
-              <Button onClick={downloadMinified} variant="outline">
+              <Button onClick={downloadMinified} variant="outline" className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>

@@ -215,13 +215,13 @@ export const GpaCalculator = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center">
-              <div className={`text-6xl font-bold ${getGPAColor(gpa)} mb-2`}>
+              <div className={`text-4xl sm:text-5xl md:text-6xl font-bold ${getGPAColor(gpa)} mb-2 break-words`}>
                 {gpa.toFixed(2)}
               </div>
-              <div className="text-2xl font-medium text-muted-foreground mb-4">
+              <div className="text-xl sm:text-2xl font-medium text-muted-foreground mb-4">
                 {getGPALetter(gpa)} Grade
               </div>
-              <div className="text-lg text-muted-foreground">
+              <div className="text-base sm:text-lg text-muted-foreground">
                 Grade Point Average
               </div>
             </div>

@@ -81,9 +81,9 @@ export const RandomNumber = () => {
             <CardTitle>Generated Numbers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               {numbers.map((num, i) => (
-                <div key={i} className="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 text-2xl font-bold text-primary">
+                <div key={i} className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 text-lg sm:text-2xl font-bold text-primary break-words">
                   {num}
                 </div>
               ))}

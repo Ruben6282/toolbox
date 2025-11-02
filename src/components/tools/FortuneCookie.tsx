@@ -351,12 +351,12 @@ export const FortuneCookie = () => {
           <CardTitle>Fortune Cookie</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Button onClick={generateFortune} disabled={isGenerating} className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateFortune} disabled={isGenerating} className="w-full sm:w-auto">
               <Cookie className="h-4 w-4 mr-2" />
               {isGenerating ? "Opening Fortune Cookie..." : "Open Fortune Cookie"}
             </Button>
-            <Button onClick={clearFortune} variant="outline">
+            <Button onClick={clearFortune} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -370,14 +370,14 @@ export const FortuneCookie = () => {
             <CardTitle>Your Fortune</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-lg p-8 text-center">
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-lg p-4 sm:p-8 text-center">
               <div className="mb-4">
-                <Sparkles className="h-12 w-12 mx-auto text-yellow-600 mb-4" />
+                <Sparkles className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-yellow-600 mb-4" />
               </div>
-              <blockquote className="text-lg font-medium text-gray-800 italic leading-relaxed">
+              <blockquote className="text-xl sm:text-2xl font-medium text-gray-800 italic leading-relaxed break-words px-2">
                 "{fortune}"
               </blockquote>
-              <div className="mt-6 text-sm text-gray-600">
+              <div className="mt-6 text-xs sm:text-sm text-gray-600">
                 — Fortune Cookie
               </div>
             </div>

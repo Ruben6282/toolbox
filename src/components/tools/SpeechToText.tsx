@@ -154,11 +154,11 @@ export const SpeechToText = () => {
             </Select>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button 
               onClick={startListening} 
               disabled={isListening}
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Mic className="h-4 w-4" />
               Start Listening
@@ -168,7 +168,7 @@ export const SpeechToText = () => {
               onClick={stopListening} 
               disabled={!isListening}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <MicOff className="h-4 w-4" />
               Stop Listening
@@ -212,18 +212,18 @@ export const SpeechToText = () => {
             </div>
           )}
 
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={copyToClipboard} variant="outline" disabled={!transcript}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyToClipboard} variant="outline" disabled={!transcript} className="w-full sm:w-auto">
               <Copy className="h-4 w-4 mr-2" />
               Copy Text
             </Button>
             
-            <Button onClick={downloadTranscript} variant="outline" disabled={!transcript}>
+            <Button onClick={downloadTranscript} variant="outline" disabled={!transcript} className="w-full sm:w-auto">
               <Download className="h-4 w-4 mr-2" />
               Download
             </Button>
             
-            <Button onClick={clearTranscript} variant="outline">
+            <Button onClick={clearTranscript} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>

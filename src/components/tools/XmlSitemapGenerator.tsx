@@ -143,9 +143,9 @@ export const XmlSitemapGenerator = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <Label>URLs ({urls.length} entries)</Label>
-              <Button onClick={addUrl} size="sm">
+              <Button onClick={addUrl} size="sm" className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Add URL
               </Button>
@@ -153,14 +153,15 @@ export const XmlSitemapGenerator = () => {
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {urls.map((urlData, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <h4 className="font-medium">URL {index + 1}</h4>
                     {urls.length > 1 && (
                       <Button
                         onClick={() => removeUrl(index)}
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -242,12 +243,12 @@ export const XmlSitemapGenerator = () => {
             </Button>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateSitemap} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateSitemap} className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Map className="h-4 w-4" />
               Generate Sitemap
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -258,14 +259,14 @@ export const XmlSitemapGenerator = () => {
       {generatedSitemap && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Generated XML Sitemap
-              <div className="flex gap-2">
-                <Button onClick={copyToClipboard} variant="outline" size="sm">
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span>Generated XML Sitemap</span>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={copyToClipboard} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Copy className="h-4 w-4 mr-2" />
                   Copy
                 </Button>
-                <Button onClick={downloadSitemap} variant="outline" size="sm">
+                <Button onClick={downloadSitemap} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
@@ -273,8 +274,8 @@ export const XmlSitemapGenerator = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+            <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
                 {generatedSitemap}
               </pre>
             </div>

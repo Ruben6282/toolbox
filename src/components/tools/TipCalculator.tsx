@@ -124,35 +124,35 @@ export const TipCalculator = () => {
             <CardTitle>Calculation Results</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs sm:text-sm gap-2">
                   <span className="text-muted-foreground">Tip Amount:</span>
-                  <span className="font-medium">${tipAmount.toFixed(2)}</span>
+                  <span className="font-medium break-words text-right">${tipAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs sm:text-sm gap-2">
                   <span className="text-muted-foreground">Total Bill:</span>
-                  <span className="font-medium">${totalBill.toFixed(2)}</span>
+                  <span className="font-medium break-words text-right">${totalBill.toFixed(2)}</span>
                 </div>
               </div>
               
               {numPeople > 1 && (
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Tip per Person:</span>
-                    <span className="font-medium">${tipPerPerson.toFixed(2)}</span>
+                    <span className="font-medium break-words text-right">${tipPerPerson.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Total per Person:</span>
-                    <span className="font-medium">${totalPerPerson.toFixed(2)}</span>
+                    <span className="font-medium break-words text-right">${totalPerPerson.toFixed(2)}</span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Summary</h4>
-              <p className="text-sm text-muted-foreground">
+            <div className="bg-muted p-3 sm:p-4 rounded-lg">
+              <h4 className="font-medium mb-2 text-sm sm:text-base">Summary</h4>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {numPeople === 1 ? (
                   <>
                     You should tip <strong>${tipAmount.toFixed(2)}</strong> ({tipPercent}% of ${bill.toFixed(2)}), 

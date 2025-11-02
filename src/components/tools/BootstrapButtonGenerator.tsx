@@ -272,7 +272,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
           <CardTitle>Button Preview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-center items-center p-8 bg-gray-100 rounded-lg">
+          <div className="flex justify-center items-center p-4 sm:p-8 bg-gray-100 rounded-lg">
             <button
               className={getPreviewButtonClass()}
               disabled={buttonDisabled}
@@ -290,7 +290,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Bootstrap Classes</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={generateBootstrapClasses()}
                 readOnly
@@ -299,6 +299,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
               <Button
                 onClick={() => copyToClipboard(generateBootstrapClasses())}
                 variant="outline"
+                className="w-full sm:w-auto"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -307,7 +308,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
 
           <div className="space-y-2">
             <Label>HTML Code</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={generateHTML()}
                 readOnly
@@ -316,6 +317,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
               <Button
                 onClick={() => copyToClipboard(generateHTML())}
                 variant="outline"
+                className="w-full sm:w-auto"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -324,7 +326,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
 
           <div className="space-y-2">
             <Label>CSS (Optional)</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={generateCSS()}
                 readOnly
@@ -333,6 +335,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
               <Button
                 onClick={() => copyToClipboard(generateCSS())}
                 variant="outline"
+                className="w-full sm:w-auto"
               >
                 <Copy className="h-4 w-4" />
               </Button>

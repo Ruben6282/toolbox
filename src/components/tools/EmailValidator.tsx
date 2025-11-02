@@ -106,20 +106,20 @@ export const EmailValidator = () => {
 
         {result && (
           <div
-            className={`rounded-lg border-2 p-6 transition-all duration-300 ${
+            className={`rounded-lg border-2 p-4 sm:p-6 transition-all duration-300 ${
               result.valid
                 ? "border-green-500 bg-green-500/10"
                 : "border-red-500 bg-red-500/10"
             }`}
           >
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
               {result.valid ? (
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-500" />
               ) : (
-                <XCircle className="h-8 w-8 text-red-500" />
+                <XCircle className="h-7 w-7 sm:h-8 sm:w-8 text-red-500" />
               )}
               <div
-                className={`text-xl font-semibold ${
+                className={`text-lg sm:text-xl font-semibold break-words ${
                   result.valid ? "text-green-600" : "text-red-600"
                 }`}
               >
@@ -128,12 +128,12 @@ export const EmailValidator = () => {
             </div>
 
             <div className="space-y-2">
-              <h4 className="font-semibold text-sm text-muted-foreground">
+              <h4 className="font-semibold text-xs sm:text-sm text-muted-foreground">
                 Validation details:
               </h4>
               <ul className="space-y-1">
                 {result.details.map((detail, index) => (
-                  <li key={index} className="text-sm flex items-center gap-2">
+                  <li key={index} className="text-xs sm:text-sm flex items-center gap-2 break-words">
                     <div
                       className={`h-1.5 w-1.5 rounded-full ${
                         result.valid ? "bg-green-500" : "bg-red-500"

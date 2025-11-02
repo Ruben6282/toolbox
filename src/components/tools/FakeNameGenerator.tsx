@@ -158,13 +158,13 @@ export const FakeNameGenerator = () => {
   };
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Fake Name Generator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
               <Select value={gender} onValueChange={setGender}>
@@ -206,12 +206,12 @@ export const FakeNameGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateNames} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <Button onClick={generateNames} className="flex items-center gap-2 w-full sm:w-auto">
               <Shuffle className="h-4 w-4" />
               Generate Names
             </Button>
-            <Button onClick={clearNames} variant="outline">
+            <Button onClick={clearNames} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -222,17 +222,17 @@ export const FakeNameGenerator = () => {
       {generatedNames.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-base sm:text-lg">
                 <Users className="h-5 w-5" />
                 Generated Names ({generatedNames.length})
               </span>
-              <div className="flex gap-2">
-                <Button onClick={copyAllNames} variant="outline" size="sm">
+              <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={copyAllNames} variant="outline" size="sm" className="w-full xs:w-auto">
                   <Copy className="h-4 w-4 mr-2" />
                   Copy All
                 </Button>
-                <Button onClick={downloadNames} variant="outline" size="sm">
+                <Button onClick={downloadNames} variant="outline" size="sm" className="w-full xs:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download CSV
                 </Button>
@@ -243,32 +243,31 @@ export const FakeNameGenerator = () => {
             <div className="space-y-4">
               {generatedNames.map((name, index) => (
                 <div key={index} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex-1 w-full">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="text-base sm:text-lg font-semibold break-words">
                           {name.firstName} {name.lastName}
                         </h3>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs sm:text-sm px-2 py-1">
                           {name.gender}
                         </Badge>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs sm:text-sm px-2 py-1">
                           Age: {name.age}
                         </Badge>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                        <div><strong>Email:</strong> {name.email}</div>
-                        <div><strong>Username:</strong> {name.username}</div>
-                        <div><strong>Phone:</strong> {name.phone}</div>
-                        <div><strong>Address:</strong> {name.address}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm break-words">
+                        <div className="break-all"><strong>Email:</strong> {name.email}</div>
+                        <div className="break-all"><strong>Username:</strong> {name.username}</div>
+                        <div className="break-all"><strong>Phone:</strong> {name.phone}</div>
+                        <div className="break-all"><strong>Address:</strong> {name.address}</div>
                       </div>
                     </div>
-                    
                     <Button 
                       onClick={() => copyName(name)} 
                       variant="outline" 
                       size="sm"
+                      className="mt-2 sm:mt-0 w-full sm:w-auto"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -285,7 +284,7 @@ export const FakeNameGenerator = () => {
           <CardTitle>Use Cases</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
             <div>
               <h4 className="font-semibold mb-2">Development & Testing:</h4>
               <ul className="space-y-1 text-muted-foreground">
@@ -313,7 +312,7 @@ export const FakeNameGenerator = () => {
           <CardTitle>Important Notes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <p>• These are randomly generated names and do not represent real people</p>
             <p>• Use responsibly and in accordance with applicable laws and regulations</p>
             <p>• Do not use for fraudulent purposes or identity theft</p>

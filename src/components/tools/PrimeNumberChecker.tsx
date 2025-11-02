@@ -160,15 +160,15 @@ export const PrimeNumberChecker = () => {
         {result && checkedNumber && (
           <div className="space-y-4">
             <div
-              className={`rounded-lg border-2 p-6 text-center ${
+              className={`rounded-lg border-2 p-4 sm:p-6 text-center ${
                 result.isPrime
                   ? "border-green-500 bg-green-500/10"
                   : "border-primary bg-primary/10"
               }`}
             >
-              <div className="text-4xl font-bold mb-2">{checkedNumber}</div>
+              <div className="text-3xl sm:text-4xl font-bold mb-2 break-words px-2">{checkedNumber}</div>
               <div
-                className={`text-xl font-semibold ${
+                className={`text-lg sm:text-xl font-semibold ${
                   result.isPrime ? "text-green-500" : "text-primary"
                 }`}
               >
@@ -179,19 +179,19 @@ export const PrimeNumberChecker = () => {
             </div>
 
             {result.factors && (
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="font-semibold mb-2">Factors of {checkedNumber}:</h3>
+              <div className="rounded-lg bg-muted p-3 sm:p-4">
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">Factors of {checkedNumber}:</h3>
                 <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
                   {result.factors.map((factor) => (
                     <span
                       key={factor.toString()}
-                      className="rounded bg-primary/20 px-3 py-1 text-sm font-medium"
+                      className="rounded bg-primary/20 px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium break-words"
                     >
                       {factor.toString()}
                     </span>
                   ))}
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
                   Total factors: {result.factors.length}
                 </p>
               </div>

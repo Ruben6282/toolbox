@@ -76,11 +76,12 @@ export const ImageGrayscale = () => {
           case "blue":
             gray = b;
             break;
-          case "desaturate":
+          case "desaturate": {
             const max = Math.max(r, g, b);
             const min = Math.min(r, g, b);
             gray = Math.round((max + min) / 2);
             break;
+          }
           default:
             gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
         }
@@ -134,7 +135,7 @@ export const ImageGrayscale = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="image-upload">Upload Image</Label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Input
                 id="image-upload"
                 type="file"
@@ -142,7 +143,7 @@ export const ImageGrayscale = () => {
                 onChange={handleImageUpload}
                 className="flex-1"
               />
-              <Button variant="outline" onClick={clearImage}>
+              <Button variant="outline" onClick={clearImage} className="w-full sm:w-auto">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Clear
               </Button>
@@ -208,16 +209,16 @@ export const ImageGrayscale = () => {
           </div>
 
           {selectedImage && (
-            <div className="flex gap-2">
-              <Button onClick={convertToGrayscale} className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={convertToGrayscale} className="flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Palette className="h-4 w-4" />
                 Convert to Grayscale
               </Button>
-              <Button onClick={downloadGrayscaleImage} variant="outline" className="flex items-center gap-2">
+              <Button onClick={downloadGrayscaleImage} variant="outline" className="flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Download className="h-4 w-4" />
                 Download
               </Button>
-              <Button onClick={resetSettings} variant="outline">
+              <Button onClick={resetSettings} variant="outline" className="w-full sm:w-auto">
                 Reset Settings
               </Button>
             </div>

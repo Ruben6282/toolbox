@@ -214,50 +214,50 @@ export const CompoundInterestCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-words px-2">
                   ${result.finalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-muted-foreground">Final Amount</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Final Amount</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-words px-2">
                   ${result.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Interest</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Interest</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-words px-2">
                   ${result.totalContributions.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Contributions</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Contributions</div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="font-semibold">Breakdown</h4>
+              <div className="space-y-3">
+              <h4 className="font-semibold text-sm sm:text-base">Breakdown</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Initial Investment:</span>
-                    <span className="font-medium">${principalAmount.toLocaleString()}</span>
+                    <span className="font-medium break-words text-right">${principalAmount.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Compound Growth:</span>
-                    <span className="font-medium">${result.compoundAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    <span className="font-medium break-words text-right">${result.compoundAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
                 
                 {additional > 0 && (
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
                       <span className="text-muted-foreground">Additional Contributions:</span>
-                      <span className="font-medium">${(additional * (contributionFrequency === "monthly" ? 12 : contributionFrequency === "weekly" ? 52 : contributionFrequency === "daily" ? 365 : 1) * (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <span className="font-medium break-words text-right">${(additional * (contributionFrequency === "monthly" ? 12 : contributionFrequency === "weekly" ? 52 : contributionFrequency === "daily" ? 365 : 1) * (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-xs sm:text-sm gap-2">
                       <span className="text-muted-foreground">Contribution Growth:</span>
-                      <span className="font-medium">${result.contributionAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <span className="font-medium break-words text-right">${result.contributionAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 )}

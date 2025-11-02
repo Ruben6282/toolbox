@@ -126,14 +126,15 @@ export const CanonicalUrlGenerator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="current-url">Add URL to List</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="current-url"
                 placeholder="https://example.com/duplicate-page"
                 value={currentUrl}
                 onChange={(e) => setCurrentUrl(e.target.value)}
+                className="flex-1"
               />
-              <Button onClick={addUrl} disabled={!currentUrl.trim()}>
+              <Button onClick={addUrl} disabled={!currentUrl.trim()} className="w-full sm:w-auto">
                 Add
               </Button>
             </div>
@@ -147,12 +148,13 @@ export const CanonicalUrlGenerator = () => {
               <Label>URL List ({urls.length} URLs)</Label>
               <div className="max-h-40 overflow-y-auto border rounded-lg p-3 space-y-2">
                 {urls.map((url, index) => (
-                  <div key={index} className="flex items-center justify-between bg-muted p-2 rounded">
-                    <span className="text-sm font-mono flex-1 truncate">{url}</span>
+                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-muted p-2 rounded">
+                    <span className="text-xs sm:text-sm font-mono flex-1 truncate break-all">{url}</span>
                     <Button
                       onClick={() => removeUrl(index)}
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                     >
                       Remove
                     </Button>
@@ -162,18 +164,18 @@ export const CanonicalUrlGenerator = () => {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button onClick={generateCanonicalTags} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateCanonicalTags} className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Link className="h-4 w-4" />
               Generate Single Canonical
             </Button>
             {urls.length > 0 && (
-              <Button onClick={generateBulkCanonicals} variant="outline" className="flex items-center gap-2">
+              <Button onClick={generateBulkCanonicals} variant="outline" className="flex items-center justify-center gap-2 w-full sm:w-auto">
                 <Link className="h-4 w-4" />
                 Generate Bulk Canonicals
               </Button>
             )}
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -184,14 +186,14 @@ export const CanonicalUrlGenerator = () => {
       {generatedCanonicals && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Generated Canonical Tags
-              <div className="flex gap-2">
-                <Button onClick={copyToClipboard} variant="outline" size="sm">
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span>Generated Canonical Tags</span>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button onClick={copyToClipboard} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Copy className="h-4 w-4 mr-2" />
                   Copy
                 </Button>
-                <Button onClick={downloadCanonicals} variant="outline" size="sm">
+                <Button onClick={downloadCanonicals} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
@@ -199,8 +201,8 @@ export const CanonicalUrlGenerator = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+            <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
                 {generatedCanonicals}
               </pre>
             </div>

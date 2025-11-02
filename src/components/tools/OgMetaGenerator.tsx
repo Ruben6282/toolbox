@@ -261,16 +261,16 @@ export const OgMetaGenerator = () => {
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={copyToClipboard} className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyToClipboard} className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Copy className="h-4 w-4" />
               Copy Meta Tags
             </Button>
-            <Button onClick={downloadOgMeta} variant="outline" className="flex items-center gap-2">
+            <Button onClick={downloadOgMeta} variant="outline" className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Download className="h-4 w-4" />
               Download
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -284,16 +284,16 @@ export const OgMetaGenerator = () => {
             <CardTitle>Social Media Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg p-4 bg-white">
+            <div className="border rounded-lg p-3 sm:p-4 bg-white">
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 break-all">
                   <span>{previewUrl}</span>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg text-blue-600 hover:underline cursor-pointer">
+                  <h3 className="font-semibold text-base sm:text-lg text-blue-600 hover:underline cursor-pointer break-words">
                     {previewTitle}
                   </h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words">
                     {previewDescription}
                   </p>
                 </div>
@@ -301,7 +301,7 @@ export const OgMetaGenerator = () => {
                   <img
                     src={previewImage}
                     alt={formData.imageAlt || "Preview image"}
-                    className="w-full h-48 object-cover rounded"
+                    className="w-full h-32 sm:h-48 object-cover rounded"
                     onError={(e) => {
                       e.currentTarget.src = "https://via.placeholder.com/1200x630/4F46E5/FFFFFF?text=Image+Not+Found";
                     }}
@@ -317,8 +317,8 @@ export const OgMetaGenerator = () => {
             <CardTitle>Generated Meta Tags</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-4 rounded-lg">
-              <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+            <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+              <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
                 {generateOgMeta()}
               </pre>
             </div>

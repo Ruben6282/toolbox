@@ -166,24 +166,24 @@ export const FuelCostCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-words px-2">
                   {result.fuelNeeded.toFixed(2)} {unitSystem === "metric" ? "L" : "gal"}
                 </div>
-                <div className="text-sm text-muted-foreground">Fuel Needed</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Fuel Needed</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-words px-2">
                   {getCurrencySymbol()}{result.totalCost.toFixed(2)}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Cost</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Cost</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-words px-2">
                   {getCurrencySymbol()}{result.costPerKm.toFixed(3)}
                 </div>
-                <div className="text-sm text-muted-foreground">Cost per km</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Cost per km</div>
               </div>
             </div>
 

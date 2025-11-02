@@ -116,41 +116,41 @@ export const DiscountCalculator = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex justify-between">
+              <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Original Price:</span>
-                <span className="font-medium">${price.toFixed(2)}</span>
+                <span className="font-medium break-words text-right">${price.toFixed(2)}</span>
               </div>
               
-              <div className="flex justify-between">
+              <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Discount Amount:</span>
-                <span className="font-medium text-green-600">-${discountAmount.toFixed(2)}</span>
+                <span className="font-medium text-green-600 break-words text-right">-${discountAmount.toFixed(2)}</span>
               </div>
               
-              <div className="flex justify-between">
+              <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Discounted Price:</span>
-                <span className="font-medium">${discountedPrice.toFixed(2)}</span>
+                <span className="font-medium break-words text-right">${discountedPrice.toFixed(2)}</span>
               </div>
 
               {tax > 0 && (
                 <>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Tax ({tax}%):</span>
-                    <span className="font-medium">+${taxAmount.toFixed(2)}</span>
+                    <span className="font-medium break-words text-right">+${taxAmount.toFixed(2)}</span>
                   </div>
                   
-                  <div className="flex justify-between border-t pt-2">
+                  <div className="flex justify-between border-t pt-2 text-xs sm:text-sm gap-2">
                     <span className="font-semibold">Final Price:</span>
-                    <span className="font-bold text-lg">${finalPrice.toFixed(2)}</span>
+                    <span className="font-bold text-base sm:text-lg break-words text-right">${finalPrice.toFixed(2)}</span>
                   </div>
                 </>
               )}
 
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex justify-between">
-                  <span className="text-green-800 font-medium">You Save:</span>
-                  <span className="text-green-800 font-bold text-lg">${savings.toFixed(2)}</span>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-green-800 font-medium text-xs sm:text-sm">You Save:</span>
+                  <span className="text-green-800 font-bold text-base sm:text-lg break-words">${savings.toFixed(2)}</span>
                 </div>
-                <div className="text-sm text-green-700 mt-1">
+                <div className="text-xs sm:text-sm text-green-700 mt-1">
                   {discountType === "percentage" 
                     ? `${discount}% off` 
                     : `${((discountAmount / price) * 100).toFixed(1)}% off`

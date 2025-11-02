@@ -128,7 +128,7 @@ export const UrlSafetyChecker = () => {
   };
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>URL Safety Checker</CardTitle>
@@ -144,16 +144,16 @@ export const UrlSafetyChecker = () => {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button 
               onClick={checkUrlSafety} 
               disabled={isChecking || !url.trim()}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto"
             >
               <Shield className="h-4 w-4" />
               {isChecking ? "Checking..." : "Check Safety"}
             </Button>
-            <Button onClick={clearResults} variant="outline">
+            <Button onClick={clearResults} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -173,25 +173,25 @@ export const UrlSafetyChecker = () => {
       {result && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Shield className="h-5 w-5" />
               Safety Analysis Results
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg gap-2">
+              <div className="flex items-center gap-3 w-full min-w-0">
                 {getSafetyIcon(result.isSafe)}
-                <div>
-                  <div className="font-semibold">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm sm:text-base">
                     {result.isSafe ? "Safe to Visit" : "Potentially Unsafe"}
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs sm:text-sm text-muted-foreground break-all">
                     {result.url}
                   </div>
                 </div>
               </div>
-              <Badge className={getRiskColor(result.riskLevel)}>
+              <Badge className={getRiskColor(result.riskLevel) + " text-xs sm:text-sm px-2 py-1 whitespace-nowrap"}>
                 <div className="flex items-center gap-1">
                   {getRiskIcon(result.riskLevel)}
                   {result.riskLevel.toUpperCase()} RISK
@@ -199,25 +199,25 @@ export const UrlSafetyChecker = () => {
               </Badge>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-3">
-                <h4 className="font-semibold">URL Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
+                <h4 className="font-semibold text-sm sm:text-base">URL Details</h4>
+                <div className="space-y-2 text-xs sm:text-sm">
+                  <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Domain:</span>
-                    <span className="font-mono">{result.details.domain}</span>
+                    <span className="font-mono break-all">{result.details.domain}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Protocol:</span>
-                    <span className="font-mono">{result.details.protocol}</span>
+                    <span className="font-mono break-all">{result.details.protocol}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">SSL Certificate:</span>
                     <span className={result.details.hasSSL ? "text-green-600" : "text-red-600"}>
                       {result.details.hasSSL ? "Yes" : "No"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Reputation:</span>
                     <span className={result.details.reputation === 'Good' ? "text-green-600" : "text-red-600"}>
                       {result.details.reputation}
@@ -227,19 +227,19 @@ export const UrlSafetyChecker = () => {
               </div>
 
               <div className="space-y-3">
-                <h4 className="font-semibold">Security Analysis</h4>
+                <h4 className="font-semibold text-sm sm:text-base">Security Analysis</h4>
                 {result.threats.length > 0 ? (
                   <div className="space-y-2">
-                    <div className="text-sm text-red-600 font-medium">Detected Threats:</div>
+                    <div className="text-xs sm:text-sm text-red-600 font-medium">Detected Threats:</div>
                     {result.threats.map((threat, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
+                      <div key={index} className="flex items-center gap-2 text-xs sm:text-sm">
                         <XCircle className="h-3 w-3 text-red-600" />
                         <span>{threat}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-green-600">
                     <CheckCircle className="h-3 w-3" />
                     <span>No threats detected</span>
                   </div>
@@ -247,9 +247,9 @@ export const UrlSafetyChecker = () => {
 
                 {result.details.suspiciousPatterns.length > 0 && (
                   <div className="space-y-2">
-                    <div className="text-sm text-yellow-600 font-medium">Suspicious Patterns:</div>
+                    <div className="text-xs sm:text-sm text-yellow-600 font-medium">Suspicious Patterns:</div>
                     {result.details.suspiciousPatterns.map((pattern, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
+                      <div key={index} className="flex items-center gap-2 text-xs sm:text-sm">
                         <AlertTriangle className="h-3 w-3 text-yellow-600" />
                         <span>{pattern}</span>
                       </div>
@@ -259,11 +259,11 @@ export const UrlSafetyChecker = () => {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Button 
                 onClick={() => window.open(result.url, '_blank')} 
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 w-full sm:w-auto"
               >
                 <ExternalLink className="h-4 w-4" />
                 Visit URL
@@ -280,8 +280,8 @@ export const UrlSafetyChecker = () => {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h4 className="font-semibold mb-2">Before Clicking:</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-2 text-xs sm:text-sm">Before Clicking:</h4>
+              <ul className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                 <li>• Check the URL for typos or suspicious characters</li>
                 <li>• Look for HTTPS encryption (lock icon in browser)</li>
                 <li>• Be cautious with shortened URLs</li>
@@ -290,8 +290,8 @@ export const UrlSafetyChecker = () => {
             </div>
             
             <div>
-              <h4 className="font-semibold mb-2">Red Flags to Watch For:</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-2 text-xs sm:text-sm">Red Flags to Watch For:</h4>
+              <ul className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                 <li>• URLs with random characters or numbers</li>
                 <li>• Suspicious domain extensions</li>
                 <li>• Requests for personal information</li>
@@ -301,8 +301,8 @@ export const UrlSafetyChecker = () => {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-2">Best Practices:</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-2 text-xs sm:text-sm">Best Practices:</h4>
+              <ul className="space-y-1 text-xs sm:text-sm text-muted-foreground">
                 <li>• Use reputable antivirus software</li>
                 <li>• Keep your browser and OS updated</li>
                 <li>• Enable browser security features</li>
@@ -319,7 +319,7 @@ export const UrlSafetyChecker = () => {
           <CardTitle>Disclaimer</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <p>• This tool provides basic URL safety analysis and should not be the only security measure</p>
             <p>• Results are for informational purposes only and may not be 100% accurate</p>
             <p>• Always use your best judgment when visiting unfamiliar websites</p>

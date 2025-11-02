@@ -45,10 +45,10 @@ export const UrlEncoder = () => {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
-        <Button onClick={encode}>Encode</Button>
-        <Button onClick={decode} variant="secondary">Decode</Button>
-        {output && <Button onClick={copyToClipboard} variant="outline">Copy Output</Button>}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button onClick={encode} className="w-full sm:w-auto">Encode</Button>
+        <Button onClick={decode} variant="secondary" className="w-full sm:w-auto">Decode</Button>
+        {output && <Button onClick={copyToClipboard} variant="outline" className="w-full sm:w-auto">Copy Output</Button>}
       </div>
 
       {output && (

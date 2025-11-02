@@ -231,23 +231,23 @@ export const CalorieCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-words px-2">
                   {bmr}
                 </div>
-                <div className="text-sm text-muted-foreground">BMR (Basal Metabolic Rate)</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">BMR (Basal Metabolic Rate)</div>
                 <div className="text-xs text-muted-foreground">Calories at rest</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-words px-2">
                   {tdee}
                 </div>
-                <div className="text-sm text-muted-foreground">TDEE (Total Daily Energy Expenditure)</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">TDEE (Total Daily Energy Expenditure)</div>
                 <div className="text-xs text-muted-foreground">Calories with activity</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-words px-2">
                   {calorieNeeds}
                 </div>
                 <div className="text-sm text-muted-foreground">Daily Calorie Target</div>

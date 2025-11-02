@@ -344,16 +344,16 @@ export const MetaTagGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={copyToClipboard} className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={copyToClipboard} className="flex-1 w-full sm:w-auto">
               <Copy className="h-4 w-4 mr-2" />
               Copy Meta Tags
             </Button>
-            <Button onClick={downloadMetaTags} variant="outline">
+            <Button onClick={downloadMetaTags} variant="outline" className="w-full sm:w-auto">
               <Download className="h-4 w-4 mr-2" />
               Download HTML
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -366,8 +366,8 @@ export const MetaTagGenerator = () => {
           <CardTitle>Generated Meta Tags</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-muted p-4 rounded-lg">
-            <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
+          <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+            <pre className="whitespace-pre-wrap font-mono text-xs sm:text-sm break-words">
               {generateMetaTags()}
             </pre>
           </div>

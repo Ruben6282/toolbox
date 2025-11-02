@@ -121,15 +121,15 @@ export const TimeZoneConverter = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Time Zone Converter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="input-date">Date</Label>
+              <Label htmlFor="input-date" className="text-xs sm:text-sm">Date</Label>
               <Input
                 id="input-date"
                 type="date"
@@ -139,7 +139,7 @@ export const TimeZoneConverter = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="input-time">Time</Label>
+              <Label htmlFor="input-time" className="text-xs sm:text-sm">Time</Label>
               <Input
                 id="input-time"
                 type="time"
@@ -149,9 +149,9 @@ export const TimeZoneConverter = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="from-timezone">From Time Zone</Label>
+              <Label htmlFor="from-timezone" className="text-xs sm:text-sm">From Time Zone</Label>
               <Select value={fromTimeZone} onValueChange={setFromTimeZone}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select time zone" />
@@ -167,7 +167,7 @@ export const TimeZoneConverter = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="to-timezone">To Time Zone</Label>
+              <Label htmlFor="to-timezone" className="text-xs sm:text-sm">To Time Zone</Label>
               <Select value={toTimeZone} onValueChange={setToTimeZone}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select time zone" />
@@ -183,18 +183,18 @@ export const TimeZoneConverter = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={convertTime} disabled={!inputDate || !inputTime}>
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <Button onClick={convertTime} disabled={!inputDate || !inputTime} className="w-full sm:w-auto">
               Convert Time
             </Button>
-            <Button onClick={swapTimeZones} variant="outline">
+            <Button onClick={swapTimeZones} variant="outline" className="w-full sm:w-auto">
               <ArrowLeftRight className="h-4 w-4 mr-2" />
               Swap
             </Button>
-            <Button onClick={setCurrentDateTime} variant="outline">
+            <Button onClick={setCurrentDateTime} variant="outline" className="w-full sm:w-auto">
               Use Current Time
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -208,9 +208,9 @@ export const TimeZoneConverter = () => {
             <CardTitle>Converted Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-muted p-6 rounded-lg text-center">
-              <div className="text-2xl font-bold mb-2">{convertedTime}</div>
-              <p className="text-muted-foreground">
+            <div className="bg-muted p-4 sm:p-6 rounded-lg text-center">
+              <div className="text-xl sm:text-2xl font-bold mb-2 break-all">{convertedTime}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground break-words">
                 {timeZones.find(tz => tz.name === toTimeZone)?.label}
               </p>
             </div>
@@ -218,14 +218,14 @@ export const TimeZoneConverter = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Current Time - {timeZones.find(tz => tz.name === fromTimeZone)?.label}</CardTitle>
+            <CardTitle className="text-sm sm:text-base break-words">Current Time - {timeZones.find(tz => tz.name === fromTimeZone)?.label}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center">
-              <div className="text-2xl font-bold">
+              <div className="text-lg sm:text-2xl font-bold break-all">
                 {getCurrentTimeInZone(fromTimeZone)}
               </div>
             </div>
@@ -234,11 +234,11 @@ export const TimeZoneConverter = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Current Time - {timeZones.find(tz => tz.name === toTimeZone)?.label}</CardTitle>
+            <CardTitle className="text-sm sm:text-base break-words">Current Time - {timeZones.find(tz => tz.name === toTimeZone)?.label}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center">
-              <div className="text-2xl font-bold">
+              <div className="text-lg sm:text-2xl font-bold break-all">
                 {getCurrentTimeInZone(toTimeZone)}
               </div>
             </div>
@@ -251,7 +251,7 @@ export const TimeZoneConverter = () => {
           <CardTitle>Time Zone Tips</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+          <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <li>• Always specify the time zone when scheduling international meetings</li>
             <li>• Consider daylight saving time changes when converting times</li>
             <li>• Use 24-hour format for clarity in international communications</li>

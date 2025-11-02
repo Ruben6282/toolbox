@@ -146,12 +146,12 @@ export const RoiCalculator = () => {
             <CardTitle>ROI Calculation Results</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={`p-6 rounded-lg border ${getROIBgColor(result.roi)}`}>
+            <div className={`p-4 sm:p-6 rounded-lg border ${getROIBgColor(result.roi)}`}>
               <div className="text-center">
-                <div className={`text-4xl font-bold ${getROIColor(result.roi)} mb-2`}>
+                <div className={`text-3xl sm:text-4xl font-bold ${getROIColor(result.roi)} mb-2 break-words`}>
                   {result.roi > 0 ? '+' : ''}{result.roi.toFixed(2)}%
                 </div>
-                <div className="text-lg font-medium text-muted-foreground">
+                <div className="text-base sm:text-lg font-medium text-muted-foreground">
                   Return on Investment
                 </div>
               </div>
@@ -159,24 +159,24 @@ export const RoiCalculator = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-words px-2">
                   ${(initial + additional).toLocaleString()}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Invested</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Invested</div>
               </div>
               
               <div className="text-center">
-                <div className={`text-2xl font-bold ${getROIColor(result.totalReturn)}`}>
+                <div className={`text-xl sm:text-2xl font-bold ${getROIColor(result.totalReturn)} break-words px-2`}>
                   {result.totalReturn > 0 ? '+' : ''}${result.totalReturn.toLocaleString()}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Return</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Return</div>
               </div>
               
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
+                <div className="text-xl sm:text-2xl font-bold text-purple-600 break-words px-2">
                   {result.annualizedROI > 0 ? '+' : ''}{result.annualizedROI.toFixed(2)}%
                 </div>
-                <div className="text-sm text-muted-foreground">Annualized ROI</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Annualized ROI</div>
               </div>
             </div>
 
