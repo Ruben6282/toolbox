@@ -6,13 +6,47 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mic, MicOff, Copy, RotateCcw, Download } from "lucide-react";
 
+// Minimal typings for Web Speech API to avoid relying on lib.dom SpeechRecognition types
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+interface RecognitionAlternativeLike {
+  transcript: string;
+}
+
+interface RecognitionResultLike {
+  isFinal: boolean;
+  [index: number]: RecognitionAlternativeLike;
+}
+
+interface RecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<RecognitionResultLike>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: RecognitionEventLike) => void) | null;
+  onstart: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type WebkitWindow = Window & {
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  SpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 export const SpeechToText = () => {
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [language, setLanguage] = useState("en-US");
   const [interimTranscript, setInterimTranscript] = useState("");
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const languages = [
     { code: "en-US", name: "English (US)" },
@@ -31,10 +65,11 @@ export const SpeechToText = () => {
 
   useEffect(() => {
     // Check if speech recognition is supported
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    const W = window as WebkitWindow;
+    const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
+    if (SR) {
       setIsSupported(true);
-      const recognition = new SpeechRecognition();
+      const recognition = new SR();
       recognitionRef.current = recognition;
 
       recognition.continuous = true;
@@ -45,27 +80,28 @@ export const SpeechToText = () => {
         setIsListening(true);
       };
 
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: RecognitionEventLike) => {
         let finalTranscript = "";
-        let interimTranscript = "";
+        let interimTxt = "";
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+          const result = event.results[i];
+          const alt = result[0];
+          const piece = alt?.transcript ?? "";
+          if (result.isFinal) {
+            finalTranscript += piece;
           } else {
-            interimTranscript += transcript;
+            interimTxt += piece;
           }
         }
 
         if (finalTranscript) {
           setTranscript(prev => prev + finalTranscript + " ");
         }
-        setInterimTranscript(interimTranscript);
+        setInterimTranscript(interimTxt);
       };
 
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
+      recognition.onerror = () => {
         setIsListening(false);
       };
 

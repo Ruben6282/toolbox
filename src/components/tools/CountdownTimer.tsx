@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, RotateCcw, Clock, Bell, Volume2 } from "lucide-react";
+import { Play, Pause, RotateCcw, Clock, Bell } from "lucide-react";
 import { toast } from "sonner";
 
 export const CountdownTimer = () => {
@@ -13,6 +13,7 @@ export const CountdownTimer = () => {
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,31 +48,56 @@ export const CountdownTimer = () => {
   }, [isRunning, timeLeft, soundEnabled]);
 
   const playAlertSound = () => {
-    // Create a simple beep sound
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Create a simple beep sound using Web Audio API with a typed fallback for older browsers
+    const AudioCtx = (
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    ) as typeof AudioContext | undefined;
+
+    if (!AudioCtx) {
+      // Web Audio API not supported
+      return;
+    }
+
+    const audioContext = new AudioCtx();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    
+
     oscillator.frequency.value = 800;
     oscillator.type = 'sine';
-    
+
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-    
+
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
   };
 
   const startTimer = () => {
-    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    if (totalSeconds <= 0) {
+    const inputTotalSeconds = hours * 3600 + minutes * 60 + seconds;
+
+    // Resume if paused and there is remaining time
+    if (!isRunning && timeLeft > 0) {
+      // If inputs were changed to a different value, start a fresh countdown
+      if (inputTotalSeconds > 0 && inputTotalSeconds !== totalDuration) {
+        setTimeLeft(inputTotalSeconds);
+        setTotalDuration(inputTotalSeconds);
+      }
+      setIsRunning(true);
+      setShowAlert(false);
+      return;
+    }
+
+    // Start new countdown
+    if (inputTotalSeconds <= 0) {
       toast.error("Please set a valid time!");
       return;
     }
-    setTimeLeft(totalSeconds);
+    setTimeLeft(inputTotalSeconds);
+    setTotalDuration(inputTotalSeconds);
     setIsRunning(true);
     setShowAlert(false);
   };
@@ -83,6 +109,7 @@ export const CountdownTimer = () => {
   const resetTimer = () => {
     setIsRunning(false);
     setTimeLeft(0);
+    setTotalDuration(0);
     setShowAlert(false);
   };
 
@@ -94,9 +121,8 @@ export const CountdownTimer = () => {
   };
 
   const getProgressPercentage = () => {
-    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    if (totalSeconds === 0) return 0;
-    return ((totalSeconds - timeLeft) / totalSeconds) * 100;
+    if (totalDuration === 0) return 0;
+    return ((totalDuration - timeLeft) / totalDuration) * 100;
   };
 
   return (
@@ -160,7 +186,7 @@ export const CountdownTimer = () => {
             {!isRunning ? (
               <Button onClick={startTimer} className="flex items-center gap-2 w-full sm:w-auto">
                 <Play className="h-4 w-4" />
-                Start Timer
+                {timeLeft > 0 ? 'Resume' : 'Start Timer'}
               </Button>
             ) : (
               <Button onClick={pauseTimer} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
