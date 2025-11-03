@@ -123,12 +123,12 @@ export const GoogleSerpSimulator = () => {
 
   const getResultTypeColor = (type: string) => {
     switch (type) {
-      case 'ad': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'featured': return 'bg-green-100 text-green-800 border-green-200';
-      case 'local': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'image': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'video': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'ad': return 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      case 'featured': return 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800';
+      case 'local': return 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+      case 'image': return 'bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800';
+      case 'video': return 'bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800';
+      default: return 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700';
     }
   };
 
@@ -144,14 +144,14 @@ export const GoogleSerpSimulator = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Google SERP Simulator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="search-query">Search Query</Label>
+            <Label htmlFor="search-query" className="text-xs sm:text-sm">Search Query</Label>
             <Input
               id="search-query"
               placeholder="Enter your search query..."
@@ -160,9 +160,9 @@ export const GoogleSerpSimulator = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="location">Location (optional)</Label>
+              <Label htmlFor="location" className="text-xs sm:text-sm">Location (optional)</Label>
               <Input
                 id="location"
                 placeholder="City, State or Country"
@@ -172,7 +172,7 @@ export const GoogleSerpSimulator = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="device">Device Type</Label>
+              <Label htmlFor="device" className="text-xs sm:text-sm">Device Type</Label>
               <Select value={device} onValueChange={setDevice}>
                 <SelectTrigger>
                   <SelectValue />
@@ -186,7 +186,7 @@ export const GoogleSerpSimulator = () => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button 
               onClick={generateSerpResults} 
               disabled={isLoading || !query.trim()}
@@ -205,7 +205,7 @@ export const GoogleSerpSimulator = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground">Generating SERP results...</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">Generating SERP results...</span>
               </div>
             </div>
           )}
@@ -215,9 +215,9 @@ export const GoogleSerpSimulator = () => {
       {results.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Search Results for "{query}"
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg break-words">
+              <Search className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="break-words">Search Results for "{query}"</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -225,10 +225,10 @@ export const GoogleSerpSimulator = () => {
               {results.map((result, index) => (
                 <div key={index} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors">
                   <div className="flex flex-col lg:flex-row items-start justify-between gap-3">
-                    <div className="flex-1 w-full">
+                    <div className="flex-1 w-full min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-xs sm:text-sm text-muted-foreground">#{result.position}</span>
-                        <Badge className={getResultTypeColor(result.type)}>
+                        <Badge className={getResultTypeColor(result.type) + " text-xs sm:text-sm px-2 py-1"}>
                           {getResultTypeIcon(result.type)} {result.type.toUpperCase()}
                         </Badge>
                         {result.rating && (
@@ -240,7 +240,7 @@ export const GoogleSerpSimulator = () => {
                         )}
                       </div>
                       
-                      <h3 className="text-base sm:text-lg font-medium text-blue-600 hover:underline cursor-pointer mb-2 break-words">
+                      <h3 className="text-sm sm:text-base md:text-lg font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer mb-2 break-words">
                         {result.title}
                       </h3>
                       
@@ -287,32 +287,32 @@ export const GoogleSerpSimulator = () => {
           <CardTitle>SERP Features Explained</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="bg-blue-100 text-blue-800 border-blue-200">🔵 AD</Badge>
+                <Badge className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-xs px-2 py-1">🔵 AD</Badge>
                 <span>Paid advertisements</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-green-100 text-green-800 border-green-200">⭐ FEATURED</Badge>
+                <Badge className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800 text-xs px-2 py-1">⭐ FEATURED</Badge>
                 <span>Featured snippets</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-purple-100 text-purple-800 border-purple-200">📍 LOCAL</Badge>
+                <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-xs px-2 py-1">📍 LOCAL</Badge>
                 <span>Local business results</span>
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="bg-orange-100 text-orange-800 border-orange-200">🖼️ IMAGE</Badge>
+                <Badge className="bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800 text-xs px-2 py-1">🖼️ IMAGE</Badge>
                 <span>Image search results</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-red-100 text-red-800 border-red-200">🎥 VIDEO</Badge>
+                <Badge className="bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800 text-xs px-2 py-1">🎥 VIDEO</Badge>
                 <span>Video search results</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-gray-100 text-gray-800 border-gray-200">🔍 ORGANIC</Badge>
+                <Badge className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700 text-xs px-2 py-1">🔍 ORGANIC</Badge>
                 <span>Regular search results</span>
               </div>
             </div>
@@ -325,7 +325,7 @@ export const GoogleSerpSimulator = () => {
           <CardTitle>SERP Optimization Tips</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
+          <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
             <li>• Optimize title tags to be compelling and under 60 characters</li>
             <li>• Write meta descriptions that encourage clicks (150-160 characters)</li>
             <li>• Use structured data to appear in rich snippets</li>

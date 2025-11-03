@@ -84,7 +84,7 @@ export const LoanCalculator = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-primary break-words">${result.totalPayment}</div>
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary break-all px-2">${result.totalPayment}</div>
                   <p className="mt-1 text-xs sm:text-sm text-muted-foreground">over {years} years</p>
                 </div>
               </CardContent>
@@ -96,7 +96,7 @@ export const LoanCalculator = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-accent break-words">${result.totalInterest}</div>
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent break-all px-2">${result.totalInterest}</div>
                   <p className="mt-1 text-xs sm:text-sm text-muted-foreground">interest paid</p>
                 </div>
               </CardContent>

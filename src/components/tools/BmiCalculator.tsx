@@ -92,8 +92,8 @@ export const BmiCalculator = () => {
             <CardTitle>Your Results</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <div className={`text-6xl font-bold mb-2 ${getBmiColor()}`}>{bmi}</div>
-            <div className="text-2xl font-semibold mb-4">{category}</div>
+            <div className={`text-4xl sm:text-5xl md:text-6xl font-bold mb-2 break-all px-2 ${getBmiColor()}`}>{bmi}</div>
+            <div className="text-xl sm:text-2xl font-semibold mb-4 break-words px-2">{category}</div>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex justify-between">
                 <span>Underweight:</span>
