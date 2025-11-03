@@ -26,6 +26,13 @@ export const UrlSafetyChecker = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<SafetyResult | null>(null);
 
+  const normalizeUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    // If the string already contains a scheme (e.g., http://, https://, ftp://, or even a typo like hhtp://), don't prepend
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed);
+    return hasScheme ? trimmed : `https://${trimmed}`;
+  };
+
   const checkUrlSafety = async () => {
     if (!url.trim()) {
       toast.error("Please enter a URL to check!");
@@ -38,10 +45,10 @@ export const UrlSafetyChecker = () => {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Parse URL
+      // Parse URL with robust normalization (preserve existing scheme, only prepend if missing)
       let parsedUrl;
       try {
-        parsedUrl = new URL(url.startsWith('http') ? url : `https://${url}`);
+        parsedUrl = new URL(normalizeUrl(url));
       } catch {
         throw new Error("Invalid URL format");
       }

@@ -96,10 +96,10 @@ export const HashtagCounter = () => {
 
   const getPopularityColor = (popularity: string) => {
     switch (popularity) {
-      case 'high': return 'bg-green-100 text-green-800 border-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'high': return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 border-green-200 dark:border-green-800';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 border-yellow-200 dark:border-yellow-800';
+      case 'low': return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 border-blue-200 dark:border-blue-800';
+      default: return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-200 dark:border-gray-700';
     }
   };
 
@@ -212,23 +212,23 @@ export const HashtagCounter = () => {
                 {hashtagAnalysis.hashtags.map((hashtag, index) => (
                   <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-base sm:text-lg font-medium break-words">{hashtag.hashtag}</span>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-mono text-base sm:text-lg font-medium break-all overflow-wrap-anywhere">{hashtag.hashtag}</span>
                         <Badge className={getPopularityColor(hashtag.popularity)}>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
                             {getPopularityIcon(hashtag.popularity)}
                             {getPopularityText(hashtag.popularity)}
                           </div>
                         </Badge>
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground break-words">
                         Used {hashtag.count} time{hashtag.count !== 1 ? 's' : ''}
                         {showPositions && (
-                          <span> at position{hashtag.positions.length !== 1 ? 's' : ''}: {hashtag.positions.join(', ')}</span>
+                          <span className="break-words"> at position{hashtag.positions.length !== 1 ? 's' : ''}: {hashtag.positions.join(', ')}</span>
                         )}
                       </div>
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-primary">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary break-all">
                       {hashtag.count}
                     </div>
                   </div>

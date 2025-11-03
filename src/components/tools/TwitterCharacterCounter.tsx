@@ -17,15 +17,15 @@ export const TwitterCharacterCounter = () => {
   const isNearLimit = remainingChars <= 20 && remainingChars > 0;
 
   const getCharacterCountColor = () => {
-    if (isOverLimit) return "text-red-600";
-    if (isNearLimit) return "text-yellow-600";
-    return "text-green-600";
+    if (isOverLimit) return "text-red-600 dark:text-red-400";
+    if (isNearLimit) return "text-yellow-600 dark:text-yellow-400";
+    return "text-green-600 dark:text-green-400";
   };
 
   const getCharacterCountBg = () => {
-    if (isOverLimit) return "bg-red-50 border-red-200";
-    if (isNearLimit) return "bg-yellow-50 border-yellow-200";
-    return "bg-green-50 border-green-200";
+    if (isOverLimit) return "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800";
+    if (isNearLimit) return "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800";
+    return "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800";
   };
 
   const copyToClipboard = async () => {
@@ -44,25 +44,25 @@ export const TwitterCharacterCounter = () => {
     if (!text.trim()) return null;
 
     return (
-      <div className="border rounded-lg p-3 sm:p-4 bg-white shadow-sm">
+      <div className="border rounded-lg p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
             <Twitter className="h-5 w-5 text-white" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-              <span className="font-semibold text-xs sm:text-sm">Your Name</span>
-              <span className="text-gray-500 text-xs sm:text-sm">@yourusername</span>
-              <span className="text-gray-500 text-xs sm:text-sm">·</span>
-              <span className="text-gray-500 text-xs sm:text-sm">now</span>
+              <span className="font-semibold text-xs sm:text-sm break-words">Your Name</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm break-words">@yourusername</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">·</span>
+              <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">now</span>
             </div>
-            <div className="text-sm whitespace-pre-wrap break-words">{text}</div>
-            <div className="flex items-center justify-between mt-3 text-gray-500 text-xs sm:text-sm">
+            <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{text}</div>
+            <div className="flex items-center justify-between mt-3 text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
               <div className="flex flex-wrap items-center gap-3">
-                <span>💬 Reply</span>
-                <span>🔄 Retweet</span>
-                <span>❤️ Like</span>
-                <span>📤 Share</span>
+                <span className="whitespace-nowrap">💬 Reply</span>
+                <span className="whitespace-nowrap">🔄 Retweet</span>
+                <span className="whitespace-nowrap">❤️ Like</span>
+                <span className="whitespace-nowrap">📤 Share</span>
               </div>
             </div>
           </div>
@@ -94,7 +94,7 @@ export const TwitterCharacterCounter = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-medium">Character Count:</span>
-                <span className={`font-bold ${getCharacterCountColor()}`}>
+                <span className={`font-bold text-xl sm:text-2xl md:text-3xl break-all ${getCharacterCountColor()}`}>
                   {currentLength}
                 </span>
                 <span className="text-sm text-muted-foreground">
@@ -110,7 +110,7 @@ export const TwitterCharacterCounter = () => {
                   <Badge variant="secondary">Near Limit</Badge>
                 )}
                 {!isOverLimit && !isNearLimit && (
-                  <Badge variant="default" className="bg-green-100 text-green-800">
+                  <Badge variant="default" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100">
                     Good
                   </Badge>
                 )}
@@ -121,11 +121,11 @@ export const TwitterCharacterCounter = () => {
               <div className="mt-2">
                 <div className="text-sm text-muted-foreground">
                   {isOverLimit ? (
-                    <span className="text-red-600">
+                    <span className="text-red-600 dark:text-red-400">
                       {Math.abs(remainingChars)} characters over the limit
                     </span>
                   ) : (
-                    <span className={isNearLimit ? "text-yellow-600" : "text-green-600"}>
+                    <span className={isNearLimit ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}>
                       {remainingChars} characters remaining
                     </span>
                   )}

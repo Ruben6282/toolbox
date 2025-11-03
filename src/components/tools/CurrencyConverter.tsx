@@ -186,13 +186,13 @@ export const CurrencyConverter = () => {
           </CardHeader>
           <CardContent>
             <div className="bg-muted p-6 rounded-lg text-center">
-              <div className="text-3xl font-bold mb-2">
+              <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 break-all px-2">
                 {getCurrencySymbol(toCurrency)}{convertedAmount.toLocaleString(undefined, { 
                   minimumFractionDigits: 2, 
                   maximumFractionDigits: 2 
                 })}
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground break-words px-2">
                 {amount} {getCurrencyName(fromCurrency)} = {convertedAmount.toLocaleString(undefined, { 
                   minimumFractionDigits: 2, 
                   maximumFractionDigits: 2 

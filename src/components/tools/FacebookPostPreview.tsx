@@ -295,25 +295,25 @@ export const FacebookPostPreview = () => {
             <CardTitle>Live Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg p-4 bg-white">
+            <div className="border rounded-lg p-4 bg-white dark:bg-gray-950">
               <div className="max-w-md mx-auto">
-                <div className="border border-gray-300 rounded-lg bg-white font-sans">
+                <div className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 font-sans">
                   {/* Header */}
-                  <div className="p-3 border-b border-gray-200">
+                  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                         {postData.pageName.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="font-semibold text-gray-900 text-sm">{postData.pageName}</div>
-                        <div className="text-gray-500 text-xs">Just now</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm break-words">{postData.pageName}</div>
+                        <div className="text-gray-500 dark:text-gray-400 text-xs">Just now</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Content */}
                   {postData.postText && (
-                    <div className="p-3 text-gray-900 text-sm leading-relaxed">
+                    <div className="p-3 text-gray-900 dark:text-gray-100 text-sm leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere">
                       {postData.postText.split('\n').map((line, index) => (
                         <div key={index}>{line}</div>
                       ))}
@@ -322,7 +322,7 @@ export const FacebookPostPreview = () => {
 
                   {/* Media */}
                   {postData.postType === 'image' && postData.imageUrl && (
-                    <div className="border-t border-gray-200">
+                    <div className="border-t border-gray-200 dark:border-gray-700">
                       <img
                         src={postData.imageUrl}
                         alt="Post"
@@ -332,11 +332,11 @@ export const FacebookPostPreview = () => {
                   )}
 
                   {postData.postType === 'link' && postData.linkUrl && (
-                    <div className="p-3 border-t border-gray-200">
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                         <div className="flex flex-col sm:flex-row">
                           {postData.linkImage && (
-                            <div className="w-full h-40 sm:w-24 sm:h-24 bg-gray-100 flex-shrink-0">
+                            <div className="w-full h-40 sm:w-24 sm:h-24 bg-gray-100 dark:bg-gray-800 flex-shrink-0">
                               <img
                                 src={postData.linkImage}
                                 alt="Link"
@@ -344,17 +344,17 @@ export const FacebookPostPreview = () => {
                               />
                             </div>
                           )}
-                          <div className="flex-1 p-3">
-                            <div className="text-gray-500 text-xs uppercase mb-1">
+                          <div className="flex-1 p-3 min-w-0">
+                            <div className="text-gray-500 dark:text-gray-400 text-xs uppercase mb-1 break-words">
                               {postData.linkUrl ? new URL(postData.linkUrl).hostname : 'example.com'}
                             </div>
                             {postData.linkTitle && (
-                              <div className="font-semibold text-gray-900 text-sm mb-1 break-words">
+                              <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1 break-words overflow-wrap-anywhere">
                                 {postData.linkTitle}
                               </div>
                             )}
                             {postData.linkDescription && (
-                              <div className="text-gray-600 text-xs leading-relaxed break-words">
+                              <div className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed break-words overflow-wrap-anywhere">
                                 {postData.linkDescription}
                               </div>
                             )}
@@ -365,26 +365,26 @@ export const FacebookPostPreview = () => {
                   )}
 
                   {/* Engagement */}
-                  <div className="p-3 border-t border-gray-200">
-                    <div className="flex justify-between items-center text-gray-500 text-sm">
+                  <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-center text-gray-500 dark:text-gray-400 text-sm">
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs">👍</div>
                         <span>42</span>
                       </div>
-                      <div>3 comments • 1 share</div>
+                      <div className="text-xs sm:text-sm">3 comments • 1 share</div>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="p-2 border-t border-gray-200">
+                  <div className="p-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-around">
-                      <button className="flex-1 py-2 text-gray-600 text-sm font-semibold hover:bg-gray-50 rounded flex items-center justify-center gap-2">
+                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
                         👍 Like
                       </button>
-                      <button className="flex-1 py-2 text-gray-600 text-sm font-semibold hover:bg-gray-50 rounded flex items-center justify-center gap-2">
+                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
                         💬 Comment
                       </button>
-                      <button className="flex-1 py-2 text-gray-600 text-sm font-semibold hover:bg-gray-50 rounded flex items-center justify-center gap-2">
+                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
                         🔄 Share
                       </button>
                     </div>

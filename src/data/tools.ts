@@ -692,7 +692,7 @@ export const tools: Tool[] = [
   },
   {
     id: "base64-encoder",
-    name: "Base64 Encoder/Decoder",
+    name: "Base64 Encoder Decoder",
     description: "Encode and decode Base64 data",
     category: "developer-tools",
     icon: "Code",
@@ -854,7 +854,7 @@ export const tools: Tool[] = [
   // Additional converters & utilities
   {
     id: "url-encoder",
-    name: "URL Encoder/Decoder",
+    name: "URL Encoder Decoder",
     description: "Encode and decode URLs",
     category: "developer-tools",
     icon: "Link",

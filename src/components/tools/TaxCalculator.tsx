@@ -214,21 +214,21 @@ export const TaxCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 break-all px-2">
                   ${totalIncome.toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Income</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-red-600">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 break-all px-2">
                   ${totalTax.toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Tax</div>
               </div>
               
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 break-all px-2">
                   ${netIncome.toLocaleString()}
                 </div>
                 <div className="text-sm text-muted-foreground">Net Income</div>

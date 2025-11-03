@@ -147,8 +147,8 @@ export const UnitConverter = () => {
           </CardHeader>
           <CardContent>
             <div className="text-center">
-              <div className="text-4xl font-bold text-primary">{result.toFixed(4)}</div>
-              <p className="mt-2 text-muted-foreground">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary break-all px-2">{result.toFixed(4)}</div>
+              <p className="mt-2 text-muted-foreground break-words px-2">
                 {value} {fromUnit} = {result.toFixed(4)} {toUnit}
               </p>
             </div>
