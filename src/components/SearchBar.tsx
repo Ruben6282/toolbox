@@ -116,7 +116,7 @@ export const SearchBar = () => {
       </form>
 
       {showResults && filteredTools.length > 0 && (
-        <Card className="absolute top-full left-0 right-0 mt-2 z-50 p-1 shadow-2xl max-h-96 overflow-y-auto rounded-2xl border-2 border-border/50 bg-background animate-in fade-in slide-in-from-top-2 duration-300 ease-out">
+        <Card className="absolute top-full left-0 right-0 mt-2 z-50 p-1 shadow-2xl max-h-[400px] overflow-y-auto rounded-2xl border-2 border-border/50 bg-background animate-in fade-in slide-in-from-top-2 duration-300 ease-out overscroll-contain">
           {filteredTools.map((tool, index) => {
             const IconComponent = (Icons[tool.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
             const isSelected = hasUsedKeyboard && index === selectedIndex;

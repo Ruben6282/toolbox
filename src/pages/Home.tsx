@@ -24,8 +24,8 @@ const Home = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background py-20 sm:py-32">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      <section className="relative bg-gradient-to-b from-primary/5 via-background to-background py-20 sm:py-32">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] overflow-hidden"></div>
         <div className="container relative">
           <div className="mx-auto max-w-3xl text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm shadow-sm">
@@ -72,7 +72,7 @@ const Home = () => {
 
       {/* Categories Section */}
       <section id="categories" className="container py-20">
-        <div className="mb-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Browse by Category</h2>
           <p className="text-lg text-muted-foreground">
             Find the perfect tool for your needs
@@ -142,7 +142,6 @@ const Home = () => {
             <div>
               <h4 className="font-semibold mb-3">Quick Links</h4>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
                 <li><Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">Categories</Link></li>
                 <li><Link to="/popular" className="text-muted-foreground hover:text-foreground transition-colors">Popular Tools</Link></li>
                 <li><Link to="/search" className="text-muted-foreground hover:text-foreground transition-colors">Search</Link></li>
@@ -153,7 +152,6 @@ const Home = () => {
               <h4 className="font-semibold mb-3">Resources</h4>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About Us</Link></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">API</a></li>
                 <li><Link to="/contact#submit-tool" className="text-muted-foreground hover:text-foreground transition-colors">Submit Tool</Link></li>
                 <li><Link to="/contact#report-bug" className="text-muted-foreground hover:text-foreground transition-colors">Report a Bug</Link></li>
               </ul>
