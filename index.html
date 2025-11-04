@@ -11,6 +11,38 @@
       crossorigin="anonymous"
     ></script>
 
+    <!-- Structured Data: Organization -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "ToolCheetah",
+        "url": "https://toolcheetah.com",
+        "logo": "https://toolcheetah.com/logo.png",
+        "description": "ToolCheetah biedt gratis, snelle en gebruiksvriendelijke online tools voor tekst, afbeeldingen, code en meer.",
+        "sameAs": [
+          "https://www.facebook.com/toolcheetah",
+          "https://www.instagram.com/toolcheetah",
+          "https://www.linkedin.com/company/toolcheetah",
+          "https://x.com/toolcheetah"
+        ]
+      }
+    </script>
+
+    <!-- Structured Data: WebSite with SearchAction -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "https://toolcheetah.com/",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://toolcheetah.com/search?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+
   </head>
 
   <body>
