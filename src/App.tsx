@@ -11,6 +11,10 @@ import CategoriesPage from "./pages/CategoriesPage";
 import PopularPage from "./pages/PopularPage";
 import ToolPage from "./pages/ToolPage";
 import SearchPage from "./pages/SearchPage";
+import AboutPage from "./pages/AboutPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +32,10 @@ const App = () => (
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/popular" element={<PopularPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/:categoryId" element={<CategoryPage />} />
             <Route path="/:categoryId/:toolId" element={<ToolPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

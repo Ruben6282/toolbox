@@ -152,20 +152,19 @@ const Home = () => {
             <div>
               <h4 className="font-semibold mb-3">Resources</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">About Us</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
+                <li><Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About Us</Link></li>
                 <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">API</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Submit Tool</a></li>
+                <li><Link to="/contact#submit-tool" className="text-muted-foreground hover:text-foreground transition-colors">Submit Tool</Link></li>
+                <li><Link to="/contact#report-bug" className="text-muted-foreground hover:text-foreground transition-colors">Report a Bug</Link></li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-3">Legal</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Cookie Policy</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
+                <li><Link to="/privacy-policy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms-of-service" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
+                <li><Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
               </ul>
             </div>
           </div>
