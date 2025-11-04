@@ -973,7 +973,7 @@ const ToolPage = () => {
         return <VoiceRecorder />;
       case "image-format-converter":
         return <ImageFormatConverter />;
-      case "add-watermark":
+      case "add-watermark-dev":
         return <AddWatermark />;
       case "roi-calculator":
         return <RoiCalculator />;
@@ -1023,7 +1023,7 @@ const ToolPage = () => {
         return <XmlSitemapGenerator />;
       case "keyword-density-checker":
         return <KeywordDensityChecker />;
-      case "page-speed-test":
+      case "page-speed-test-dev":
         return <PageSpeedTest />;
       case "google-serp-simulator":
         return <GoogleSerpSimulator />;

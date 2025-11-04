@@ -95,6 +95,7 @@ export const ImageCropper = () => {
   // Adjust crop area on aspect ratio change
   useEffect(() => {
     setCropArea((prev) => adjustCropToAspect(prev, aspectRatio));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aspectRatio]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,6 +121,23 @@ export const ImageCropper = () => {
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    if (handle) {
+      setIsResizing(true);
+      setResizeHandle(handle);
+    } else {
+      setIsDragging(true);
+    }
+    setDragStart({ x, y });
+    e.preventDefault();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, handle?: string) => {
+    if (!selectedImage || !containerRef.current || e.touches.length === 0) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
 
     if (handle) {
       setIsResizing(true);
@@ -186,7 +204,70 @@ export const ImageCropper = () => {
     setCropArea(newCrop);
   };
 
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!selectedImage || (!isDragging && !isResizing) || !containerRef.current || e.touches.length === 0) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+    let newCrop = { ...cropArea };
+
+    if (isDragging) {
+      const dx = touchX - dragStart.x;
+      const dy = touchY - dragStart.y;
+      newCrop.x = cropArea.x + dx;
+      newCrop.y = cropArea.y + dy;
+      newCrop = clampCrop(newCrop);
+      setDragStart({ x: touchX, y: touchY });
+    }
+
+    if (isResizing && resizeHandle) {
+      const { x, y, width, height } = newCrop;
+      const minSize = 20;
+
+      // Determine resizing direction
+      const isLeft = resizeHandle.includes("left");
+      const isRight = resizeHandle.includes("right");
+      const isTop = resizeHandle.includes("top");
+      const isBottom = resizeHandle.includes("bottom");
+
+      let newWidth = width;
+      let newHeight = height;
+      let newX = x;
+      let newY = y;
+
+      if (isRight) newWidth = Math.max(minSize, touchX - x);
+      if (isBottom) newHeight = Math.max(minSize, touchY - y);
+      if (isLeft) {
+        newWidth = Math.max(minSize, width + (x - touchX));
+        newX = touchX;
+      }
+      if (isTop) {
+        newHeight = Math.max(minSize, height + (y - touchY));
+        newY = touchY;
+      }
+
+      if (aspectRatio !== "free") {
+        const [w, h] = aspectRatio.split(":").map(Number);
+        const r = w / h;
+        if (newWidth / newHeight > r) newHeight = newWidth / r;
+        else newWidth = newHeight * r;
+      }
+
+      newCrop = clampCrop({ x: newX, y: newY, width: newWidth, height: newHeight });
+    }
+
+    setCropArea(newCrop);
+    e.preventDefault();
+  };
+
   const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle(null);
+  };
+
+  const handleTouchEnd = () => {
     setIsDragging(false);
     setIsResizing(false);
     setResizeHandle(null);
@@ -238,6 +319,7 @@ export const ImageCropper = () => {
 
   useEffect(() => {
     if (selectedImage) cropImage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cropArea, selectedImage, aspectRatio]);
 
   return (
@@ -296,10 +378,13 @@ export const ImageCropper = () => {
             <div className="space-y-4">
               <div
                 ref={containerRef}
-                className="relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden"
+                className="relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden touch-none"
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
               >
                 <img
                   ref={imageRef}
@@ -307,7 +392,8 @@ export const ImageCropper = () => {
                   alt="Uploaded"
                   className="max-w-full h-auto"
                   onMouseDown={(e) => handleMouseDown(e)}
-                  style={{ cursor: isDragging ? "grabbing" : "grab" }}
+                  onTouchStart={(e) => handleTouchStart(e)}
+                  style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
                 />
 
                 {/* Crop overlay */}
@@ -318,20 +404,24 @@ export const ImageCropper = () => {
                     top: cropArea.y,
                     width: cropArea.width,
                     height: cropArea.height,
+                    touchAction: "none"
                   }}
                   onMouseDown={(e) => handleMouseDown(e)}
+                  onTouchStart={(e) => handleTouchStart(e)}
                 />
 
                 {/* Resize handles */}
                 {["top-left", "top-right", "bottom-left", "bottom-right"].map((handle) => (
                   <div
                     key={handle}
-                    className="absolute w-4 h-4 bg-white border-2 border-blue-500 rounded-full cursor-pointer"
+                    className="absolute w-8 h-8 sm:w-4 sm:h-4 bg-white border-2 border-blue-500 rounded-full cursor-pointer"
                     style={{
-                      left: handle.includes("right") ? cropArea.x + cropArea.width - 8 : cropArea.x - 2,
-                      top: handle.includes("bottom") ? cropArea.y + cropArea.height - 8 : cropArea.y - 2,
+                      left: handle.includes("right") ? cropArea.x + cropArea.width - 16 : cropArea.x - 2,
+                      top: handle.includes("bottom") ? cropArea.y + cropArea.height - 16 : cropArea.y - 2,
+                      touchAction: "none"
                     }}
                     onMouseDown={(e) => handleMouseDown(e, handle)}
+                    onTouchStart={(e) => handleTouchStart(e, handle)}
                   />
                 ))}
               </div>
