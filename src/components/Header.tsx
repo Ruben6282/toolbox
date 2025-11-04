@@ -85,7 +85,7 @@ export const Header = () => {
             <SheetContent>
               <nav className="flex flex-col gap-4 mt-8">
                 <div className="mb-4">
-                  <SearchBar />
+                  <SearchBar onToolSelect={() => setMobileMenuOpen(false)} />
                 </div>
                 
                 <Link 

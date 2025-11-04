@@ -8,7 +8,11 @@ import * as Icons from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export const SearchBar = () => {
+interface SearchBarProps {
+  onToolSelect?: () => void;
+}
+
+export const SearchBar = ({ onToolSelect }: SearchBarProps = {}) => {
   const [search, setSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1); // Start with no selection
@@ -35,9 +39,13 @@ export const SearchBar = () => {
       setSearch("");
       setSelectedIndex(-1);
       setHasUsedKeyboard(false);
+      // Blur the input to dismiss mobile keyboard
+      inputRef.current?.blur();
+      // Call the callback to close mobile menu if provided
+      onToolSelect?.();
       navigate(`/${tool.category}/${toolId}`);
     }
-  }, [navigate]);
+  }, [navigate, onToolSelect]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

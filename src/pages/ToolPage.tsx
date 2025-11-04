@@ -1120,11 +1120,6 @@ const ToolPage = () => {
                 </div>
               </div>
             </div>
-
-            <Button className="gap-2" size="lg">
-              <Star className="h-4 w-4" />
-              Add to Favorites
-            </Button>
           </div>
         </div>
       </section>
