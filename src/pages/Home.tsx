@@ -175,12 +175,52 @@ const Home = () => {
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>
                 <a
+                  href="https://www.facebook.com/toolcheetah"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Facebook"
+                >
+                  <Icons.Facebook className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <a
                   href="https://www.instagram.com/toolcheetah"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Instagram"
                 >
                   <Icons.Instagram className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <a
+                  href="https://www.linkedin.com/in/toolcheetah"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn"
+                >
+                  <Icons.Linkedin className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <a
+                  href="https://x.com/toolcheetah"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="X (Twitter)"
+                >
+                  <Icons.Twitter className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <a
+                  href="https://buymeacoffee.com/toolcheetah"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Buy Me a Coffee"
+                >
+                  <Icons.Coffee className="h-5 w-5" />
                 </a>
               </Button>
             </div>

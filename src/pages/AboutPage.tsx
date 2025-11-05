@@ -221,9 +221,9 @@ const AboutPage = () => {
                   <Link to="/">Browse Tools</Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <a href="https://www.instagram.com/toolcheetah" target="_blank" rel="noopener noreferrer">
-                    Follow Us on Instagram
-                  </a>
+                  <Link to="/contact#submit-tool">
+                    Submit a Tool
+                  </Link>
                 </Button>
               </div>
             </div>
