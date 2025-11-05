@@ -63,16 +63,16 @@ export const EmailValidator = () => {
     const isValid = isFormatValid && details.length === 0;
 
     if (isValid) {
-      details.push(`✔ Local part: ${localPart}`);
-      details.push(`✔ Domain: ${domain}`);
-      details.push("✔ Well-formatted email address.");
+      details.push(`Local part: ${localPart}`);
+      details.push(`Domain: ${domain}`);
+      details.push("Well-formatted email address.");
     }
 
     setResult({
       valid: isValid,
       message: isValid
-        ? "✅ Valid email address"
-        : "❌ Invalid email format",
+        ? "Valid email address"
+        : "Invalid email format",
       details: details.length
         ? details
         : ["Invalid format — please check the domain and TLD."],

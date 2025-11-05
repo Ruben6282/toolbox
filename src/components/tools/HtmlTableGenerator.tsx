@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw, Table, Plus, Minus } from "lucide-react";
+import { toast } from "sonner";
 
 export const HtmlTableGenerator = () => {
   const [rows, setRows] = useState(3);
@@ -52,14 +53,14 @@ export const HtmlTableGenerator = () => {
       html += ` class="${tableClass}"`;
     }
     
-    html += ` style="border-collapse: collapse; border: ${borderWidth}px solid #000;"`;
+  html += ` style="border-collapse: collapse; border-width: ${borderWidth}px; border-style: solid;"`;
     html += `>\n`;
 
     // Add header row if specified
     if (hasHeader && tableData.length > 0) {
       html += `  <thead>\n    <tr>\n`;
       for (let j = 0; j < columns; j++) {
-        html += `      <th style="border: ${borderWidth}px solid #000; padding: ${cellPadding}px;">${tableData[0][j] || ''}</th>\n`;
+        html += `      <th style="border-width: ${borderWidth}px; border-style: solid; padding: ${cellPadding}px;">${tableData[0][j] || ''}</th>\n`;
       }
       html += `    </tr>\n  </thead>\n`;
     }
@@ -71,7 +72,7 @@ export const HtmlTableGenerator = () => {
       html += `    <tr>\n`;
       for (let j = 0; j < columns; j++) {
         const cellContent = tableData[i]?.[j] || '';
-        html += `      <td style="border: ${borderWidth}px solid #000; padding: ${cellPadding}px;">${cellContent}</td>\n`;
+        html += `      <td style="border-width: ${borderWidth}px; border-style: solid; padding: ${cellPadding}px;">${cellContent}</td>\n`;
       }
       html += `    </tr>\n`;
     }
@@ -84,32 +85,77 @@ export const HtmlTableGenerator = () => {
   const generateCSS = () => {
     let css = `table {\n`;
     css += `  border-collapse: collapse;\n`;
-    css += `  border: ${borderWidth}px solid #000;\n`;
+    css += `  border-width: ${borderWidth}px;\n`;
+    css += `  border-style: solid;\n`;
+    css += `  border-color: #000;\n`;
     if (tableClass) {
       css += `  /* Additional styles for .${tableClass} */\n`;
     }
     css += `}\n\n`;
     
     css += `th, td {\n`;
-    css += `  border: ${borderWidth}px solid #000;\n`;
+    css += `  border-width: ${cellSpacing === 0 ? borderWidth : Math.max(1, borderWidth)}px;\n`;
+    css += `  border-style: solid;\n`;
+    css += `  border-color: #000;\n`;
     css += `  padding: ${cellPadding}px;\n`;
     css += `}\n\n`;
     
     if (hasHeader) {
       css += `th {\n`;
-      css += `  background-color: #f2f2f2;\n`;
+      css += `  background-color: #f3f4f6; /* light gray */\n`;
+      css += `  color: #111827; /* nearly black */\n`;
       css += `  font-weight: bold;\n`;
-      css += `}\n`;
+      css += `}\n\n`;
     }
+
+    // Dark mode styles
+    css += `@media (prefers-color-scheme: dark) {\n`;
+    css += `  table {\n`;
+    css += `    border-color: #374151; /* gray-700 */\n`;
+    css += `    color: #e5e7eb; /* gray-200 text */\n`;
+    css += `    background-color: transparent;\n`;
+    css += `  }\n`;
+    css += `  th, td {\n`;
+    css += `    border-color: #374151;\n`;
+    css += `  }\n`;
+    if (hasHeader) {
+      css += `  th {\n`;
+      css += `    background-color: #1f2937; /* gray-800 */\n`;
+      css += `    color: #f9fafb; /* gray-50 */\n`;
+      css += `  }\n`;
+    }
+    css += `}\n`;
 
     return css;
   };
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        toast.success("Copied to clipboard!");
+        return;
+      }
+
+      // Fallback for older browsers/mobile
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        toast.success("Copied to clipboard!");
+      } else {
+        toast.error("Failed to copy");
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      toast.error("Failed to copy");
     }
   };
 
@@ -274,10 +320,11 @@ export const HtmlTableGenerator = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table
+                className="w-full border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 style={{
                   borderCollapse: 'collapse',
-                  border: `${borderWidth}px solid #000`,
-                  width: '100%'
+                  borderWidth: borderWidth,
+                  borderStyle: 'solid',
                 }}
               >
                 {hasHeader && (
@@ -286,11 +333,11 @@ export const HtmlTableGenerator = () => {
                       {Array.from({ length: columns }, (_, j) => (
                         <th
                           key={j}
+                          className="border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 font-semibold"
                           style={{
-                            border: `${borderWidth}px solid #000`,
+                            borderWidth: borderWidth,
+                            borderStyle: 'solid',
                             padding: `${cellPadding}px`,
-                            backgroundColor: '#f2f2f2',
-                            fontWeight: 'bold'
                           }}
                         >
                           {tableData[0]?.[j] || ''}
@@ -307,8 +354,10 @@ export const HtmlTableGenerator = () => {
                         {Array.from({ length: columns }, (_, j) => (
                           <td
                             key={j}
+                            className="border border-gray-300 dark:border-gray-700"
                             style={{
-                              border: `${borderWidth}px solid #000`,
+                              borderWidth: borderWidth,
+                              borderStyle: 'solid',
                               padding: `${cellPadding}px`
                             }}
                           >
@@ -330,41 +379,43 @@ export const HtmlTableGenerator = () => {
           <CardHeader>
             <CardTitle>Generated HTML</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label>HTML Code</Label>
-              <div className="flex gap-2">
-                <Textarea
-                  value={generateHTML()}
-                  readOnly
-                  rows={10}
-                  className="font-mono text-sm"
-                />
+              <div className="flex justify-start">
                 <Button
                   onClick={() => copyToClipboard(generateHTML())}
                   variant="outline"
+                  className="mb-2"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 mr-2" /> Copy HTML
                 </Button>
               </div>
+              <Textarea
+                value={generateHTML()}
+                readOnly
+                rows={10}
+                className="font-mono text-sm"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>CSS Styles</Label>
-              <div className="flex gap-2">
-                <Textarea
-                  value={generateCSS()}
-                  readOnly
-                  rows={8}
-                  className="font-mono text-sm"
-                />
+              <div className="flex justify-start">
                 <Button
                   onClick={() => copyToClipboard(generateCSS())}
                   variant="outline"
+                  className="mb-2"
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-4 w-4 mr-2" /> Copy CSS
                 </Button>
               </div>
+              <Textarea
+                value={generateCSS()}
+                readOnly
+                rows={8}
+                className="font-mono text-sm"
+              />
             </div>
           </CardContent>
         </Card>

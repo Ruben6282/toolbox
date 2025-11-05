@@ -17,10 +17,13 @@ export const SleepCycleCalculator = () => {
   const [bedtime, setBedtime] = useState("");
   const [wakeupTime, setWakeupTime] = useState("");
   const [sleepDuration, setSleepDuration] = useState(8);
-  const [fallAsleepTime, setFallAsleepTime] = useState(15);
+  const [fallAsleepTime, setFallAsleepTime] = useState<number | "">(15);
 
   const calculateSleepTimes = useMemo(() => {
     const results: SleepTime[] = [];
+    
+    // Use fallback value for calculations
+    const fallAsleepMinutes = typeof fallAsleepTime === 'number' ? fallAsleepTime : 15;
     
     if (bedtime) {
       const [hours, minutes] = bedtime.split(':').map(Number);
@@ -30,7 +33,7 @@ export const SleepCycleCalculator = () => {
       // Calculate wake-up times (6 cycles = 9 hours, 5 cycles = 7.5 hours, etc.)
       for (let cycles = 6; cycles >= 4; cycles--) {
         const wakeupDate = new Date(bedtimeDate);
-        wakeupDate.setMinutes(wakeupDate.getMinutes() + (cycles * 90) + fallAsleepTime);
+        wakeupDate.setMinutes(wakeupDate.getMinutes() + (cycles * 90) + fallAsleepMinutes);
         
         results.push({
           time: wakeupDate.toLocaleTimeString('en-US', { 
@@ -52,7 +55,7 @@ export const SleepCycleCalculator = () => {
       // Calculate bedtime times
       for (let cycles = 6; cycles >= 4; cycles--) {
         const bedtimeDate = new Date(wakeupDate);
-        bedtimeDate.setMinutes(bedtimeDate.getMinutes() - (cycles * 90) - fallAsleepTime);
+        bedtimeDate.setMinutes(bedtimeDate.getMinutes() - (cycles * 90) - fallAsleepMinutes);
         
         results.push({
           time: bedtimeDate.toLocaleTimeString('en-US', { 
@@ -92,6 +95,23 @@ export const SleepCycleCalculator = () => {
     setWakeupTime("");
     setSleepDuration(8);
     setFallAsleepTime(15);
+  };
+
+  const handleFallAsleepChange = (value: string) => {
+    if (value === "") {
+      setFallAsleepTime("");
+    } else {
+      const parsed = parseInt(value, 10);
+      if (!isNaN(parsed)) {
+        setFallAsleepTime(parsed);
+      }
+    }
+  };
+
+  const handleFallAsleepBlur = () => {
+    if (fallAsleepTime === "" || fallAsleepTime < 0) {
+      setFallAsleepTime(15);
+    }
   };
 
   const getCycleColor = (cycles: number) => {
@@ -167,7 +187,8 @@ export const SleepCycleCalculator = () => {
               min="0"
               max="60"
               value={fallAsleepTime}
-              onChange={(e) => setFallAsleepTime(parseInt(e.target.value) || 15)}
+              onChange={(e) => handleFallAsleepChange(e.target.value)}
+              onBlur={handleFallAsleepBlur}
             />
             <p className="text-sm text-muted-foreground">
               Average time it takes you to fall asleep

@@ -6,14 +6,29 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export const TimestampConverter = () => {
+  // Helper to format a Date for an <input type="datetime-local"> using LOCAL time (no timezone)
+  const formatLocalDateTimeForInput = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const [timestamp, setTimestamp] = useState(Date.now().toString());
-  const [dateTime, setDateTime] = useState(new Date().toISOString().slice(0, 16));
+  const [dateTime, setDateTime] = useState(formatLocalDateTimeForInput(new Date()));
 
   const timestampToDate = () => {
     try {
-      const ts = parseInt(timestamp);
-      const date = new Date(ts);
-      setDateTime(date.toISOString().slice(0, 16));
+      const raw = Number(String(timestamp).trim());
+      if (!Number.isFinite(raw)) throw new Error("Invalid timestamp");
+      // Auto-detect seconds vs milliseconds: assume seconds if value looks like a 10-digit unix epoch
+      const tsMs = raw < 1e12 ? raw * 1000 : raw;
+      const date = new Date(tsMs);
+      if (isNaN(date.getTime())) throw new Error("Invalid timestamp");
+      setDateTime(formatLocalDateTimeForInput(date));
       toast.success("Converted to date!");
     } catch (e) {
       toast.error("Invalid timestamp!");
@@ -22,7 +37,9 @@ export const TimestampConverter = () => {
 
   const dateToTimestamp = () => {
     try {
-      const ts = new Date(dateTime).getTime();
+      const d = new Date(dateTime);
+      const ts = d.getTime();
+      if (!Number.isFinite(ts)) throw new Error("Invalid date");
       setTimestamp(ts.toString());
       toast.success("Converted to timestamp!");
     } catch (e) {
@@ -31,9 +48,9 @@ export const TimestampConverter = () => {
   };
 
   const useCurrentTime = () => {
-    const now = Date.now();
-    setTimestamp(now.toString());
-    setDateTime(new Date().toISOString().slice(0, 16));
+    const now = new Date();
+    setTimestamp(now.getTime().toString());
+    setDateTime(formatLocalDateTimeForInput(now));
     toast.success("Current time loaded!");
   };
 
@@ -49,7 +66,7 @@ export const TimestampConverter = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            <Label>Timestamp (milliseconds)</Label>
+            <Label>Timestamp (milliseconds or seconds)</Label>
             <Input
               type="text"
               value={timestamp}
@@ -91,6 +108,10 @@ export const TimestampConverter = () => {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current Timestamp:</span>
               <code className="font-mono">{Date.now()}</code>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Current Timestamp (seconds):</span>
+              <code className="font-mono">{Math.floor(Date.now() / 1000)}</code>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Current Date:</span>

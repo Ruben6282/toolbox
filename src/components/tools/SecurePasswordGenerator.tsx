@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, Shield, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 export const SecurePasswordGenerator = () => {
   const [passwordLength, setPasswordLength] = useState(16);
@@ -59,7 +60,7 @@ export const SecurePasswordGenerator = () => {
 
   const calculatePasswordStrength = (password: string) => {
     let score = 0;
-    let feedback = [];
+    const feedback = [];
 
     // Length check
     if (password.length >= 8) score += 1;
@@ -98,9 +99,37 @@ export const SecurePasswordGenerator = () => {
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generatedPassword);
+      // Try modern Clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(generatedPassword);
+        toast.success("Password copied to clipboard!");
+      } else {
+        // Fallback for mobile/older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = generatedPassword;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            toast.success("Password copied to clipboard!");
+          } else {
+            toast.error("Failed to copy password");
+          }
+        } catch (err) {
+          toast.error("Failed to copy password");
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      toast.error("Failed to copy password");
     }
   };
 
@@ -202,12 +231,12 @@ export const SecurePasswordGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generatePassword} className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <Button onClick={generatePassword} className="w-full sm:w-auto">
+              <Shield className="h-4 w-4 mr-2" />
               Generate Password
             </Button>
-            <Button onClick={clearPassword} variant="outline">
+            <Button onClick={clearPassword} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>

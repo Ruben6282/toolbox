@@ -135,15 +135,16 @@ export const StopwatchTimer = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {laps.map((lapTime, index) => {
-                const lapNumber = index + 1;
-                const lapDuration = lapTimes[index];
+              {[...Array(laps.length)].map((_, idx) => {
+                const i = laps.length - 1 - idx;
+                const lapNumber = i + 1;
+                const lapDuration = lapTimes[i];
                 const isFastest = fastestLap === lapDuration;
                 const isSlowest = slowestLap === lapDuration;
-                
+
                 return (
                   <div
-                    key={index}
+                    key={i}
                     className={`flex flex-col xs:flex-row justify-between items-start xs:items-center p-3 rounded-lg border gap-2 ${
                       isFastest ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' :
                       isSlowest ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' :

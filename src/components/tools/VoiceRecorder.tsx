@@ -194,46 +194,46 @@ export const VoiceRecorder = () => {
             </Select>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {!isRecording ? (
-              <Button onClick={startRecording} className="flex items-center gap-2">
-                <Mic className="h-4 w-4" />
+              <Button onClick={startRecording} className="flex-1 min-w-[200px] sm:flex-initial sm:w-auto">
+                <Mic className="h-4 w-4 mr-2" />
                 Start Recording
               </Button>
             ) : (
-              <Button onClick={stopRecording} variant="destructive" className="flex items-center gap-2">
-                <MicOff className="h-4 w-4" />
+              <Button onClick={stopRecording} variant="destructive" className="flex-1 min-w-[200px] sm:flex-initial sm:w-auto">
+                <MicOff className="h-4 w-4 mr-2" />
                 Stop Recording
               </Button>
             )}
 
             {audioUrl && (
               <>
-                <Button onClick={playRecording} variant="outline" className="flex items-center gap-2">
+                <Button onClick={playRecording} variant="outline" className="flex-1 min-w-[120px] sm:flex-initial sm:w-auto">
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {isPlaying ? "Pause" : "Play"}
+                  <span className="ml-2">{isPlaying ? "Pause" : "Play"}</span>
                 </Button>
                 
-                <Button onClick={downloadRecording} variant="outline" className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
+                <Button onClick={downloadRecording} variant="outline" className="flex-1 min-w-[120px] sm:flex-initial sm:w-auto">
+                  <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
               </>
             )}
 
-            <Button onClick={clearRecording} variant="outline">
+            <Button onClick={clearRecording} variant="outline" className="flex-1 min-w-[100px] sm:flex-initial sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
           </div>
 
           {isRecording && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-red-800">Recording...</span>
+                <span className="text-sm font-medium text-red-800 dark:text-red-200">Recording...</span>
               </div>
-              <div className="text-2xl font-bold text-red-800">
+              <div className="text-2xl font-bold text-red-800 dark:text-red-200">
                 {formatTime(recordingTime)}
               </div>
             </div>
@@ -259,24 +259,24 @@ export const VoiceRecorder = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
                 <span className="text-muted-foreground">Duration:</span>
-                <span className="ml-2 font-medium">{formatTime(recordingTime)}</span>
+                <span className="font-medium">{formatTime(recordingTime)}</span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
                 <span className="text-muted-foreground">Quality:</span>
-                <span className="ml-2 font-medium">
+                <span className="font-medium">
                   {qualityOptions.find(q => q.value === audioQuality)?.label}
                 </span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
                 <span className="text-muted-foreground">Format:</span>
-                <span className="ml-2 font-medium">WebM</span>
+                <span className="font-medium">WebM</span>
               </div>
-              <div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
                 <span className="text-muted-foreground">Size:</span>
-                <span className="ml-2 font-medium">
+                <span className="font-medium">
                   {audioBlob ? `${(audioBlob.size / 1024).toFixed(1)} KB` : "Unknown"}
                 </span>
               </div>
