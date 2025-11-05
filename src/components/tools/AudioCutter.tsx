@@ -55,7 +55,13 @@ export const AudioCutter = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("audio/")) {
+    
+    // Check if file is audio by MIME type or file extension (for iOS compatibility)
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.wma'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    const isAudioFile = file.type.startsWith("audio/") || audioExtensions.includes(fileExtension);
+    
+    if (!isAudioFile) {
       toast.error("Please select a valid audio file!");
       return;
     }
@@ -228,7 +234,7 @@ export const AudioCutter = () => {
             <div className="flex items-center gap-4">
               <input
                 type="file"
-                accept="audio/*"
+                accept=".mp3,.wav,.m4a,.ogg,.aac,.flac,.wma,audio/*"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 className="hidden"

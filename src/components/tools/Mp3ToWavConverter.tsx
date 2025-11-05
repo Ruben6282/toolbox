@@ -65,7 +65,12 @@ export const Mp3ToWavConverter = () => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type.startsWith("audio/")) {
+      // Check if file is audio by MIME type or file extension (for iOS compatibility)
+      const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.wma'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      const isAudioFile = file.type.startsWith("audio/") || audioExtensions.includes(fileExtension);
+      
+      if (isAudioFile) {
         setSelectedFile(file);
         setConvertedFile(null);
         setAudioInfo(null);
@@ -76,7 +81,7 @@ export const Mp3ToWavConverter = () => {
           setAudioInfo({
             duration: audio.duration,
             size: file.size,
-            format: file.type,
+            format: file.type || 'audio/' + fileExtension.substring(1),
           });
         };
         audio.src = URL.createObjectURL(file);
@@ -172,7 +177,7 @@ export const Mp3ToWavConverter = () => {
                 ref={fileInputRef}
                 id="file-input"
                 type="file"
-                accept="audio/*"
+                accept=".mp3,.wav,.m4a,.ogg,.aac,.flac,.wma,audio/*"
                 onChange={handleFileSelect}
                 className="hidden"
               />
