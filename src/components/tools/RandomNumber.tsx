@@ -12,6 +12,10 @@ export const RandomNumber = () => {
   const [count, setCount] = useState("1");
   const [numbers, setNumbers] = useState<number[]>([]);
 
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('en-US');
+  };
+
   const generate = () => {
     const minNum = parseInt(min);
     const maxNum = parseInt(max);
@@ -83,8 +87,14 @@ export const RandomNumber = () => {
           <CardContent>
             <div className="flex flex-wrap gap-2 sm:gap-3">
               {numbers.map((num, i) => (
-                <div key={i} className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 text-lg sm:text-2xl font-bold text-primary break-words">
-                  {num}
+                <div 
+                  key={i} 
+                  className="flex min-h-12 sm:min-h-16 min-w-12 sm:min-w-16 px-3 sm:px-4 py-2 sm:py-3 items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 font-bold text-primary break-all"
+                  style={{
+                    fontSize: num.toString().length > 6 ? '0.875rem' : num.toString().length > 4 ? '1rem' : '1.5rem'
+                  }}
+                >
+                  {formatNumber(num)}
                 </div>
               ))}
             </div>

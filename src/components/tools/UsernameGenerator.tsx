@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 export const UsernameGenerator = () => {
   const [usernameCount, setUsernameCount] = useState(5);
@@ -49,31 +50,32 @@ export const UsernameGenerator = () => {
     let username = "";
     
     switch (style) {
-      case "adjective-noun":
+      case "adjective-noun": {
         const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
         const noun = nouns[Math.floor(Math.random() * nouns.length)];
         username = adj + noun;
         break;
-        
-      case "tech":
+      }
+      case "tech": {
         const tech1 = techWords[Math.floor(Math.random() * techWords.length)];
         const tech2 = techWords[Math.floor(Math.random() * techWords.length)];
         username = tech1 + tech2;
         break;
-        
-      case "nature":
+      }
+      case "nature": {
         const nature1 = natureWords[Math.floor(Math.random() * natureWords.length)];
         const nature2 = natureWords[Math.floor(Math.random() * natureWords.length)];
         username = nature1 + nature2;
         break;
-        
+      }
       case "mixed":
-      default:
+      default: {
         const allWords = [...adjectives, ...nouns, ...techWords, ...natureWords];
         const word1 = allWords[Math.floor(Math.random() * allWords.length)];
         const word2 = allWords[Math.floor(Math.random() * allWords.length)];
         username = word1 + word2;
         break;
+      }
     }
 
     // Add numbers if enabled
@@ -125,17 +127,58 @@ export const UsernameGenerator = () => {
 
   const copyToClipboard = async (username: string) => {
     try {
-      await navigator.clipboard.writeText(username);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(username);
+        toast.success("Username copied!");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = username;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          toast.success("Username copied!");
+        } else {
+          toast.error("Failed to copy username");
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      toast.error("Failed to copy username");
     }
   };
 
   const copyAllToClipboard = async () => {
+    const all = generatedUsernames.join('\n');
     try {
-      await navigator.clipboard.writeText(generatedUsernames.join('\n'));
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(all);
+        toast.success("All usernames copied!");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = all;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          toast.success("All usernames copied!");
+        } else {
+          toast.error("Failed to copy");
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      toast.error("Failed to copy");
     }
   };
 
@@ -223,11 +266,11 @@ export const UsernameGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateUsernames}>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <Button onClick={generateUsernames} className="w-full sm:w-auto">
               Generate Usernames
             </Button>
-            <Button onClick={clearUsernames} variant="outline">
+            <Button onClick={clearUsernames} variant="outline" className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>

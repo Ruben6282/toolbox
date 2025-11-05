@@ -44,7 +44,7 @@ export const RandomWordGenerator = () => {
     setIsGenerating(true);
     
     setTimeout(() => {
-      let words: string[] = [];
+      const words: string[] = [];
       
       if (category === "mixed") {
         const allWords = Object.values(WORD_CATEGORIES).flat();
@@ -115,11 +115,11 @@ export const RandomWordGenerator = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={generateWords} disabled={isGenerating}>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <Button onClick={generateWords} disabled={isGenerating} className="w-full sm:w-auto">
               {isGenerating ? "Generating..." : "Generate Words"}
             </Button>
-            <Button variant="outline" onClick={clearWords}>
+            <Button variant="outline" onClick={clearWords} className="w-full sm:w-auto">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>

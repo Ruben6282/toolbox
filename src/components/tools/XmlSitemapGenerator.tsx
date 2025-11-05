@@ -153,7 +153,7 @@ export const XmlSitemapGenerator = () => {
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {urls.map((urlData, index) => (
-                <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3">
+                <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3 overflow-hidden">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <h4 className="font-medium">URL {index + 1}</h4>
                     {urls.length > 1 && (
@@ -168,29 +168,31 @@ export const XmlSitemapGenerator = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
+                    <div className="space-y-2 min-w-0">
                       <Label>URL Path</Label>
                       <Input
                         placeholder="/page or full URL"
                         value={urlData.url}
                         onChange={(e) => updateUrl(index, 'url', e.target.value)}
+                        className="w-full min-w-0"
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label>Last Modified</Label>
                       <Input
                         type="date"
                         value={urlData.lastmod}
                         onChange={(e) => updateUrl(index, 'lastmod', e.target.value)}
+                        className="w-full min-w-0"
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label>Change Frequency</Label>
                       <Select value={urlData.changefreq} onValueChange={(value) => updateUrl(index, 'changefreq', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -205,10 +207,10 @@ export const XmlSitemapGenerator = () => {
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       <Label>Priority</Label>
                       <Select value={urlData.priority} onValueChange={(value) => updateUrl(index, 'priority', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

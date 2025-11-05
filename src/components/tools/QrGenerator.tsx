@@ -1,4 +1,5 @@
 import { useState } from "react";
+import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,14 +10,19 @@ export const QrGenerator = () => {
   const [text, setText] = useState("");
   const [qrUrl, setQrUrl] = useState("");
 
-  const generate = () => {
+  const generate = async () => {
     if (!text) {
       toast.error("Please enter text!");
       return;
     }
-    const encodedText = encodeURIComponent(text);
-    setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedText}`);
-    toast.success("QR code generated!");
+
+    try {
+      const dataUrl = await QRCode.toDataURL(text, { width: 300 });
+      setQrUrl(dataUrl);
+      toast.success("QR code generated!");
+    } catch (err) {
+      toast.error("Failed to generate QR code.");
+    }
   };
 
   const download = () => {

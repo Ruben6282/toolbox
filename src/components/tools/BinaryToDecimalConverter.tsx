@@ -10,6 +10,10 @@ export const BinaryToDecimalConverter = () => {
   const [decimal, setDecimal] = useState("");
   const [conversionType, setConversionType] = useState("binary-to-decimal");
 
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('en-US');
+  };
+
   const convertBinaryToDecimal = (binaryStr: string) => {
     if (!binaryStr || !/^[01]+$/.test(binaryStr)) {
       return { result: 0, error: "Invalid binary number. Only 0s and 1s are allowed." };
@@ -199,15 +203,15 @@ export const BinaryToDecimalConverter = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600 mb-2">
+                <div className="text-2xl font-bold text-blue-600 mb-2 break-all font-mono">
                   {binary}
                 </div>
                 <div className="text-sm text-muted-foreground">Binary</div>
               </div>
               
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600 mb-2">
-                  {decimal}
+                <div className="text-2xl font-bold text-green-600 mb-2 break-words">
+                  {formatNumber(parseInt(decimal))}
                 </div>
                 <div className="text-sm text-muted-foreground">Decimal</div>
               </div>
@@ -216,18 +220,18 @@ export const BinaryToDecimalConverter = () => {
             <div className="space-y-3">
               <h4 className="font-semibold">Conversion Details</h4>
               <div className="text-sm space-y-2">
-                <p>
-                  <strong>Binary:</strong> {binary} (base 2)
+                <p className="break-all">
+                  <strong>Binary:</strong> <span className="font-mono">{binary}</span> (base 2)
                 </p>
-                <p>
-                  <strong>Decimal:</strong> {decimal} (base 10)
+                <p className="break-words">
+                  <strong>Decimal:</strong> {formatNumber(parseInt(decimal))} (base 10)
                 </p>
                 <p>
                   <strong>Bits:</strong> {binary.length} bit{binary.length !== 1 ? 's' : ''}
                 </p>
                 {parseInt(decimal) > 0 && (
-                  <p>
-                    <strong>Power of 2:</strong> 2^{Math.log2(parseInt(decimal))} = {parseInt(decimal)}
+                  <p className="break-words">
+                    <strong>Power of 2:</strong> 2^{Math.log2(parseInt(decimal))} = {formatNumber(parseInt(decimal))}
                   </p>
                 )}
               </div>

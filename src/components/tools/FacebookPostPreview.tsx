@@ -72,6 +72,15 @@ export const FacebookPostPreview = () => {
       html += `    <img src="${imageUrl}" style="width: 100%; height: auto; display: block;" alt="Post image" />\n`;
       html += `  </div>\n`;
     } else if (postType === 'link' && linkUrl) {
+      // Safe URL parsing
+      let hostname = 'example.com';
+      try {
+        hostname = new URL(linkUrl).hostname;
+      } catch (e) {
+        // If URL is invalid, use placeholder
+        hostname = linkUrl || 'example.com';
+      }
+      
       html += `  <div style="border-top: 1px solid #dadde1; padding: 12px 16px;">\n`;
       html += `    <div style="display: flex; gap: 12px; border: 1px solid #dadde1; border-radius: 8px; overflow: hidden;">\n`;
       if (linkImage) {
@@ -80,7 +89,7 @@ export const FacebookPostPreview = () => {
         html += `      </div>\n`;
       }
       html += `      <div style="flex: 1; padding: 12px;">\n`;
-      html += `        <div style="color: #65676b; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">${new URL(linkUrl).hostname}</div>\n`;
+      html += `        <div style="color: #65676b; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">${hostname}</div>\n`;
       if (linkTitle) {
         html += `        <div style="font-weight: 600; color: #1c1e21; font-size: 16px; margin-bottom: 4px;">${linkTitle}</div>\n`;
       }
@@ -126,11 +135,39 @@ export const FacebookPostPreview = () => {
   };
 
   const copyToClipboard = async () => {
+    const html = generatePostHTML();
     try {
-      await navigator.clipboard.writeText(generatePostHTML());
-      toast.success("Post HTML copied to clipboard!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(html);
+        toast.success("Post HTML copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = html;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            toast.success("Post HTML copied to clipboard!");
+          } else {
+            toast.error("Failed to copy to clipboard");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          toast.error("Failed to copy to clipboard");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      toast.error("Failed to copy to clipboard");
     }
   };
 
@@ -272,12 +309,12 @@ export const FacebookPostPreview = () => {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={copyToClipboard} className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <Button onClick={copyToClipboard} className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Copy className="h-4 w-4" />
               Copy HTML
             </Button>
-            <Button onClick={downloadPost} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={downloadPost} variant="outline" className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Download className="h-4 w-4" />
               Download
             </Button>
@@ -295,9 +332,9 @@ export const FacebookPostPreview = () => {
             <CardTitle>Live Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg p-4 bg-white dark:bg-gray-950">
-              <div className="max-w-md mx-auto">
-                <div className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 font-sans">
+            <div className="border rounded-lg p-2 sm:p-4 bg-white dark:bg-gray-950">
+              <div className="max-w-md mx-auto w-full">
+                <div className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 font-sans overflow-hidden">
                   {/* Header */}
                   <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-2">
@@ -346,7 +383,13 @@ export const FacebookPostPreview = () => {
                           )}
                           <div className="flex-1 p-3 min-w-0">
                             <div className="text-gray-500 dark:text-gray-400 text-xs uppercase mb-1 break-words">
-                              {postData.linkUrl ? new URL(postData.linkUrl).hostname : 'example.com'}
+                              {(() => {
+                                try {
+                                  return new URL(postData.linkUrl).hostname;
+                                } catch (e) {
+                                  return postData.linkUrl || 'example.com';
+                                }
+                              })()}
                             </div>
                             {postData.linkTitle && (
                               <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1 break-words overflow-wrap-anywhere">
@@ -378,14 +421,17 @@ export const FacebookPostPreview = () => {
                   {/* Actions */}
                   <div className="p-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-around">
-                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
-                        👍 Like
+                      <button className="flex-1 py-2 px-1 text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-1 sm:gap-2">
+                        <span>👍</span>
+                        <span className="hidden xs:inline">Like</span>
                       </button>
-                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
-                        💬 Comment
+                      <button className="flex-1 py-2 px-1 text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-1 sm:gap-2">
+                        <span>💬</span>
+                        <span className="hidden xs:inline">Comment</span>
                       </button>
-                      <button className="flex-1 py-2 text-gray-600 dark:text-gray-400 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-2 whitespace-nowrap">
-                        🔄 Share
+                      <button className="flex-1 py-2 px-1 text-gray-600 dark:text-gray-400 text-xs sm:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 rounded flex items-center justify-center gap-1 sm:gap-2">
+                        <span>🔄</span>
+                        <span className="hidden xs:inline">Share</span>
                       </button>
                     </div>
                   </div>
