@@ -161,7 +161,7 @@ export const SearchBar = ({ onToolSelect }: SearchBarProps = {}) => {
                 </div>
                 <Badge 
                   variant={isSelected ? "default" : "outline"} 
-                  className={`text-xs transition-all duration-200 ${
+                  className={`hidden sm:inline-flex text-xs transition-all duration-200 ${
                     isSelected 
                       ? "bg-primary/10 text-primary border-primary/20" 
                       : "group-hover:bg-primary/5 group-hover:text-primary group-hover:border-primary/10"
