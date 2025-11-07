@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ToolCard } from "@/components/ToolCard";
 import { AdSense } from "@/components/AdSense";
@@ -20,6 +21,57 @@ const CategoryPage = () => {
   const category = categories.find((c) => c.id === categoryId);
   const categoryTools = tools.filter((tool) => tool.category === categoryId);
 
+  // SEO Meta Tags
+  useEffect(() => {
+    if (category) {
+      const title = `${category.name} Tools - ToolCheetah`;
+      const description = `${category.description} Browse ${categoryTools.length} free ${category.name.toLowerCase()} including ${categoryTools.slice(0, 3).map(t => t.name).join(', ')}${categoryTools.length > 3 ? ', and more' : ''}.`;
+      
+      document.title = title;
+      
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', description);
+
+      // Open Graph tags
+      let ogTitle = document.querySelector('meta[property="og:title"]');
+      if (!ogTitle) {
+        ogTitle = document.createElement('meta');
+        ogTitle.setAttribute('property', 'og:title');
+        document.head.appendChild(ogTitle);
+      }
+      ogTitle.setAttribute('content', title);
+
+      let ogDescription = document.querySelector('meta[property="og:description"]');
+      if (!ogDescription) {
+        ogDescription = document.createElement('meta');
+        ogDescription.setAttribute('property', 'og:description');
+        document.head.appendChild(ogDescription);
+      }
+      ogDescription.setAttribute('content', description);
+
+      let ogUrl = document.querySelector('meta[property="og:url"]');
+      if (!ogUrl) {
+        ogUrl = document.createElement('meta');
+        ogUrl.setAttribute('property', 'og:url');
+        document.head.appendChild(ogUrl);
+      }
+      ogUrl.setAttribute('content', `https://toolcheetah.com/category/${categoryId}`);
+
+      // Canonical URL
+      let canonical = document.querySelector('link[rel="canonical"]');
+      if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonical);
+      }
+      canonical.setAttribute('href', `https://toolcheetah.com/category/${categoryId}`);
+    }
+  }, [category, categoryId, categoryTools]);
 
   if (!category) {
     return (

@@ -10,6 +10,56 @@ const ContactPage = () => {
   const [copiedIdea, setCopiedIdea] = useState(false);
   const [copiedBug, setCopiedBug] = useState(false);
 
+  // SEO Meta Tags
+  useEffect(() => {
+    const title = "Contact ToolCheetah - Feedback, Suggestions & Support";
+    const description = "Get in touch with ToolCheetah. Submit tool ideas, report bugs, or connect with us on Instagram. We value your feedback and suggestions.";
+    
+    document.title = title;
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+      metaDescription = document.createElement('meta');
+      metaDescription.setAttribute('name', 'description');
+      document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', description);
+
+    // Open Graph tags
+    let ogTitle = document.querySelector('meta[property="og:title"]');
+    if (!ogTitle) {
+      ogTitle = document.createElement('meta');
+      ogTitle.setAttribute('property', 'og:title');
+      document.head.appendChild(ogTitle);
+    }
+    ogTitle.setAttribute('content', title);
+
+    let ogDescription = document.querySelector('meta[property="og:description"]');
+    if (!ogDescription) {
+      ogDescription = document.createElement('meta');
+      ogDescription.setAttribute('property', 'og:description');
+      document.head.appendChild(ogDescription);
+    }
+    ogDescription.setAttribute('content', description);
+
+    let ogUrl = document.querySelector('meta[property="og:url"]');
+    if (!ogUrl) {
+      ogUrl = document.createElement('meta');
+      ogUrl.setAttribute('property', 'og:url');
+      document.head.appendChild(ogUrl);
+    }
+    ogUrl.setAttribute('content', 'https://toolcheetah.com/contact');
+
+    // Canonical URL
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', 'https://toolcheetah.com/contact');
+  }, []);
+
   const ideaTemplate = useMemo(() => `Subject: Tool Idea — <Short Title>
 
 What problem it solves:
