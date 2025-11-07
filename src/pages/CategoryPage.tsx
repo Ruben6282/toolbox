@@ -24,7 +24,7 @@ const CategoryPage = () => {
   // SEO Meta Tags
   useEffect(() => {
     if (category) {
-      const title = `${category.name} Tools - ToolCheetah`;
+      const title = `${category.name} - ToolCheetah`;
       const description = `${category.description} Browse ${categoryTools.length} free ${category.name.toLowerCase()} including ${categoryTools.slice(0, 3).map(t => t.name).join(', ')}${categoryTools.length > 3 ? ', and more' : ''}.`;
       
       document.title = title;

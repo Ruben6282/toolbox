@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Plus, Trash2 } from "lucide-react";
+import { toZonedTime, format } from "date-fns-tz";
 
 interface ClockEntry {
   id: string;
@@ -12,12 +13,21 @@ interface ClockEntry {
   label: string;
 }
 
-export const WorldClock = () => {
+interface WorldClockProps {
+  hour12?: boolean; // true = 12-hour, false = 24-hour
+  maxClocks?: number;
+}
+
+// Fallback UUID generator for iOS Safari
+const generateId = () => crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 10);
+
+export const WorldClock: React.FC<WorldClockProps> = ({ hour12 = true, maxClocks = 12 }) => {
   const [clocks, setClocks] = useState<ClockEntry[]>([
-    { id: "1", timezone: "America/New_York", label: "New York" },
-    { id: "2", timezone: "Europe/London", label: "London" },
-    { id: "3", timezone: "Asia/Tokyo", label: "Tokyo" }
+    { id: generateId(), timezone: "America/New_York", label: "New York" },
+    { id: generateId(), timezone: "Europe/London", label: "London" },
+    { id: generateId(), timezone: "Asia/Tokyo", label: "Tokyo" },
   ]);
+
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const timezones = [
@@ -42,100 +52,72 @@ export const WorldClock = () => {
     { label: "Melbourne (AEST/AEDT)", value: "Australia/Melbourne" },
     { label: "Auckland (NZST/NZDT)", value: "Pacific/Auckland" },
     { label: "Honolulu (HST)", value: "Pacific/Honolulu" },
-    { label: "UTC", value: "UTC" }
+    { label: "UTC", value: "UTC" },
   ];
 
+  // Update clocks every second
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   const addClock = () => {
-    const newClock: ClockEntry = {
-      id: Date.now().toString(),
-      timezone: "UTC",
-      label: "New Clock"
-    };
+    if (clocks.length >= maxClocks) return;
+    const newClock: ClockEntry = { id: generateId(), timezone: "UTC", label: "New Clock" };
     setClocks([...clocks, newClock]);
   };
 
   const removeClock = (id: string) => {
-    if (clocks.length > 1) {
-      setClocks(clocks.filter(clock => clock.id !== id));
-    }
+    if (clocks.length > 1) setClocks(clocks.filter((c) => c.id !== id));
   };
 
   const updateClock = (id: string, field: keyof ClockEntry, value: string) => {
-    setClocks(clocks.map(clock => 
-      clock.id === id ? { ...clock, [field]: value } : clock
-    ));
+    setClocks(clocks.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   };
 
-  const getTimeInTimezone = (timezone: string) => {
-    try {
-      return new Date(currentTime.toLocaleString("en-US", { timeZone: timezone }));
-    } catch (error) {
-      return currentTime;
-    }
-  };
+  // Format clocks for display
+  const formattedClocks = useMemo(() => {
+    return clocks.map((clock) => {
+      try {
+        const zoned = toZonedTime(currentTime, clock.timezone);
+        // Compute UTC offset safely
+        const nowUTC = new Date(currentTime.getTime() + currentTime.getTimezoneOffset() * 60000);
+        const diff = (zoned.getTime() - nowUTC.getTime()) / 3600000;
+        const sign = diff >= 0 ? "+" : "";
+        const hours = Math.floor(Math.abs(diff));
+        const minutes = Math.round((Math.abs(diff) - hours) * 60);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour12: true,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
+        return {
+          ...clock,
+          time: format(zoned, hour12 ? "hh:mm:ss a" : "HH:mm:ss", { timeZone: clock.timezone }),
+          date: format(zoned, "EEE, MMM d, yyyy", { timeZone: clock.timezone }),
+          offset: `UTC${sign}${hours}:${minutes.toString().padStart(2, "0")}`,
+        };
+      } catch {
+        return { ...clock, time: "Unavailable", date: "Unavailable", offset: "UTC+0" };
+      }
     });
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  };
-
-  const getTimezoneOffset = (timezone: string) => {
-    try {
-      const now = new Date();
-      const utc = new Date(now.getTime() + (now.getTimezoneOffset() * 60000));
-      const target = new Date(utc.toLocaleString("en-US", { timeZone: timezone }));
-      const offset = (target.getTime() - utc.getTime()) / (1000 * 60 * 60);
-      return offset;
-    } catch (error) {
-      return 0;
-    }
-  };
-
-  const formatOffset = (offset: number) => {
-    const sign = offset >= 0 ? "+" : "";
-    const hours = Math.floor(Math.abs(offset));
-    const minutes = Math.round((Math.abs(offset) - hours) * 60);
-    return `UTC${sign}${hours}:${minutes.toString().padStart(2, '0')}`;
-  };
+  }, [clocks, currentTime, hour12]);
 
   return (
     <div className="space-y-6">
+      {/* Clock Management */}
       <Card>
         <CardHeader>
           <CardTitle>World Clock</CardTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            All times are calculated based on your device's current time
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-between items-center">
             <Label>Manage Clocks</Label>
-            <Button onClick={addClock} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Clock
+            <Button onClick={addClock} size="sm" aria-label="Add new clock">
+              <Plus className="h-4 w-4 mr-2" /> Add Clock
             </Button>
           </div>
-
           <div className="space-y-3">
-            {clocks.map((clock, index) => (
+            {clocks.map((clock) => (
               <div key={clock.id} className="flex items-center gap-2 p-3 border rounded-lg">
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
@@ -143,15 +125,17 @@ export const WorldClock = () => {
                     <Input
                       id={`label-${clock.id}`}
                       value={clock.label}
-                      onChange={(e) => updateClock(clock.id, 'label', e.target.value)}
+                      onChange={(e) => updateClock(clock.id, "label", e.target.value)}
                       placeholder="Clock label"
+                      aria-label="Clock label"
                     />
                   </div>
                   <div>
                     <Label htmlFor={`timezone-${clock.id}`}>Timezone</Label>
                     <Select
                       value={clock.timezone}
-                      onValueChange={(value) => updateClock(clock.id, 'timezone', value)}
+                      onValueChange={(value) => updateClock(clock.id, "timezone", value)}
+                      aria-label="Select timezone"
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select timezone" />
@@ -171,6 +155,7 @@ export const WorldClock = () => {
                   variant="outline"
                   size="sm"
                   disabled={clocks.length === 1}
+                  aria-label="Remove clock"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -180,37 +165,28 @@ export const WorldClock = () => {
         </CardContent>
       </Card>
 
+      {/* Display Clocks */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {clocks.map((clock) => {
-          const timeInZone = getTimeInTimezone(clock.timezone);
-          const offset = getTimezoneOffset(clock.timezone);
-          
-          return (
-            <Card key={clock.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  {clock.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center space-y-2">
-                  <div className="text-3xl font-mono font-bold text-blue-600">
-                    {formatTime(timeInZone)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatDate(timeInZone)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatOffset(offset)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {formattedClocks.map((clock) => (
+          <Card key={clock.id}>
+            <CardHeader>
+              <CardTitle className="flex items-start gap-2">
+                <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <span className="break-words min-w-0">{clock.label}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center space-y-2">
+                <div className="text-3xl font-mono font-bold text-blue-600">{clock.time}</div>
+                <div className="text-sm text-muted-foreground">{clock.date}</div>
+                <div className="text-xs text-muted-foreground">{clock.offset}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
+      {/* Tips */}
       <Card>
         <CardHeader>
           <CardTitle>World Clock Tips</CardTitle>
@@ -223,8 +199,8 @@ export const WorldClock = () => {
             <li>• UTC offset shows the difference from Coordinated Universal Time</li>
             <li>• Times automatically adjust for daylight saving time</li>
             <li>• Perfect for international meetings and travel planning</li>
-            <li>• You can add up to 12 clocks for comprehensive coverage</li>
-            <li>• Times are displayed in 12-hour format with AM/PM</li>
+            <li>• You can add up to {maxClocks} clocks for comprehensive coverage</li>
+            <li>• Times display according to 12/24-hour preference</li>
           </ul>
         </CardContent>
       </Card>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RotateCcw, Receipt } from "lucide-react";
 
 export const TaxCalculator = () => {
+  // New: tax year + dynamic data with safe fallback
+  const [taxYear, setTaxYear] = useState<string>("2025");
+  interface RemoteYearData {
+    federalBrackets: Record<string, Array<{ min: number; max: number; rate: number }>>;
+    standardDeductions: Record<string, number>;
+  }
+  type RemoteTaxData = Record<string, RemoteYearData>;
+  const [remoteTaxData, setRemoteTaxData] = useState<RemoteTaxData | null>(null);
+
   const [grossIncome, setGrossIncome] = useState("");
   const [filingStatus, setFilingStatus] = useState("single");
   const [deductions, setDeductions] = useState("");
@@ -14,54 +23,113 @@ export const TaxCalculator = () => {
   const [state, setState] = useState("none");
   const [additionalIncome, setAdditionalIncome] = useState("");
 
-  const income = parseFloat(grossIncome) || 0;
-  const deductionAmount = parseFloat(deductions) || 0;
-  const credits = parseFloat(taxCredits) || 0;
-  const additional = parseFloat(additionalIncome) || 0;
+  const clampNonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
+  const income = clampNonNegative(parseFloat(grossIncome));
+  const deductionAmount = clampNonNegative(parseFloat(deductions));
+  const credits = clampNonNegative(parseFloat(taxCredits));
+  const additional = clampNonNegative(parseFloat(additionalIncome));
   const totalIncome = income + additional;
 
-  // 2024 Federal Tax Brackets (simplified)
-  const federalBrackets = {
-    single: [
-      { min: 0, max: 11000, rate: 0.10 },
-      { min: 11000, max: 44725, rate: 0.12 },
-      { min: 44725, max: 95375, rate: 0.22 },
-      { min: 95375, max: 182050, rate: 0.24 },
-      { min: 182050, max: 231250, rate: 0.32 },
-      { min: 231250, max: 578125, rate: 0.35 },
-      { min: 578125, max: Infinity, rate: 0.37 }
-    ],
-    married: [
-      { min: 0, max: 22000, rate: 0.10 },
-      { min: 22000, max: 89450, rate: 0.12 },
-      { min: 89450, max: 190750, rate: 0.22 },
-      { min: 190750, max: 364200, rate: 0.24 },
-      { min: 364200, max: 462500, rate: 0.32 },
-      { min: 462500, max: 693750, rate: 0.35 },
-      { min: 693750, max: Infinity, rate: 0.37 }
-    ]
+  // Fallback tax data (ensures tool never breaks)
+  const fallbackTaxData: Record<string, {
+    federalBrackets: Record<string, Array<{ min: number; max: number; rate: number }>>;
+    standardDeductions: Record<string, number>;
+  }> = {
+    "2024": {
+      federalBrackets: {
+        single: [
+          { min: 0, max: 11000, rate: 0.10 },
+          { min: 11000, max: 44725, rate: 0.12 },
+          { min: 44725, max: 95375, rate: 0.22 },
+          { min: 95375, max: 182050, rate: 0.24 },
+          { min: 182050, max: 231250, rate: 0.32 },
+          { min: 231250, max: 578125, rate: 0.35 },
+          { min: 578125, max: Infinity, rate: 0.37 }
+        ],
+        married: [
+          { min: 0, max: 22000, rate: 0.10 },
+          { min: 22000, max: 89450, rate: 0.12 },
+          { min: 89450, max: 190750, rate: 0.22 },
+          { min: 190750, max: 364200, rate: 0.24 },
+          { min: 364200, max: 462500, rate: 0.32 },
+          { min: 462500, max: 693750, rate: 0.35 },
+          { min: 693750, max: Infinity, rate: 0.37 }
+        ]
+      },
+      standardDeductions: {
+        single: 13850,
+        married: 27700
+      }
+    },
+    // 2025 fallback currently mirrors 2024; remote file can override
+    "2025": {
+      federalBrackets: {
+        single: [
+          { min: 0, max: 11000, rate: 0.10 },
+          { min: 11000, max: 44725, rate: 0.12 },
+          { min: 44725, max: 95375, rate: 0.22 },
+          { min: 95375, max: 182050, rate: 0.24 },
+          { min: 182050, max: 231250, rate: 0.32 },
+          { min: 231250, max: 578125, rate: 0.35 },
+          { min: 578125, max: Infinity, rate: 0.37 }
+        ],
+        married: [
+          { min: 0, max: 22000, rate: 0.10 },
+          { min: 22000, max: 89450, rate: 0.12 },
+          { min: 89450, max: 190750, rate: 0.22 },
+          { min: 190750, max: 364200, rate: 0.24 },
+          { min: 364200, max: 462500, rate: 0.32 },
+          { min: 462500, max: 693750, rate: 0.35 },
+          { min: 693750, max: Infinity, rate: 0.37 }
+        ]
+      },
+      standardDeductions: {
+        single: 13850,
+        married: 27700
+      }
+    }
   };
 
-  const standardDeductions = {
-    single: 13850,
-    married: 27700
-  };
+  // Try to fetch tax data (served statically from /tax-data.json); always falls back
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/tax-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load tax data");
+        const data = await res.json();
+        if (!cancelled) setRemoteTaxData(data);
+      } catch {
+        if (!cancelled) setRemoteTaxData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const activeData = useMemo(() => {
+    // Prefer remote data if available and valid
+    const yearData = remoteTaxData?.[taxYear];
+    if (yearData?.federalBrackets && yearData?.standardDeductions) return yearData;
+    // Fall back to baked-in
+    return fallbackTaxData[taxYear] ?? fallbackTaxData["2024"];
+  // fallbackTaxData is static (object literal), safe to ignore exhaustive dep warning
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteTaxData, taxYear]);
 
   const calculateFederalTax = () => {
-    const brackets = federalBrackets[filingStatus as keyof typeof federalBrackets];
-    const standardDeduction = standardDeductions[filingStatus as keyof typeof standardDeductions];
+    const brackets = activeData.federalBrackets[filingStatus] as Array<{ min: number; max: number; rate: number }>;
+    const standardDeduction = activeData.standardDeductions[filingStatus] as number;
     const totalDeduction = Math.max(deductionAmount, standardDeduction);
     const taxableIncome = Math.max(0, totalIncome - totalDeduction);
     
     let tax = 0;
-    let remainingIncome = taxableIncome;
-    
     for (const bracket of brackets) {
-      if (remainingIncome <= 0) break;
-      
-      const bracketIncome = Math.min(remainingIncome, bracket.max - bracket.min);
-      tax += bracketIncome * bracket.rate;
-      remainingIncome -= bracketIncome;
+      if (taxableIncome > bracket.min) {
+        const incomeInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
+        if (incomeInBracket > 0) tax += incomeInBracket * bracket.rate;
+      } else {
+        break;
+      }
     }
     
     return { tax, taxableIncome, totalDeduction };
@@ -88,9 +156,13 @@ export const TaxCalculator = () => {
 
   const federalResult = calculateFederalTax();
   const stateTax = calculateStateTax(federalResult.taxableIncome);
-  const totalTax = federalResult.tax + stateTax;
+  // Apply credits and never let tax go below zero
+  const totalTax = Math.max(0, federalResult.tax + stateTax - credits);
   const netIncome = totalIncome - totalTax;
   const effectiveRate = totalIncome > 0 ? (totalTax / totalIncome) * 100 : 0;
+
+  // Currency formatter
+  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   const clearAll = () => {
     setGrossIncome("");
@@ -109,6 +181,19 @@ export const TaxCalculator = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="tax-year">Tax Year</Label>
+              <Select value={taxYear} onValueChange={setTaxYear}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2025">2025</SelectItem>
+                  <SelectItem value="2024">2024</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Brackets and deductions load dynamically with baked-in fallback.</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="gross-income">Gross Annual Income ($)</Label>
               <Input
@@ -159,6 +244,7 @@ export const TaxCalculator = () => {
                 onChange={(e) => setTaxCredits(e.target.value)}
                 min="0"
               />
+              <p className="text-xs text-muted-foreground">Credits directly reduce total tax owed.</p>
             </div>
 
             <div className="space-y-2">
@@ -215,21 +301,21 @@ export const TaxCalculator = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 break-all px-2">
-                  ${totalIncome.toLocaleString()}
+                  {fmt(totalIncome)}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Income</div>
               </div>
               
               <div className="text-center">
                 <div className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 break-all px-2">
-                  ${totalTax.toLocaleString()}
+                  {fmt(totalTax)}
                 </div>
                 <div className="text-sm text-muted-foreground">Total Tax</div>
               </div>
               
               <div className="text-center">
                 <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 break-all px-2">
-                  ${netIncome.toLocaleString()}
+                  {fmt(netIncome)}
                 </div>
                 <div className="text-sm text-muted-foreground">Net Income</div>
               </div>
@@ -241,26 +327,26 @@ export const TaxCalculator = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Federal Tax:</span>
-                    <span className="font-medium">${federalResult.tax.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">State Tax:</span>
-                    <span className="font-medium">${stateTax.toLocaleString()}</span>
+                    <span className="font-medium">{fmt(federalResult.tax)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax Credits:</span>
-                    <span className="font-medium">-${credits.toLocaleString()}</span>
+                    <span className="font-medium">-{fmt(credits)}</span>
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Taxable Income:</span>
-                    <span className="font-medium">${federalResult.taxableIncome.toLocaleString()}</span>
+                    <span className="font-medium">{fmt(federalResult.taxableIncome)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Deductions Used:</span>
-                    <span className="font-medium">${federalResult.totalDeduction.toLocaleString()}</span>
+                    <span className="font-medium">{fmt(federalResult.totalDeduction)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">State Tax:</span>
+                    <span className="font-medium">{fmt(stateTax)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Effective Tax Rate:</span>
@@ -274,15 +360,20 @@ export const TaxCalculator = () => {
               <h4 className="font-medium mb-2">Tax Summary</h4>
               <div className="text-sm space-y-1">
                 <p>Your effective tax rate is <strong>{effectiveRate.toFixed(2)}%</strong>.</p>
-                <p>You'll pay <strong>${totalTax.toLocaleString()}</strong> in taxes.</p>
-                <p>Your take-home income will be <strong>${netIncome.toLocaleString()}</strong>.</p>
+                 <p>You'll pay <strong>{fmt(totalTax)}</strong> in taxes.</p>
+                 <p>Your take-home income will be <strong>{fmt(netIncome)}</strong>.</p>
                 {credits > 0 && (
-                  <p>Tax credits reduce your tax by <strong>${credits.toLocaleString()}</strong>.</p>
+                  <p>Tax credits reduce your tax by <strong>{fmt(credits)}</strong>.</p>
                 )}
+                <p className="text-xs text-muted-foreground mt-2">Using {remoteTaxData ? "loaded" : "fallback"} {taxYear} tax data.</p>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {!remoteTaxData && (
+        <div className="text-center text-xs text-muted-foreground italic">Loading remote tax data...</div>
       )}
 
       <Card>

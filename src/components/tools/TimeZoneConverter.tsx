@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCcw, ArrowLeftRight } from "lucide-react";
+import { format, toZonedTime } from "date-fns-tz";
 
 interface TimeZone {
   name: string;
-  offset: number;
   label: string;
 }
 
@@ -21,33 +21,33 @@ export const TimeZoneConverter = () => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   const timeZones: TimeZone[] = [
-    { name: "UTC", offset: 0, label: "UTC (Coordinated Universal Time)" },
-    { name: "America/New_York", offset: -5, label: "New York (EST/EDT)" },
-    { name: "America/Chicago", offset: -6, label: "Chicago (CST/CDT)" },
-    { name: "America/Denver", offset: -7, label: "Denver (MST/MDT)" },
-    { name: "America/Los_Angeles", offset: -8, label: "Los Angeles (PST/PDT)" },
-    { name: "Europe/London", offset: 0, label: "London (GMT/BST)" },
-    { name: "Europe/Paris", offset: 1, label: "Paris (CET/CEST)" },
-    { name: "Europe/Berlin", offset: 1, label: "Berlin (CET/CEST)" },
-    { name: "Europe/Rome", offset: 1, label: "Rome (CET/CEST)" },
-    { name: "Europe/Madrid", offset: 1, label: "Madrid (CET/CEST)" },
-    { name: "Asia/Tokyo", offset: 9, label: "Tokyo (JST)" },
-    { name: "Asia/Shanghai", offset: 8, label: "Shanghai (CST)" },
-    { name: "Asia/Kolkata", offset: 5.5, label: "Mumbai/Delhi (IST)" },
-    { name: "Asia/Dubai", offset: 4, label: "Dubai (GST)" },
-    { name: "Asia/Singapore", offset: 8, label: "Singapore (SGT)" },
-    { name: "Australia/Sydney", offset: 10, label: "Sydney (AEST/AEDT)" },
-    { name: "Australia/Melbourne", offset: 10, label: "Melbourne (AEST/AEDT)" },
-    { name: "Pacific/Auckland", offset: 12, label: "Auckland (NZST/NZDT)" },
-    { name: "America/Sao_Paulo", offset: -3, label: "São Paulo (BRT)" },
-    { name: "Africa/Cairo", offset: 2, label: "Cairo (EET)" },
+    { name: "UTC", label: "UTC (Coordinated Universal Time)" },
+    { name: "America/New_York", label: "New York (EST/EDT)" },
+    { name: "America/Chicago", label: "Chicago (CST/CDT)" },
+    { name: "America/Denver", label: "Denver (MST/MDT)" },
+    { name: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
+    { name: "Europe/London", label: "London (GMT/BST)" },
+    { name: "Europe/Paris", label: "Paris (CET/CEST)" },
+    { name: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+    { name: "Europe/Rome", label: "Rome (CET/CEST)" },
+    { name: "Europe/Madrid", label: "Madrid (CET/CEST)" },
+    { name: "Asia/Tokyo", label: "Tokyo (JST)" },
+    { name: "Asia/Shanghai", label: "Shanghai (CST)" },
+    { name: "Asia/Kolkata", label: "Mumbai/Delhi (IST)" },
+    { name: "Asia/Dubai", label: "Dubai (GST)" },
+    { name: "Asia/Singapore", label: "Singapore (SGT)" },
+    { name: "Australia/Sydney", label: "Sydney (AEST/AEDT)" },
+    { name: "Australia/Melbourne", label: "Melbourne (AEST/AEDT)" },
+    { name: "Pacific/Auckland", label: "Auckland (NZST/NZDT)" },
+    { name: "America/Sao_Paulo", label: "São Paulo (BRT)" },
+    { name: "Africa/Cairo", label: "Cairo (EET)" },
   ];
 
+  // Auto-update the live clock every 10 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000);
-
+    }, 10000);
     return () => clearInterval(timer);
   }, []);
 
@@ -55,50 +55,40 @@ export const TimeZoneConverter = () => {
     if (!inputDate || !inputTime) return;
 
     try {
+      // Combine date and time into ISO format
       const dateTimeString = `${inputDate}T${inputTime}`;
-      const localDate = new Date(dateTimeString);
-      
-      if (isNaN(localDate.getTime())) {
+      const utcDate = new Date(dateTimeString);
+
+      if (isNaN(utcDate.getTime())) {
         setConvertedTime("Invalid date/time");
         return;
       }
 
-      // Create a date in the source timezone
-      const sourceDate = new Date(localDate.toLocaleString("en-US", { timeZone: fromTimeZone }));
-      
-      // Convert to target timezone
-      const targetDate = new Date(sourceDate.toLocaleString("en-US", { timeZone: toTimeZone }));
-      
-      const formattedTime = targetDate.toLocaleString("en-US", {
+      // Convert from "fromTimeZone" → UTC → "toTimeZone"
+      const sourceDate = toZonedTime(utcDate, fromTimeZone);
+      const targetDate = toZonedTime(sourceDate, toTimeZone);
+
+      const formatted = format(targetDate, "yyyy-MM-dd HH:mm:ss", {
         timeZone: toTimeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
       });
 
-      setConvertedTime(formattedTime);
+      setConvertedTime(formatted);
     } catch (error) {
+      console.error("Conversion error:", error);
       setConvertedTime("Error converting time");
     }
   };
 
   const swapTimeZones = () => {
-    const temp = fromTimeZone;
-    setFromTimeZone(toTimeZone);
-    setToTimeZone(temp);
     setConvertedTime(null);
+    setFromTimeZone(toTimeZone);
+    setToTimeZone(fromTimeZone);
   };
 
   const setCurrentDateTime = () => {
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().split(' ')[0].substring(0, 5);
-    setInputDate(date);
-    setInputTime(time);
+    setInputDate(now.toISOString().split("T")[0]);
+    setInputTime(now.toTimeString().slice(0, 5));
   };
 
   const clearAll = () => {
@@ -107,17 +97,13 @@ export const TimeZoneConverter = () => {
     setConvertedTime(null);
   };
 
-  const getCurrentTimeInZone = (timeZone: string) => {
-    return currentTime.toLocaleString("en-US", {
-      timeZone: timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+  const getCurrentTimeInZone = (tz: string) => {
+    try {
+      const zoned = toZonedTime(currentTime, tz);
+      return format(zoned, "yyyy-MM-dd HH:mm:ss", { timeZone: tz });
+    } catch {
+      return "Unavailable";
+    }
   };
 
   return (
@@ -127,6 +113,7 @@ export const TimeZoneConverter = () => {
           <CardTitle>Time Zone Converter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Date and Time Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="input-date" className="text-xs sm:text-sm">Date</Label>
@@ -149,6 +136,7 @@ export const TimeZoneConverter = () => {
             </div>
           </div>
 
+          {/* Time Zone Selects */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="from-timezone" className="text-xs sm:text-sm">From Time Zone</Label>
@@ -183,25 +171,25 @@ export const TimeZoneConverter = () => {
             </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button onClick={convertTime} disabled={!inputDate || !inputTime} className="w-full sm:w-auto">
               Convert Time
             </Button>
             <Button onClick={swapTimeZones} variant="outline" className="w-full sm:w-auto">
-              <ArrowLeftRight className="h-4 w-4 mr-2" />
-              Swap
+              <ArrowLeftRight className="h-4 w-4 mr-2" /> Swap
             </Button>
             <Button onClick={setCurrentDateTime} variant="outline" className="w-full sm:w-auto">
               Use Current Time
             </Button>
             <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Converted Time */}
       {convertedTime && (
         <Card>
           <CardHeader>
@@ -218,34 +206,36 @@ export const TimeZoneConverter = () => {
         </Card>
       )}
 
+      {/* Live Clocks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm sm:text-base break-words">Current Time - {timeZones.find(tz => tz.name === fromTimeZone)?.label}</CardTitle>
+            <CardTitle className="text-sm sm:text-base break-words">
+              Current Time — {timeZones.find(tz => tz.name === fromTimeZone)?.label}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
-              <div className="text-lg sm:text-2xl font-bold break-all">
-                {getCurrentTimeInZone(fromTimeZone)}
-              </div>
+            <div className="text-center text-lg sm:text-2xl font-bold break-all">
+              {getCurrentTimeInZone(fromTimeZone)}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm sm:text-base break-words">Current Time - {timeZones.find(tz => tz.name === toTimeZone)?.label}</CardTitle>
+            <CardTitle className="text-sm sm:text-base break-words">
+              Current Time — {timeZones.find(tz => tz.name === toTimeZone)?.label}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
-              <div className="text-lg sm:text-2xl font-bold break-all">
-                {getCurrentTimeInZone(toTimeZone)}
-              </div>
+            <div className="text-center text-lg sm:text-2xl font-bold break-all">
+              {getCurrentTimeInZone(toTimeZone)}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Tips Section */}
       <Card>
         <CardHeader>
           <CardTitle>Time Zone Tips</CardTitle>
