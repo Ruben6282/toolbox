@@ -151,16 +151,42 @@ const ToolPage = () => {
     link.setAttribute('href', canonicalUrl);
   }, [tool]);
 
+  // Set the page title dynamically based on the tool name
+  useEffect(() => {
+    if (tool) {
+      document.title = `${tool.name} - ToolCheetah`;
+    }
+  }, [tool]);
+
 
   if (!tool || !category) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <div className="container py-20 text-center">
-          <h1 className="mb-4 text-4xl font-bold">Tool Not Found</h1>
-          <Link to="/">
-            <Button>Go Home</Button>
-          </Link>
+        <div className="container flex flex-1 items-center justify-center px-4 py-8">
+          <div className="text-center max-w-md">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+              <Icons.SearchX className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h1 className="mb-3 text-3xl sm:text-4xl font-bold">Tool Not Found</h1>
+            <p className="mb-8 text-base sm:text-lg text-muted-foreground">
+              The tool you're looking for doesn't exist or may have been removed.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link to="/">
+                <Button size="lg" className="w-full sm:w-auto">
+                  <Icons.Home className="mr-2 h-4 w-4" />
+                  Go Home
+                </Button>
+              </Link>
+              <Link to="/search">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  <Icons.Search className="mr-2 h-4 w-4" />
+                  Search Tools
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );

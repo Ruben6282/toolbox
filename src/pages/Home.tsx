@@ -8,11 +8,16 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, Clock, Github } from "lucide-react";
 import * as Icons from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { useEffect } from "react";
 
 const Home = () => {
   const navigate = useNavigate();
   const popularTools = tools.filter((tool) => tool.isPopular);
   const newTools = tools.filter((tool) => tool.isNew);
+
+  useEffect(() => {
+    document.title = "ToolCheetah - Free Online Tools & Utilities";
+  }, []);
 
   const handlePopularSearchClick = (search: string) => {
     navigate(`/search?q=${encodeURIComponent(search)}`);
