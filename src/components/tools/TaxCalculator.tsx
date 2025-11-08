@@ -325,32 +325,32 @@ export const TaxCalculator = () => {
               <h4 className="font-semibold">Tax Breakdown</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Federal Tax:</span>
-                    <span className="font-medium">{fmt(federalResult.tax)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Federal Tax:</span>
+                    <span className="font-medium break-all text-right">{fmt(federalResult.tax)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tax Credits:</span>
-                    <span className="font-medium">-{fmt(credits)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Tax Credits:</span>
+                    <span className="font-medium break-all text-right">-{fmt(credits)}</span>
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Taxable Income:</span>
-                    <span className="font-medium">{fmt(federalResult.taxableIncome)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Taxable Income:</span>
+                    <span className="font-medium break-all text-right">{fmt(federalResult.taxableIncome)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Deductions Used:</span>
-                    <span className="font-medium">{fmt(federalResult.totalDeduction)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Deductions Used:</span>
+                    <span className="font-medium break-all text-right">{fmt(federalResult.totalDeduction)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">State Tax:</span>
-                    <span className="font-medium">{fmt(stateTax)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">State Tax:</span>
+                    <span className="font-medium break-all text-right">{fmt(stateTax)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Effective Tax Rate:</span>
-                    <span className="font-medium">{effectiveRate.toFixed(2)}%</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Effective Tax Rate:</span>
+                    <span className="font-medium break-all text-right">{effectiveRate.toFixed(2)}%</span>
                   </div>
                 </div>
               </div>
@@ -358,12 +358,12 @@ export const TaxCalculator = () => {
 
             <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-medium mb-2">Tax Summary</h4>
-              <div className="text-sm space-y-1">
-                <p>Your effective tax rate is <strong>{effectiveRate.toFixed(2)}%</strong>.</p>
-                 <p>You'll pay <strong>{fmt(totalTax)}</strong> in taxes.</p>
-                 <p>Your take-home income will be <strong>{fmt(netIncome)}</strong>.</p>
+              <div className="text-sm space-y-1 break-words">
+                <p>Your effective tax rate is <strong className="break-all">{effectiveRate.toFixed(2)}%</strong>.</p>
+                 <p>You'll pay <strong className="break-all">{fmt(totalTax)}</strong> in taxes.</p>
+                 <p>Your take-home income will be <strong className="break-all">{fmt(netIncome)}</strong>.</p>
                 {credits > 0 && (
-                  <p>Tax credits reduce your tax by <strong>{fmt(credits)}</strong>.</p>
+                  <p>Tax credits reduce your tax by <strong className="break-all">{fmt(credits)}</strong>.</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-2">Using {remoteTaxData ? "loaded" : "fallback"} {taxYear} tax data.</p>
               </div>

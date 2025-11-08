@@ -214,21 +214,21 @@ export const CompoundInterestCalculator = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-words px-2">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-all px-2">
                   ${result.finalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Final Amount</div>
               </div>
               
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-words px-2">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-all px-2">
                   ${result.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Interest</div>
               </div>
               
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-words px-2">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-all px-2">
                   ${result.totalContributions.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Contributions</div>
@@ -240,24 +240,24 @@ export const CompoundInterestCalculator = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Initial Investment:</span>
-                    <span className="font-medium break-words text-right">${principalAmount.toLocaleString()}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Initial Investment:</span>
+                    <span className="font-medium break-all text-right">${principalAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Compound Growth:</span>
-                    <span className="font-medium break-words text-right">${result.compoundAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Compound Growth:</span>
+                    <span className="font-medium break-all text-right">${result.compoundAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
                 
                 {additional > 0 && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">Additional Contributions:</span>
-                      <span className="font-medium break-words text-right">${(additional * (contributionFrequency === "monthly" ? 12 : contributionFrequency === "weekly" ? 52 : contributionFrequency === "daily" ? 365 : 1) * (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <span className="text-muted-foreground flex-shrink-0">Additional Contributions:</span>
+                      <span className="font-medium break-all text-right">${(additional * (contributionFrequency === "monthly" ? 12 : contributionFrequency === "weekly" ? 52 : contributionFrequency === "daily" ? 365 : 1) * (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">Contribution Growth:</span>
-                      <span className="font-medium break-words text-right">${result.contributionAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <span className="text-muted-foreground flex-shrink-0">Contribution Growth:</span>
+                      <span className="font-medium break-all text-right">${result.contributionAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 )}
@@ -266,10 +266,10 @@ export const CompoundInterestCalculator = () => {
 
             <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-medium mb-2">Key Insights</h4>
-              <div className="text-sm space-y-1">
-                <p>• Your money will grow by <strong>{((result.finalAmount / result.totalContributions - 1) * 100).toFixed(1)}%</strong> over {timeValue} {timeUnit}</p>
-                <p>• Interest earned: <strong>${result.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></p>
-                <p>• Effective annual rate: <strong>{((Math.pow(result.finalAmount / result.totalContributions, 1 / (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)) - 1) * 100).toFixed(2)}%</strong></p>
+              <div className="text-sm space-y-1 break-words">
+                <p>• Your money will grow by <strong className="break-all">{((result.finalAmount / result.totalContributions - 1) * 100).toFixed(1)}%</strong> over {timeValue} {timeUnit}</p>
+                <p>• Interest earned: <strong className="break-all">${result.totalInterest.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></p>
+                <p>• Effective annual rate: <strong className="break-all">{((Math.pow(result.finalAmount / result.totalContributions, 1 / (timeUnit === "years" ? timeValue : timeUnit === "months" ? timeValue / 12 : timeUnit === "weeks" ? timeValue / 52 : timeValue / 365)) - 1) * 100).toFixed(2)}%</strong></p>
               </div>
             </div>
           </CardContent>

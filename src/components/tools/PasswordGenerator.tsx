@@ -35,9 +35,34 @@ export const PasswordGenerator = () => {
   notify.success("Password generated!");
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(password);
-  notify.success("Password copied!");
+  const copyToClipboard = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(password);
+        notify.success("Password copied!");
+        return;
+      }
+
+      // Fallback for older browsers/mobile
+      const textArea = document.createElement("textarea");
+      textArea.value = password;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        notify.success("Password copied!");
+      } else {
+        notify.error("Failed to copy");
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy");
+    }
   };
 
   return (

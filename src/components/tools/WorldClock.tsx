@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Plus, Trash2 } from "lucide-react";
 import { toZonedTime, format } from "date-fns-tz";
+import { notify } from "@/lib/notify";
 
 interface ClockEntry {
   id: string;
@@ -62,13 +63,22 @@ export const WorldClock: React.FC<WorldClockProps> = ({ hour12 = true, maxClocks
   }, []);
 
   const addClock = () => {
-    if (clocks.length >= maxClocks) return;
+    if (clocks.length >= maxClocks) {
+      notify.error(`Maximum of ${maxClocks} clocks reached!`);
+      return;
+    }
     const newClock: ClockEntry = { id: generateId(), timezone: "UTC", label: "New Clock" };
     setClocks([...clocks, newClock]);
+    notify.success("Clock added!");
   };
 
   const removeClock = (id: string) => {
-    if (clocks.length > 1) setClocks(clocks.filter((c) => c.id !== id));
+    if (clocks.length > 1) {
+      setClocks(clocks.filter((c) => c.id !== id));
+      notify.success("Clock removed!");
+    } else {
+      notify.error("Cannot remove the last clock!");
+    }
   };
 
   const updateClock = (id: string, field: keyof ClockEntry, value: string) => {

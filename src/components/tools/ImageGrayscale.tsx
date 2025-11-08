@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Download, RotateCcw, Upload, Palette } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const ImageGrayscale = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export const ImageGrayscale = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
+        notify.success("Image uploaded successfully!");
       };
       reader.readAsDataURL(file);
     }
@@ -97,6 +99,7 @@ export const ImageGrayscale = () => {
       }
 
       ctx.putImageData(imageData, 0, 0);
+      notify.success("Image converted to grayscale!");
     };
     img.src = selectedImage;
   };
@@ -108,6 +111,7 @@ export const ImageGrayscale = () => {
     link.download = `grayscale-image.${outputFormat}`;
     link.href = canvasRef.current.toDataURL(`image/${outputFormat}`);
     link.click();
+    notify.success("Grayscale image downloaded!");
   };
 
   const clearImage = () => {
@@ -118,12 +122,14 @@ export const ImageGrayscale = () => {
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       }
     }
+    notify.success("Image cleared!");
   };
 
   const resetSettings = () => {
     setContrast(1);
     setBrightness(0);
     setGrayscaleType("luminance");
+    notify.success("Settings reset to default!");
   };
 
   return (

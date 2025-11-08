@@ -17,6 +17,7 @@ import {
   ImageIcon,
   AlertCircle,
 } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const ImageFormatConverter = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export const ImageFormatConverter = () => {
     reader.onload = (e) => {
       setSelectedImage(e.target?.result as string);
       setOriginalFormat(file.name.split(".").pop()?.toLowerCase() || "unknown");
+      notify.success("Image uploaded successfully!");
     };
     reader.readAsDataURL(file);
   };
@@ -60,6 +62,7 @@ export const ImageFormatConverter = () => {
     if (!ctx) {
       setError("Your browser doesn't support canvas.");
       setLoading(false);
+      notify.error("Your browser doesn't support canvas.");
       return;
     }
 
@@ -74,8 +77,10 @@ export const ImageFormatConverter = () => {
         const qualityValue = targetFormat === "jpeg" ? quality / 100 : undefined;
         const dataUrl = canvas.toDataURL(mimeType, qualityValue);
         setConvertedImage(dataUrl);
+        notify.success(`Image converted to ${targetFormat.toUpperCase()}!`);
       } catch {
         setError("Conversion failed. Try another format.");
+        notify.error("Conversion failed. Try another format.");
       }
       setLoading(false);
     };
@@ -88,6 +93,7 @@ export const ImageFormatConverter = () => {
     link.download = `converted-image.${targetFormat}`;
     link.href = convertedImage;
     link.click();
+    notify.success("Image downloaded!");
   };
 
   const clearAll = () => {
@@ -95,6 +101,7 @@ export const ImageFormatConverter = () => {
     setConvertedImage(null);
     setOriginalFormat("");
     setError(null);
+    notify.success("Cleared all content!");
   };
 
   const getFileSize = (dataUrl: string) => {

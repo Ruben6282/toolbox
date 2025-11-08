@@ -29,15 +29,24 @@ export const FacebookPostPreview = () => {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setPreviewImage(result);
-        setPostData(prev => ({ ...prev, imageUrl: result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      notify.error("Please select an image file.");
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setPreviewImage(result);
+      setPostData(prev => ({ ...prev, imageUrl: result }));
+      notify.success(`Image uploaded${file.name ? `: ${file.name}` : ''}`);
+    };
+    reader.onerror = () => {
+      notify.error("Failed to load image.");
+    };
+    reader.readAsDataURL(file);
   };
 
   const generatePostHTML = () => {
@@ -252,15 +261,6 @@ export const FacebookPostPreview = () => {
                 accept="image/*"
                 onChange={handleImageUpload}
               />
-              {postData.imageUrl && (
-                <div className="mt-2">
-                  <img
-                    src={postData.imageUrl}
-                    alt="Preview"
-                    className="max-w-xs h-auto rounded border"
-                  />
-                </div>
-              )}
             </div>
           )}
 

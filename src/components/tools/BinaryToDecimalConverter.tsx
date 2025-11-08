@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Copy, Calculator } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const BinaryToDecimalConverter = () => {
   const [binary, setBinary] = useState("");
@@ -87,17 +88,47 @@ export const BinaryToDecimalConverter = () => {
     }
   };
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, type: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success(`${type} copied to clipboard!`);
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success(`${type} copied to clipboard!`);
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
   const clearAll = () => {
     setBinary("");
     setDecimal("");
+    notify.success("Cleared all values!");
   };
 
   const getBinaryValidation = () => {
@@ -147,7 +178,7 @@ export const BinaryToDecimalConverter = () => {
                 className={!binaryValidation.isValid ? "border-red-500" : ""}
               />
               <Button
-                onClick={() => copyToClipboard(binary)}
+                onClick={() => copyToClipboard(binary, "Binary")}
                 variant="outline"
                 disabled={!binary}
               >
@@ -173,7 +204,7 @@ export const BinaryToDecimalConverter = () => {
                 className={!decimalValidation.isValid ? "border-red-500" : ""}
               />
               <Button
-                onClick={() => copyToClipboard(decimal)}
+                onClick={() => copyToClipboard(decimal, "Decimal")}
                 variant="outline"
                 disabled={!decimal}
               >

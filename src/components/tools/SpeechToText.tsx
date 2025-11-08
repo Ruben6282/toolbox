@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mic, MicOff, Copy, RotateCcw, Download } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 // Minimal typings for Web Speech API to avoid relying on lib.dom SpeechRecognition types
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
@@ -114,20 +115,51 @@ export const SpeechToText = () => {
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
       recognitionRef.current.start();
+      notify.success("Listening started!");
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
+      notify.success("Listening stopped!");
     }
   };
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(transcript);
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(transcript);
+        notify.success("Transcript copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = transcript;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Transcript copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
@@ -141,11 +173,13 @@ export const SpeechToText = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    notify.success("Transcript downloaded!");
   };
 
   const clearTranscript = () => {
     setTranscript("");
     setInterimTranscript("");
+    notify.success("Transcript cleared!");
   };
 
   if (!isSupported) {

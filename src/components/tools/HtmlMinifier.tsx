@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Download, RotateCcw } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const HtmlMinifier = () => {
   const [htmlInput, setHtmlInput] = useState("");
@@ -107,13 +108,48 @@ export const HtmlMinifier = () => {
     
     const minified = minifyHtml(htmlInput);
     setMinifiedHtml(minified);
+    
+    const originalSize = htmlInput.length;
+    const minifiedSize = minified.length;
+    const savings = originalSize - minifiedSize;
+    const savingsPercent = originalSize > 0 ? ((savings / originalSize) * 100).toFixed(1) : 0;
+    notify.success(`HTML minified! ${savingsPercent}% size reduction`);
   };
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(minifiedHtml);
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(minifiedHtml);
+        notify.success("Minified HTML copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = minifiedHtml;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Minified HTML copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
@@ -127,11 +163,13 @@ export const HtmlMinifier = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    notify.success("Minified HTML downloaded!");
   };
 
   const clearAll = () => {
     setHtmlInput("");
     setMinifiedHtml("");
+    notify.success("Cleared all content!");
   };
 
   const originalSize = htmlInput.length;

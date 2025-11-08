@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw, Hash } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const HashtagGenerator = () => {
   const [topic, setTopic] = useState("");
@@ -102,28 +103,89 @@ export const HashtagGenerator = () => {
     const platformMax = platforms.find(p => p.value === platform)?.maxHashtags || 30;
     const maxCount = Math.min(hashtagCount, platformMax);
     
-    setGeneratedHashtags(shuffled.slice(0, maxCount));
+    const result = shuffled.slice(0, maxCount);
+    setGeneratedHashtags(result);
+    notify.success(`Generated ${result.length} hashtags!`);
   };
 
   const copyToClipboard = async (hashtags: string[]) => {
     try {
-      await navigator.clipboard.writeText(hashtags.join(' '));
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(hashtags.join(' '));
+        notify.success("Hashtags copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = hashtags.join(' ');
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Hashtags copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
   const copyAllToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generatedHashtags.join(' '));
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(generatedHashtags.join(' '));
+        notify.success("All hashtags copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = generatedHashtags.join(' ');
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("All hashtags copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
   const clearAll = () => {
     setTopic("");
     setGeneratedHashtags([]);
+    notify.success("Cleared all hashtags!");
   };
 
   const getPlatformMax = () => {

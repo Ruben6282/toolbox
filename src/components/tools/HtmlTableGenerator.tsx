@@ -169,6 +169,7 @@ export const HtmlTableGenerator = () => {
     setBorderWidth(1);
     setCellPadding(8);
     setCellSpacing(0);
+    notify.success("All fields cleared!");
   };
 
   // Initialize table data when component mounts or when dimensions change
@@ -300,7 +301,7 @@ export const HtmlTableGenerator = () => {
             </div>
           </div>
 
-          <Button onClick={initializeTableData} className="w-full">
+          <Button onClick={() => { initializeTableData(); notify.success("Table generated!"); }} className="w-full">
             <Table className="h-4 w-4 mr-2" />
             Generate Table
           </Button>

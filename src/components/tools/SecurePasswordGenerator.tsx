@@ -46,6 +46,7 @@ export const SecurePasswordGenerator = () => {
     if (charset.length === 0) {
       setGeneratedPassword("Please select at least one character type");
       setPasswordStrength("Invalid");
+      notify.error("Please select at least one character type!");
       return;
     }
 
@@ -56,6 +57,7 @@ export const SecurePasswordGenerator = () => {
 
     setGeneratedPassword(password);
     calculatePasswordStrength(password);
+    notify.success("Secure password generated!");
   };
 
   const calculatePasswordStrength = (password: string) => {
@@ -99,43 +101,38 @@ export const SecurePasswordGenerator = () => {
 
   const copyToClipboard = async () => {
     try {
-      // Try modern Clipboard API first
-      if (navigator.clipboard && window.isSecureContext) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(generatedPassword);
-  notify.success("Password copied to clipboard!");
+        notify.success("Password copied to clipboard!");
+        return;
+      }
+
+      // Fallback for older browsers/mobile
+      const textArea = document.createElement("textarea");
+      textArea.value = generatedPassword;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        notify.success("Password copied to clipboard!");
       } else {
-        // Fallback for mobile/older browsers
-        const textArea = document.createElement("textarea");
-        textArea.value = generatedPassword;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-            notify.success("Password copied to clipboard!");
-          } else {
-            notify.error("Failed to copy password");
-          }
-        } catch (err) {
-          notify.error("Failed to copy password");
-        } finally {
-          document.body.removeChild(textArea);
-        }
+        notify.error("Failed to copy password");
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-  notify.error("Failed to copy password");
+      notify.error("Failed to copy password");
     }
   };
 
   const clearPassword = () => {
     setGeneratedPassword("");
     setPasswordStrength("");
+    notify.success("Password cleared!");
   };
 
   const getPasswordStrengthColor = () => {

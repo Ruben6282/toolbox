@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { notify } from "@/lib/notify";
 
 export const BmiCalculator = () => {
   const [weight, setWeight] = useState("");
@@ -16,7 +17,10 @@ export const BmiCalculator = () => {
     const w = parseFloat(weight);
     const h = parseFloat(height);
 
-    if (!w || !h || w <= 0 || h <= 0) return;
+    if (!w || !h || w <= 0 || h <= 0) {
+      notify.error("Please enter valid weight and height values!");
+      return;
+    }
 
     let bmiValue: number;
     if (unit === "metric") {
@@ -27,10 +31,14 @@ export const BmiCalculator = () => {
 
     setBmi(parseFloat(bmiValue.toFixed(1)));
 
-    if (bmiValue < 18.5) setCategory("Underweight");
-    else if (bmiValue < 25) setCategory("Normal weight");
-    else if (bmiValue < 30) setCategory("Overweight");
-    else setCategory("Obese");
+    let cat: string;
+    if (bmiValue < 18.5) cat = "Underweight";
+    else if (bmiValue < 25) cat = "Normal weight";
+    else if (bmiValue < 30) cat = "Overweight";
+    else cat = "Obese";
+    
+    setCategory(cat);
+    notify.success(`BMI calculated: ${bmiValue.toFixed(1)} (${cat})`);
   };
 
   const getBmiColor = () => {

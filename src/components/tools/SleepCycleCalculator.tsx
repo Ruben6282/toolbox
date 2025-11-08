@@ -85,8 +85,10 @@ export const SleepCycleCalculator = () => {
     const currentTime = getCurrentTime();
     if (type === 'bedtime') {
       setBedtime(currentTime);
+      notify.success("Set to current time!");
     } else {
       setWakeupTime(currentTime);
+      notify.success("Set to current time!");
     }
   };
 
@@ -95,6 +97,7 @@ export const SleepCycleCalculator = () => {
     setWakeupTime("");
     setSleepDuration(8);
     setFallAsleepTime(15);
+    notify.success("All fields cleared!");
   };
 
   const handleFallAsleepChange = (value: string) => {
@@ -332,6 +335,7 @@ export const SleepCycleCalculator = () => {
                 onClick={() => {
                   setBedtime(preset.bedtime);
                   setWakeupTime(preset.wakeup);
+                  notify.success(`Preset ${preset.label} selected!`);
                 }}
               >
                 {preset.label}

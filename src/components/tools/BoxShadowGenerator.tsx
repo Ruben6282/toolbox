@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw, Eye } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const BoxShadowGenerator = () => {
   const [horizontalOffset, setHorizontalOffset] = useState(0);
@@ -26,9 +27,31 @@ export const BoxShadowGenerator = () => {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("Copied to clipboard!");
+        return;
+      }
+
+      // Fallback for older browsers/mobile
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        notify.success("Copied to clipboard!");
+      } else {
+        notify.error("Failed to copy");
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy");
     }
   };
 
@@ -40,6 +63,7 @@ export const BoxShadowGenerator = () => {
     setColor("#000000");
     setOpacity(25);
     setInset(false);
+    notify.success("Reset to default values!");
   };
 
   const boxShadow = generateBoxShadow();

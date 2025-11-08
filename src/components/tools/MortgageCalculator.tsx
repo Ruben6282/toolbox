@@ -173,30 +173,30 @@ export const MortgageCalculator = () => {
                 <h4 className="font-semibold text-sm sm:text-base">Monthly Payment Breakdown</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Principal & Interest:</span>
-                    <span className="font-medium break-words text-right">${mortgage.monthly.toFixed(2)}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Principal & Interest:</span>
+                    <span className="font-medium break-all text-right">${mortgage.monthly.toFixed(2)}</span>
                   </div>
                   {tax > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">Property Tax:</span>
-                      <span className="font-medium break-words text-right">${monthlyTax.toFixed(2)}</span>
+                      <span className="text-muted-foreground flex-shrink-0">Property Tax:</span>
+                      <span className="font-medium break-all text-right">${monthlyTax.toFixed(2)}</span>
                     </div>
                   )}
                   {insurance > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">Home Insurance:</span>
-                      <span className="font-medium break-words text-right">${monthlyInsurance.toFixed(2)}</span>
+                      <span className="text-muted-foreground flex-shrink-0">Home Insurance:</span>
+                      <span className="font-medium break-all text-right">${monthlyInsurance.toFixed(2)}</span>
                     </div>
                   )}
                   {pmiRate > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">PMI:</span>
-                      <span className="font-medium break-words text-right">${monthlyPmi.toFixed(2)}</span>
+                      <span className="text-muted-foreground flex-shrink-0">PMI:</span>
+                      <span className="font-medium break-all text-right">${monthlyPmi.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between border-t pt-2 text-xs sm:text-sm gap-2">
-                    <span className="font-semibold">Total Monthly Payment:</span>
-                    <span className="font-bold text-base sm:text-lg break-words text-right">${totalMonthlyPayment.toFixed(2)}</span>
+                    <span className="font-semibold flex-shrink-0">Total Monthly Payment:</span>
+                    <span className="font-bold text-base sm:text-lg break-all text-right">${totalMonthlyPayment.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -205,21 +205,21 @@ export const MortgageCalculator = () => {
                 <h4 className="font-semibold text-sm sm:text-base">Loan Summary</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Total Loan Amount:</span>
-                    <span className="font-medium break-words text-right">${principal.toLocaleString()}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Total Loan Amount:</span>
+                    <span className="font-medium break-all text-right">${principal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Total Interest Paid:</span>
-                    <span className="font-medium break-words text-right">${mortgage.interest.toLocaleString()}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Total Interest Paid:</span>
+                    <span className="font-medium break-all text-right">${mortgage.interest.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">Total Amount Paid:</span>
-                    <span className="font-medium break-words text-right">${mortgage.total.toLocaleString()}</span>
+                    <span className="text-muted-foreground flex-shrink-0">Total Amount Paid:</span>
+                    <span className="font-medium break-all text-right">${mortgage.total.toLocaleString()}</span>
                   </div>
                   {down > 0 && (
                     <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground">Down Payment:</span>
-                      <span className="font-medium break-words text-right">${down.toLocaleString()}</span>
+                      <span className="text-muted-foreground flex-shrink-0">Down Payment:</span>
+                      <span className="font-medium break-all text-right">${down.toLocaleString()}</span>
                     </div>
                   )}
                 </div>

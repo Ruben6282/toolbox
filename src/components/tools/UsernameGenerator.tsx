@@ -123,6 +123,7 @@ export const UsernameGenerator = () => {
     }
 
     setGeneratedUsernames(usernames);
+    notify.success(`Generated ${usernames.length} username${usernames.length > 1 ? 's' : ''}!`);
   };
 
   const copyToClipboard = async (username: string) => {

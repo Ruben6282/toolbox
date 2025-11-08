@@ -20,14 +20,47 @@ export const BinaryToText = () => {
         })
         .join("");
       setText(textResult);
+      notify.success("Binary converted to text!");
     } catch (error) {
       notify.error("Invalid binary format");
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(text);
-    notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    try {
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("Text copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Text copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
+    }
   };
 
   return (

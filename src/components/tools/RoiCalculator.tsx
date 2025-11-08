@@ -148,7 +148,7 @@ export const RoiCalculator = () => {
           <CardContent className="space-y-4">
             <div className={`p-4 sm:p-6 rounded-lg border ${getROIBgColor(result.roi)}`}>
               <div className="text-center">
-                <div className={`text-3xl sm:text-4xl font-bold ${getROIColor(result.roi)} mb-2 break-words`}>
+                <div className={`text-3xl sm:text-4xl font-bold ${getROIColor(result.roi)} mb-2 break-all`}>
                   {result.roi > 0 ? '+' : ''}{result.roi.toFixed(2)}%
                 </div>
                 <div className="text-base sm:text-lg font-medium text-muted-foreground">
@@ -159,21 +159,21 @@ export const RoiCalculator = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-words px-2">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-all px-2">
                   ${(initial + additional).toLocaleString()}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Invested</div>
               </div>
               
               <div className="text-center">
-                <div className={`text-xl sm:text-2xl font-bold ${getROIColor(result.totalReturn)} break-words px-2`}>
+                <div className={`text-xl sm:text-2xl font-bold ${getROIColor(result.totalReturn)} break-all px-2`}>
                   {result.totalReturn > 0 ? '+' : ''}${result.totalReturn.toLocaleString()}
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Return</div>
               </div>
               
               <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-purple-600 break-words px-2">
+                <div className="text-xl sm:text-2xl font-bold text-purple-600 break-all px-2">
                   {result.annualizedROI > 0 ? '+' : ''}{result.annualizedROI.toFixed(2)}%
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-1">Annualized ROI</div>
@@ -184,34 +184,34 @@ export const RoiCalculator = () => {
               <h4 className="font-semibold">Investment Summary</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Initial Investment:</span>
-                    <span className="font-medium">${initial.toLocaleString()}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Initial Investment:</span>
+                    <span className="font-medium break-all text-right">${initial.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Additional Investments:</span>
-                    <span className="font-medium">${additional.toLocaleString()}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Additional Investments:</span>
+                    <span className="font-medium break-all text-right">${additional.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Invested:</span>
-                    <span className="font-medium">${(initial + additional).toLocaleString()}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Total Invested:</span>
+                    <span className="font-medium break-all text-right">${(initial + additional).toLocaleString()}</span>
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Final Value:</span>
-                    <span className="font-medium">${final.toLocaleString()}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Final Value:</span>
+                    <span className="font-medium break-all text-right">${final.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Return:</span>
-                    <span className="font-medium">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Total Return:</span>
+                    <span className="font-medium break-all text-right">
                       {result.totalReturn > 0 ? '+' : ''}${result.totalReturn.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time Period:</span>
-                    <span className="font-medium">{time} {timeUnit}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Time Period:</span>
+                    <span className="font-medium break-all text-right">{time} {timeUnit}</span>
                   </div>
                 </div>
               </div>

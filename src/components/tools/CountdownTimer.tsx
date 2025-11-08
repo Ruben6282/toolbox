@@ -88,6 +88,7 @@ export const CountdownTimer = () => {
       }
       setIsRunning(true);
       setShowAlert(false);
+      notify.success("Timer started!");
       return;
     }
 
@@ -100,10 +101,12 @@ export const CountdownTimer = () => {
     setTotalDuration(inputTotalSeconds);
     setIsRunning(true);
     setShowAlert(false);
+    notify.success("Timer started!");
   };
 
   const pauseTimer = () => {
     setIsRunning(false);
+    notify.success("Timer paused!");
   };
 
   const resetTimer = () => {
@@ -111,6 +114,7 @@ export const CountdownTimer = () => {
     setTimeLeft(0);
     setTotalDuration(0);
     setShowAlert(false);
+    notify.success("Timer reset!");
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -272,6 +276,7 @@ export const CountdownTimer = () => {
                     setHours(preset.h);
                     setMinutes(preset.m);
                     setSeconds(preset.s);
+                    notify.success(`Preset ${preset.label} selected!`);
                   }
                 }}
                 disabled={isRunning}

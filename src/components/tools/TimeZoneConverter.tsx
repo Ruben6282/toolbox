@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCcw, ArrowLeftRight } from "lucide-react";
 import { format, toZonedTime } from "date-fns-tz";
+import { notify } from "@/lib/notify";
 
 interface TimeZone {
   name: string;
@@ -52,7 +53,10 @@ export const TimeZoneConverter = () => {
   }, []);
 
   const convertTime = () => {
-    if (!inputDate || !inputTime) return;
+    if (!inputDate || !inputTime) {
+      notify.error("Please enter both date and time!");
+      return;
+    }
 
     try {
       // Combine date and time into ISO format
@@ -61,6 +65,7 @@ export const TimeZoneConverter = () => {
 
       if (isNaN(utcDate.getTime())) {
         setConvertedTime("Invalid date/time");
+        notify.error("Invalid date/time!");
         return;
       }
 
@@ -73,9 +78,11 @@ export const TimeZoneConverter = () => {
       });
 
       setConvertedTime(formatted);
+      notify.success("Time converted successfully!");
     } catch (error) {
       console.error("Conversion error:", error);
       setConvertedTime("Error converting time");
+      notify.error("Error converting time!");
     }
   };
 
@@ -83,18 +90,21 @@ export const TimeZoneConverter = () => {
     setConvertedTime(null);
     setFromTimeZone(toTimeZone);
     setToTimeZone(fromTimeZone);
+    notify.success("Time zones swapped!");
   };
 
   const setCurrentDateTime = () => {
     const now = new Date();
     setInputDate(now.toISOString().split("T")[0]);
     setInputTime(now.toTimeString().slice(0, 5));
+    notify.success("Set to current date and time!");
   };
 
   const clearAll = () => {
     setInputDate("");
     setInputTime("");
     setConvertedTime(null);
+    notify.success("Cleared all fields!");
   };
 
   const getCurrentTimeInZone = (tz: string) => {

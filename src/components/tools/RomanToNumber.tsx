@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Copy } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const RomanToNumber = () => {
   const [romanNumeral, setRomanNumeral] = useState("");
@@ -61,6 +62,7 @@ export const RomanToNumber = () => {
     if (!romanNumeral.trim()) {
       setError("Please enter a Roman numeral");
       setResult(null);
+      notify.error("Please enter a Roman numeral");
       return;
     }
 
@@ -68,9 +70,11 @@ export const RomanToNumber = () => {
       const decimal = romanToDecimal(romanNumeral.trim());
       setResult(decimal);
       setError("");
+      notify.success(`Converted to decimal: ${decimal}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid Roman numeral");
       setResult(null);
+      notify.error(err instanceof Error ? err.message : "Invalid Roman numeral");
     }
   };
 
@@ -79,6 +83,7 @@ export const RomanToNumber = () => {
     if (isNaN(num)) {
       setError("Please enter a valid number");
       setResult(null);
+      notify.error("Please enter a valid number");
       return;
     }
 
@@ -86,9 +91,49 @@ export const RomanToNumber = () => {
       const roman = decimalToRoman(num);
       setResult(roman);
       setError("");
+      notify.success(`Converted to Roman: ${roman}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid number");
       setResult(null);
+      notify.error(err instanceof Error ? err.message : "Invalid number");
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (result === null) return;
+    try {
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(result.toString());
+        notify.success("Result copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = result.toString();
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Result copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
@@ -96,6 +141,7 @@ export const RomanToNumber = () => {
     setRomanNumeral("");
     setResult(null);
     setError("");
+    notify.success("Cleared all values!");
   };
 
   const romanExamples = [
@@ -158,7 +204,13 @@ export const RomanToNumber = () => {
       {result !== null && !error && (
         <Card>
           <CardHeader>
-            <CardTitle>Conversion Result</CardTitle>
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span>Conversion Result</span>
+              <Button size="sm" variant="outline" onClick={copyToClipboard} className="w-full sm:w-auto">
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="bg-muted p-4 sm:p-6 rounded-lg text-center">

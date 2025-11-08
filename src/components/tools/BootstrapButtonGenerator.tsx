@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, Square } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const BootstrapButtonGenerator = () => {
   const [buttonText, setButtonText] = useState("Click me");
@@ -85,9 +86,31 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("Copied to clipboard!");
+        return;
+      }
+
+      // Fallback for older browsers/mobile
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        notify.success("Copied to clipboard!");
+      } else {
+        notify.error("Failed to copy");
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy");
     }
   };
 
@@ -101,6 +124,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
     setButtonActive(false);
     setButtonId("");
     setButtonClass("");
+    notify.success("Reset to default values!");
   };
 
   const getPreviewButtonClass = () => {

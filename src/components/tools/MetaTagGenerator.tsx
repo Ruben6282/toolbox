@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const MetaTagGenerator = () => {
   const [formData, setFormData] = useState({
@@ -121,9 +122,38 @@ export const MetaTagGenerator = () => {
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generateMetaTags());
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(generateMetaTags());
+        notify.success("Meta tags copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = generateMetaTags();
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Meta tags copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
@@ -137,6 +167,7 @@ export const MetaTagGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    notify.success("Meta tags downloaded!");
   };
 
   const clearAll = () => {
@@ -160,6 +191,7 @@ export const MetaTagGenerator = () => {
       canonicalUrl: "",
       themeColor: "#000000"
     });
+    notify.success("Form cleared!");
   };
 
   return (

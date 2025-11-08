@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 const WORD_CATEGORIES = {
   adjectives: [
@@ -62,14 +63,44 @@ export const RandomWordGenerator = () => {
       
       setGeneratedWords(words);
       setIsGenerating(false);
+      notify.success(`Generated ${wordCount} word${wordCount > 1 ? 's' : ''}!`);
     }, 300);
   };
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generatedWords.join(", "));
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(generatedWords.join(", "));
+        notify.success("Words copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = generatedWords.join(", ");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Words copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 

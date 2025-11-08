@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw, Youtube } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 export const YouTubeTitleGenerator = () => {
   const [topic, setTopic] = useState("");
@@ -133,6 +134,7 @@ export const YouTubeTitleGenerator = () => {
     }
 
     setGeneratedTitles(titles);
+    notify.success("Titles generated!");
   };
 
   const generateDescriptions = () => {
@@ -148,18 +150,49 @@ export const YouTubeTitleGenerator = () => {
     }
 
     setGeneratedDescriptions(descriptions);
+    notify.success("Descriptions generated!");
   };
 
   const generateAll = () => {
     generateTitles();
     generateDescriptions();
+    notify.success("Titles and descriptions generated!");
   };
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, type: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success(`${type} copied to clipboard!`);
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success(`${type} copied to clipboard!`);
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
     }
   };
 
@@ -167,6 +200,7 @@ export const YouTubeTitleGenerator = () => {
     setTopic("");
     setGeneratedTitles([]);
     setGeneratedDescriptions([]);
+    notify.success("Cleared all content!");
   };
 
   return (
@@ -255,7 +289,7 @@ export const YouTubeTitleGenerator = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => copyToClipboard(title)}
+                  onClick={() => copyToClipboard(title, "Title")}
                   className="w-full sm:w-auto"
                 >
                   <Copy className="h-4 w-4" />
@@ -279,7 +313,7 @@ export const YouTubeTitleGenerator = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => copyToClipboard(description)}
+                    onClick={() => copyToClipboard(description, "Description")}
                     className="w-full sm:w-auto"
                   >
                     <Copy className="h-4 w-4" />

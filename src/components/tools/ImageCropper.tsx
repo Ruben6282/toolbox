@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, RotateCcw, Crop } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 interface CropArea {
   x: number;
@@ -111,6 +112,7 @@ export const ImageCropper = () => {
         let initialCrop: CropArea = { x: 0, y: 0, width: img.width, height: img.height };
         if (aspectRatio !== "free") initialCrop = adjustCropToAspect(initialCrop, aspectRatio, true, true);
         setCropArea(initialCrop);
+        notify.success("Image uploaded successfully!");
       }, 50);
     };
     reader.readAsDataURL(file);
@@ -306,6 +308,7 @@ export const ImageCropper = () => {
     link.download = `cropped-image.${outputFormat}`;
     link.href = canvasRef.current.toDataURL(`image/${outputFormat}`);
     link.click();
+    notify.success("Cropped image downloaded!");
   };
 
   const clearImage = () => {
@@ -315,6 +318,7 @@ export const ImageCropper = () => {
       const ctx = canvasRef.current.getContext("2d");
       if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
+    notify.success("Image cleared!");
   };
 
   useEffect(() => {
