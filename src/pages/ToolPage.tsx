@@ -1,6 +1,6 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Header } from "@/components/Header";
-import { AdSense } from "@/components/AdSense";
 import { tools, categories } from "@/data/tools";
 import { ArrowLeft, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -125,8 +125,31 @@ import { RemoveAudioFromVideo } from "@/components/tools/RemoveAudioFromVideo";
 
 const ToolPage = () => {
   const { categoryId, toolId } = useParams();
+  const navigate = useNavigate();
   const tool = tools.find((t) => t.id === toolId);
   const category = tool ? categories.find((c) => c.id === tool.category) : null;
+
+  // If the URL category segment doesn't match the tool's actual category,
+  // redirect to the canonical URL. This avoids duplicate content and ensures
+  // users/bookmarks always land on the correct path: /:category/:toolId
+  useEffect(() => {
+    if (tool && categoryId && categoryId !== tool.category) {
+      navigate(`/${tool.category}/${tool.id}`, { replace: true });
+    }
+  }, [tool, categoryId, navigate]);
+
+  // Set/update a canonical link for SEO to the correct URL for this tool
+  useEffect(() => {
+    if (!tool) return;
+    const canonicalUrl = `${window.location.origin}/${tool.category}/${tool.id}`;
+    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.setAttribute('rel', 'canonical');
+      document.head.appendChild(link);
+    }
+    link.setAttribute('href', canonicalUrl);
+  }, [tool]);
 
 
   if (!tool || !category) {
@@ -1127,9 +1150,6 @@ const ToolPage = () => {
       <section className="py-12">
         <div className="container">
           {renderToolComponent()}
-
-          {/* AdSense - After Tool */}
-          <AdSense slot="4540396335" />
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <Card>

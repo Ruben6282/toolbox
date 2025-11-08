@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ToolCard } from "@/components/ToolCard";
-import { AdSense } from "@/components/AdSense";
 import { tools } from "@/data/tools";
 import { Link } from "react-router-dom";
 import {
@@ -91,9 +90,6 @@ const PopularPage = () => {
             Most used and highly rated tools by our community
           </p>
         </div>
-
-        {/* AdSense - Before Popular Tools */}
-        <AdSense slot="4540396335" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {popularTools.map((tool) => (

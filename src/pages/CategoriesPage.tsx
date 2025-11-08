@@ -1,6 +1,5 @@
 import { Header } from "@/components/Header";
 import { CategoryCard } from "@/components/CategoryCard";
-import { AdSense } from "@/components/AdSense";
 import { categories } from "@/data/tools";
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
@@ -89,9 +88,6 @@ const CategoriesPage = () => {
             Browse our collection of tools organized by category
           </p>
         </div>
-
-        {/* AdSense - Before Categories */}
-        <AdSense slot="4540396335" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (

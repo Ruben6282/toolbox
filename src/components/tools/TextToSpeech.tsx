@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,26 +11,79 @@ export const TextToSpeech = () => {
   const [text, setText] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [voice, setVoice] = useState("default");
+  const [voiceUri, setVoiceUri] = useState<string>("default");
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [volume, setVolume] = useState(1);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  // Language selector: 'auto' (device), 'all', or specific language code prefix like 'en' or 'en-us'
+  const [selectedLang, setSelectedLang] = useState<string>("auto");
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const deviceLang = useMemo(() => (navigator.language || "en").toLowerCase().split("-")[0], []);
 
-  // Load voices
+  // Load voices with retries (mobile browsers sometimes populate asynchronously)
   const loadVoices = () => {
     const voices = speechSynthesis.getVoices();
-    setAvailableVoices(voices);
+    // Deduplicate voices (mobile browsers can return duplicates)
+    const seen = new Map<string, SpeechSynthesisVoice>();
+    for (const v of voices) {
+      const key = (v.voiceURI && v.voiceURI.trim()) || `${v.name}::${v.lang}`;
+      if (!seen.has(key)) {
+        seen.set(key, v);
+      } else {
+        // Prefer the entry marked as default/localService if duplicate appears
+        const existing = seen.get(key)!;
+        const preferNew = Boolean((v as SpeechSynthesisVoice & { default?: boolean; localService?: boolean }).default || (v as SpeechSynthesisVoice & { default?: boolean; localService?: boolean }).localService);
+        const preferExisting = Boolean((existing as SpeechSynthesisVoice & { default?: boolean; localService?: boolean }).default || (existing as SpeechSynthesisVoice & { default?: boolean; localService?: boolean }).localService);
+        if (preferNew && !preferExisting) {
+          seen.set(key, v);
+        }
+      }
+    }
+    setAvailableVoices(Array.from(seen.values()));
   };
 
   useEffect(() => {
+    // Initial load and retries if empty
     loadVoices();
+    let tries = 0;
+    const retry = setInterval(() => {
+      tries += 1;
+      if (availableVoices.length === 0) {
+        loadVoices();
+      }
+      if (tries > 10 || availableVoices.length > 0) {
+        clearInterval(retry);
+      }
+    }, 300);
+
     speechSynthesis.addEventListener("voiceschanged", loadVoices);
     return () => {
       speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+      clearInterval(retry);
+      // Stop any ongoing speech on unmount
+      speechSynthesis.cancel();
     };
+  }, [availableVoices.length]);
+
+  // Persist voice selection, language, and audio settings
+  useEffect(() => {
+    const savedVoice = localStorage.getItem("tts.voiceUri");
+    const savedLang = localStorage.getItem("tts.lang");
+    const savedRate = localStorage.getItem("tts.rate");
+    const savedPitch = localStorage.getItem("tts.pitch");
+    const savedVolume = localStorage.getItem("tts.volume");
+    if (savedVoice) setVoiceUri(savedVoice);
+    if (savedLang) setSelectedLang(savedLang);
+    if (savedRate) setRate(parseFloat(savedRate));
+    if (savedPitch) setPitch(parseFloat(savedPitch));
+    if (savedVolume) setVolume(parseFloat(savedVolume));
   }, []);
+  useEffect(() => { localStorage.setItem("tts.voiceUri", voiceUri); }, [voiceUri]);
+  useEffect(() => { localStorage.setItem("tts.lang", selectedLang); }, [selectedLang]);
+  useEffect(() => { localStorage.setItem("tts.rate", String(rate)); }, [rate]);
+  useEffect(() => { localStorage.setItem("tts.pitch", String(pitch)); }, [pitch]);
+  useEffect(() => { localStorage.setItem("tts.volume", String(volume)); }, [volume]);
 
   const speak = () => {
     if (!text.trim()) return;
@@ -40,8 +93,8 @@ export const TextToSpeech = () => {
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance;
 
-    if (voice !== "default" && availableVoices.length > 0) {
-      const selectedVoice = availableVoices.find(v => v.name === voice);
+    if (voiceUri !== "default" && availableVoices.length > 0) {
+      const selectedVoice = availableVoices.find(v => v.voiceURI === voiceUri);
       if (selectedVoice) utterance.voice = selectedVoice;
     }
 
@@ -80,6 +133,46 @@ export const TextToSpeech = () => {
     stop();
   };
 
+  // Derive unique language options from voices
+  const languageOptions = useMemo(() => {
+    // Build a compact list of base language codes from available voices
+    const bases = new Set<string>();
+    availableVoices.forEach(v => {
+      const code = (v.lang || '').toLowerCase();
+      if (!code) return;
+      bases.add(code.split('-')[0]);
+    });
+    return Array.from(bases).sort().map(code => ({ code, label: code.toUpperCase() }));
+  }, [availableVoices]);
+
+  const filteredVoices = useMemo(() => {
+    let list = availableVoices;
+    const lowerSel = selectedLang.toLowerCase();
+    if (lowerSel === 'auto') {
+      list = list.filter(v => v.lang?.toLowerCase().startsWith(deviceLang));
+    } else if (lowerSel === 'all') {
+      // no-op
+    } else {
+      list = list.filter(v => v.lang?.toLowerCase().startsWith(lowerSel));
+    }
+    // Sort: preferred language first, then by lang, then by name
+    return [...list].sort((a, b) => {
+      const pref = lowerSel === 'auto' ? deviceLang : (lowerSel === 'all' ? '' : lowerSel);
+      const aPref = pref && a.lang?.toLowerCase().startsWith(pref) ? 0 : 1;
+      const bPref = pref && b.lang?.toLowerCase().startsWith(pref) ? 0 : 1;
+      if (aPref !== bPref) return aPref - bPref;
+      if (a.lang !== b.lang) return (a.lang || '').localeCompare(b.lang || '');
+      return a.name.localeCompare(b.name);
+    });
+  }, [availableVoices, selectedLang, deviceLang]);
+
+  // If current voice is not in the filtered list, reset to default so selection stays visible
+  useEffect(() => {
+    if (voiceUri !== 'default' && !filteredVoices.some(v => v.voiceURI === voiceUri)) {
+      setVoiceUri('default');
+    }
+  }, [filteredVoices, voiceUri]);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -100,16 +193,32 @@ export const TextToSpeech = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="lang-select">Language</Label>
+              <Select value={selectedLang} onValueChange={setSelectedLang}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (device: {deviceLang.toUpperCase()})</SelectItem>
+                  <SelectItem value="all">All languages</SelectItem>
+                  {languageOptions.map(opt => (
+                    <SelectItem key={opt.code} value={opt.code}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="voice-select">Voice</Label>
-              <Select value={voice} onValueChange={setVoice}>
+              <Select value={voiceUri} onValueChange={setVoiceUri}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select voice" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Default Voice</SelectItem>
-                  {availableVoices.map((v, i) => (
-                    <SelectItem key={i} value={v.name}>
-                      {v.name} ({v.lang})
+                  <SelectItem value="default">System Default</SelectItem>
+                  {filteredVoices.map((v) => (
+                    <SelectItem key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} <span className="text-muted-foreground">({v.lang}{v.default ? ", default" : ""})</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
