@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const ColorPicker = () => {
   const [color, setColor] = useState("#3b82f6");
@@ -98,7 +98,7 @@ export const ColorPicker = () => {
     const hex = value.startsWith('#') ? value : `#${value}`;
     if (/^#[0-9A-Fa-f]{6}$/i.test(hex)) {
       updateColor(hex);
-      toast.success("Color updated from HEX");
+      notify.success("Color updated from HEX");
     }
   };
 
@@ -113,7 +113,7 @@ export const ColorPicker = () => {
       if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
         const hex = rgbToHex(r, g, b);
         updateColor(hex);
-        toast.success("Color updated from RGB");
+        notify.success("Color updated from RGB");
       }
     }
   };
@@ -130,7 +130,7 @@ export const ColorPicker = () => {
         const rgb = hslToRgb(h, s, l);
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
         updateColor(hex);
-        toast.success("Color updated from HSL");
+        notify.success("Color updated from HSL");
       }
     }
   };
@@ -142,7 +142,7 @@ export const ColorPicker = () => {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(value);
-        toast.success("Copied to clipboard!");
+        notify.success("Copied to clipboard!");
       } else {
         // Fallback
         const textArea = document.createElement("textarea");
@@ -154,15 +154,15 @@ export const ColorPicker = () => {
         textArea.select();
         try {
           document.execCommand('copy');
-          toast.success("Copied to clipboard!");
+          notify.success("Copied to clipboard!");
         } catch {
-          toast.error("Failed to copy");
+          notify.error("Failed to copy");
         } finally {
           document.body.removeChild(textArea);
         }
       }
     } catch {
-      toast.error("Failed to copy");
+      notify.error("Failed to copy");
     }
   };
 

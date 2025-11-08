@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Play, Pause, Scissors, Volume2 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const AudioCutter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -62,7 +62,7 @@ export const AudioCutter = () => {
     const isAudioFile = file.type.startsWith("audio/") || audioExtensions.includes(fileExtension);
     
     if (!isAudioFile) {
-      toast.error("Please select a valid audio file!");
+      notify.error("Please select a valid audio file!");
       return;
     }
 
@@ -73,7 +73,7 @@ export const AudioCutter = () => {
     setStartTime(0);
     setEndTime(0);
     setCurrentTime(0);
-    toast.success(`Loaded: ${file.name}`);
+    notify.success(`Loaded: ${file.name}`);
   };
 
   // Play / Pause
@@ -106,8 +106,8 @@ export const AudioCutter = () => {
 
   // Real audio cutting using Web Audio API
   const cutAudio = async () => {
-    if (!selectedFile) return toast.error("No audio loaded.");
-    if (startTime >= endTime) return toast.error("Invalid start/end times.");
+  if (!selectedFile) return notify.error("No audio loaded.");
+  if (startTime >= endTime) return notify.error("Invalid start/end times.");
 
     setIsCutting(true);
     setCutProgress(10);
@@ -142,10 +142,10 @@ export const AudioCutter = () => {
       setCutAudioBlob(wavBlob);
 
       setCutProgress(100);
-      toast.success("Audio cut successfully!");
+      notify.success("Audio cut successfully!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to cut audio.");
+      notify.error("Failed to cut audio.");
     } finally {
       setIsCutting(false);
     }
@@ -200,7 +200,7 @@ export const AudioCutter = () => {
     a.download = `${selectedFile.name.replace(/\.[^/.]+$/, "")}_cut.wav`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Cut audio downloaded!");
+    notify.success("Cut audio downloaded!");
   };
 
   const clearAll = () => {

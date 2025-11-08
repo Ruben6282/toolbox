@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy, Download, RotateCcw, Link } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const CanonicalUrlGenerator = () => {
   const [currentUrl, setCurrentUrl] = useState("");
@@ -26,7 +26,7 @@ export const CanonicalUrlGenerator = () => {
 
   const generateCanonicalTags = () => {
     if (!canonicalUrl.trim()) {
-      toast.error("Please enter a canonical URL!");
+      notify.error("Please enter a canonical URL!");
       return;
     }
 
@@ -44,12 +44,12 @@ export const CanonicalUrlGenerator = () => {
     }
 
     setGeneratedCanonicals(canonicalTags);
-    toast.success("Canonical tags generated!");
+    notify.success("Canonical tags generated!");
   };
 
   const generateBulkCanonicals = () => {
     if (urls.length === 0) {
-      toast.error("Please add some URLs first!");
+      notify.error("Please add some URLs first!");
       return;
     }
 
@@ -63,13 +63,13 @@ export const CanonicalUrlGenerator = () => {
     });
 
     setGeneratedCanonicals(bulkCanonicals);
-    toast.success("Bulk canonical tags generated!");
+    notify.success("Bulk canonical tags generated!");
   };
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generatedCanonicals);
-      toast.success("Canonical tags copied!");
+      notify.success("Canonical tags copied!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -85,7 +85,7 @@ export const CanonicalUrlGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Canonical tags downloaded!");
+    notify.success("Canonical tags downloaded!");
   };
 
   const clearAll = () => {

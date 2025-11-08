@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Music, FileAudio } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 // WAV encoding helper
 function encodeWAV(audioBuffer: AudioBuffer) {
@@ -85,16 +85,16 @@ export const Mp3ToWavConverter = () => {
           });
         };
         audio.src = URL.createObjectURL(file);
-        toast.success("Audio file selected!");
+  notify.success("Audio file selected!");
       } else {
-        toast.error("Please select an audio file (MP3, WAV, etc.)");
+  notify.error("Please select an audio file (MP3, WAV, etc.)");
       }
     }
   };
 
   const convertToWav = async () => {
     if (!selectedFile) {
-      toast.error("Please select a file first!");
+  notify.error("Please select a file first!");
       return;
     }
 
@@ -118,10 +118,10 @@ export const Mp3ToWavConverter = () => {
       setConversionProgress(100);
 
       setConvertedFile(wavBlob);
-      toast.success("File converted successfully!");
+  notify.success("File converted successfully!");
     } catch (error) {
       console.error(error);
-      toast.error("Conversion failed. Please try again.");
+  notify.error("Conversion failed. Please try again.");
     } finally {
       setIsConverting(false);
     }
@@ -138,7 +138,7 @@ export const Mp3ToWavConverter = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("File downloaded!");
+  notify.success("File downloaded!");
   };
 
   const clearAll = () => {

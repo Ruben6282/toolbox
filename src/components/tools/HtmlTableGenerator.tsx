@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw, Table, Plus, Minus } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const HtmlTableGenerator = () => {
   const [rows, setRows] = useState(3);
@@ -133,7 +133,7 @@ export const HtmlTableGenerator = () => {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
         return;
       }
 
@@ -149,13 +149,13 @@ export const HtmlTableGenerator = () => {
       const successful = document.execCommand('copy');
       document.body.removeChild(textArea);
       if (successful) {
-        toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
       } else {
-        toast.error("Failed to copy");
+  notify.error("Failed to copy");
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error("Failed to copy");
+  notify.error("Failed to copy");
     }
   };
 

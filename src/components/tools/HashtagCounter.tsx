@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Hash, TrendingUp, Users, MessageSquare } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface HashtagData {
   hashtag: string;
@@ -71,7 +71,7 @@ export const HashtagCounter = () => {
     const hashtags = hashtagAnalysis.hashtags.map(h => h.hashtag).join(' ');
     try {
       await navigator.clipboard.writeText(hashtags);
-      toast.success("Hashtags copied to clipboard!");
+  notify.success("Hashtags copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -84,7 +84,7 @@ export const HashtagCounter = () => {
     
     try {
       await navigator.clipboard.writeText(results);
-      toast.success("Results copied to clipboard!");
+  notify.success("Results copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }

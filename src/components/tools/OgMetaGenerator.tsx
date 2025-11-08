@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Share2 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const OgMetaGenerator = () => {
   const [formData, setFormData] = useState({
@@ -85,7 +85,7 @@ export const OgMetaGenerator = () => {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generateOgMeta());
-      toast.success("OG Meta tags copied!");
+  notify.success("OG Meta tags copied!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -101,7 +101,7 @@ export const OgMetaGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("OG Meta tags downloaded!");
+  notify.success("OG Meta tags downloaded!");
   };
 
   const clearAll = () => {

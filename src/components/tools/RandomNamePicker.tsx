@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Shuffle } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const RandomNamePicker = () => {
   const [names, setNames] = useState("");
@@ -18,7 +18,7 @@ export const RandomNamePicker = () => {
       .filter(name => name.length > 0);
 
     if (nameList.length === 0) {
-      toast.error("Please enter at least one name");
+  notify.error("Please enter at least one name");
       return;
     }
 
@@ -34,7 +34,7 @@ export const RandomNamePicker = () => {
       if (counter > 20) {
         clearInterval(interval);
         setIsSpinning(false);
-        toast.success("Name selected!");
+  notify.success("Name selected!");
       }
     }, 100);
   };

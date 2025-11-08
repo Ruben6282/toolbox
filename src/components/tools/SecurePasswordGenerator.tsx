@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, Shield, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const SecurePasswordGenerator = () => {
   const [passwordLength, setPasswordLength] = useState(16);
@@ -102,7 +102,7 @@ export const SecurePasswordGenerator = () => {
       // Try modern Clipboard API first
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(generatedPassword);
-        toast.success("Password copied to clipboard!");
+  notify.success("Password copied to clipboard!");
       } else {
         // Fallback for mobile/older browsers
         const textArea = document.createElement("textarea");
@@ -117,19 +117,19 @@ export const SecurePasswordGenerator = () => {
         try {
           const successful = document.execCommand('copy');
           if (successful) {
-            toast.success("Password copied to clipboard!");
+            notify.success("Password copied to clipboard!");
           } else {
-            toast.error("Failed to copy password");
+            notify.error("Failed to copy password");
           }
         } catch (err) {
-          toast.error("Failed to copy password");
+          notify.error("Failed to copy password");
         } finally {
           document.body.removeChild(textArea);
         }
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error("Failed to copy password");
+  notify.error("Failed to copy password");
     }
   };
 

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, RotateCcw, Clock, Bell } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const CountdownTimer = () => {
   const [hours, setHours] = useState(0);
@@ -28,7 +28,7 @@ export const CountdownTimer = () => {
             if (soundEnabled) {
               playAlertSound();
             }
-            toast.success("Time's up!");
+            notify.success("Time's up!");
             return 0;
           }
           return prev - 1;
@@ -93,7 +93,7 @@ export const CountdownTimer = () => {
 
     // Start new countdown
     if (inputTotalSeconds <= 0) {
-      toast.error("Please set a valid time!");
+      notify.error("Please set a valid time!");
       return;
     }
     setTimeLeft(inputTotalSeconds);

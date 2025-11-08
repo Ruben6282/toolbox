@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Copy, RotateCcw, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const BusinessNameGenerator = () => {
   const [nameCount, setNameCount] = useState(10);
@@ -110,13 +110,13 @@ export const BusinessNameGenerator = () => {
 
   const copyToClipboard = async (name: string) => {
     await navigator.clipboard.writeText(name);
-    toast.success(`Copied "${name}"`);
+  notify.success(`Copied "${name}"`);
   };
 
   const copyAllToClipboard = async () => {
     if (generatedNames.length === 0) return;
     await navigator.clipboard.writeText(generatedNames.join("\n"));
-    toast.success("All names copied to clipboard!");
+  notify.success("All names copied to clipboard!");
   };
 
   const clearNames = () => setGeneratedNames([]);

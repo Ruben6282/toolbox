@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Copy, RefreshCw } from "lucide-react";
 
 export const UuidGenerator = () => {
@@ -21,17 +21,17 @@ export const UuidGenerator = () => {
   const generate = () => {
     const newUuids = Array.from({ length: count }, () => generateUuid());
     setUuids(newUuids);
-    toast.success(`Generated ${count} UUID${count > 1 ? 's' : ''}!`);
+  notify.success(`Generated ${count} UUID${count > 1 ? 's' : ''}!`);
   };
 
   const copyToClipboard = (uuid: string) => {
     navigator.clipboard.writeText(uuid);
-    toast.success("UUID copied!");
+  notify.success("UUID copied!");
   };
 
   const copyAll = () => {
     navigator.clipboard.writeText(uuids.join("\n"));
-    toast.success("All UUIDs copied!");
+  notify.success("All UUIDs copied!");
   };
 
   return (

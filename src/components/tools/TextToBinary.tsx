@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const TextToBinary = () => {
   const [text, setText] = useState("");
@@ -20,7 +20,7 @@ export const TextToBinary = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(binary);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

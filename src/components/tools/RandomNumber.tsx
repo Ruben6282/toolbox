@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { RefreshCw } from "lucide-react";
 
 export const RandomNumber = () => {
@@ -22,12 +22,12 @@ export const RandomNumber = () => {
     const countNum = parseInt(count);
 
     if (isNaN(minNum) || isNaN(maxNum) || isNaN(countNum)) {
-      toast.error("Please enter valid numbers!");
+  notify.error("Please enter valid numbers!");
       return;
     }
 
     if (minNum >= maxNum) {
-      toast.error("Min must be less than Max!");
+  notify.error("Min must be less than Max!");
       return;
     }
 
@@ -36,7 +36,7 @@ export const RandomNumber = () => {
       generated.push(Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum);
     }
     setNumbers(generated);
-    toast.success("Random numbers generated!");
+  notify.success("Random numbers generated!");
   };
 
   return (

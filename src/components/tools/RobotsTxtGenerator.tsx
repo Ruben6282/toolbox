@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Download, RotateCcw, Bot } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const RobotsTxtGenerator = () => {
   const [siteUrl, setSiteUrl] = useState("");
@@ -86,13 +86,13 @@ export const RobotsTxtGenerator = () => {
     }
 
     setGeneratedRobots(robots.trim());
-    toast.success("Robots.txt generated!");
+  notify.success("Robots.txt generated!");
   };
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generatedRobots);
-      toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -108,7 +108,7 @@ export const RobotsTxtGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Robots.txt downloaded!");
+  notify.success("Robots.txt downloaded!");
   };
 
   const clearAll = () => {

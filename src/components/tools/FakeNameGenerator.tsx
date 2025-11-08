@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Users, Shuffle, Download } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface GeneratedName {
   firstName: string;
@@ -109,14 +109,14 @@ export const FakeNameGenerator = () => {
       names.push(generateRandomName());
     }
     setGeneratedNames(names);
-    toast.success(`${count} names generated!`);
+  notify.success(`${count} names generated!`);
   };
 
   const copyName = async (name: GeneratedName) => {
     const text = `${name.firstName} ${name.lastName}\n${name.email}\n${name.username}\n${name.phone}\n${name.address}\nAge: ${name.age}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Name copied to clipboard!");
+  notify.success("Name copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -129,7 +129,7 @@ export const FakeNameGenerator = () => {
     
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("All names copied to clipboard!");
+  notify.success("All names copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -150,7 +150,7 @@ export const FakeNameGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Names downloaded as CSV!");
+  notify.success("Names downloaded as CSV!");
   };
 
   const clearNames = () => {

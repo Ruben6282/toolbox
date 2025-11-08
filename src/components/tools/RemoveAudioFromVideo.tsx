@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Video, VolumeX, Volume2 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const RemoveAudioFromVideo = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -46,9 +46,9 @@ export const RemoveAudioFromVideo = () => {
       };
       video.src = url;
       
-      toast.success("Video file loaded!");
+  notify.success("Video file loaded!");
     } else {
-      toast.error("Please select a valid video file!");
+  notify.error("Please select a valid video file!");
     }
   };
 
@@ -68,7 +68,7 @@ export const RemoveAudioFromVideo = () => {
 
   const removeAudio = async () => {
     if (!selectedFile) {
-      toast.error("Please select a video file first!");
+  notify.error("Please select a video file first!");
       return;
     }
 
@@ -96,9 +96,9 @@ export const RemoveAudioFromVideo = () => {
       const videoBlob = new Blob([mockVideoData], { type: selectedFile.type });
       
       setProcessedVideo(videoBlob);
-      toast.success("Audio removed successfully!");
+  notify.success("Audio removed successfully!");
     } catch (error) {
-      toast.error("Failed to remove audio. Please try again.");
+  notify.error("Failed to remove audio. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -116,7 +116,7 @@ export const RemoveAudioFromVideo = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    toast.success("Video without audio downloaded!");
+  notify.success("Video without audio downloaded!");
   };
 
   const clearAll = () => {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const JwtDecoder = () => {
   const [input, setInput] = useState("");
@@ -13,7 +13,7 @@ export const JwtDecoder = () => {
     try {
       const parts = input.split(".");
       if (parts.length !== 3) {
-        toast.error("Invalid JWT format!");
+  notify.error("Invalid JWT format!");
         return;
       }
 
@@ -22,9 +22,9 @@ export const JwtDecoder = () => {
 
       setHeader(JSON.stringify(decodedHeader, null, 2));
       setPayload(JSON.stringify(decodedPayload, null, 2));
-      toast.success("JWT decoded successfully!");
+  notify.success("JWT decoded successfully!");
     } catch (e) {
-      toast.error("Failed to decode JWT!");
+  notify.error("Failed to decode JWT!");
     }
   };
 

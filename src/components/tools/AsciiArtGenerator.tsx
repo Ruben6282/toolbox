@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Shuffle, Image } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 // ✅ Register fonts once
 const REGISTERED_FONTS = {
@@ -73,9 +73,9 @@ export const AsciiArtGenerator = () => {
   const copyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(asciiArt);
-      toast?.success("Copied to clipboard!");
+      notify.success("Copied to clipboard!");
     } catch {
-      toast?.error("Failed to copy");
+      notify.error("Failed to copy");
     }
   }, [asciiArt]);
 
@@ -89,7 +89,7 @@ export const AsciiArtGenerator = () => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast?.success("Downloaded as ascii-art.txt");
+    notify.success("Downloaded as ascii-art.txt");
   }, [asciiArt]);
 
   const saveAsImage = useCallback(() => {
@@ -130,7 +130,7 @@ export const AsciiArtGenerator = () => {
     const others = FONT_NAMES.filter((f) => f !== font);
     const random = others[Math.floor(Math.random() * others.length)];
     setFont(random);
-    toast?.message(`Switched to font: ${random}`);
+    notify.info(`Switched to font: ${random}`);
   }, [font]);
 
   return (

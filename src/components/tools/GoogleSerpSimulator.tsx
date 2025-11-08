@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Search, ExternalLink, RotateCcw, Star, MapPin, Clock } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface SerpResult {
   title: string;
@@ -29,7 +29,7 @@ export const GoogleSerpSimulator = () => {
 
   const generateSerpResults = async () => {
     if (!query.trim()) {
-      toast.error("Please enter a search query!");
+      notify.error("Please enter a search query!");
       return;
     }
 
@@ -107,9 +107,9 @@ export const GoogleSerpSimulator = () => {
       ];
 
       setResults(mockResults);
-      toast.success("SERP results generated!");
+  notify.success("SERP results generated!");
     } catch (error) {
-      toast.error("Failed to generate SERP results. Please try again.");
+  notify.error("Failed to generate SERP results. Please try again.");
     } finally {
       setIsLoading(false);
     }

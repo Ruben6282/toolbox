@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const WhitespaceRemover = () => {
   const [input, setInput] = useState("");
@@ -14,12 +14,12 @@ export const WhitespaceRemover = () => {
       .replace(/^\s+|\s+$/gm, "") // Remove leading/trailing spaces from each line
       .trim();
     setOutput(cleaned);
-    toast.success("Extra whitespace removed!");
+  notify.success("Extra whitespace removed!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

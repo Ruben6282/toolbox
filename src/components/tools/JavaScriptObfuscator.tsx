@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Copy, Download, RotateCcw, Shield, Code, Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const JavaScriptObfuscator = () => {
   const [originalCode, setOriginalCode] = useState("");
@@ -43,13 +43,13 @@ export const JavaScriptObfuscator = () => {
 
   const [obfuscationLevel, setObfuscationLevel] = useState(50);
 
-  const updateOption = (key: string, value: any) => {
+  const updateOption = (key: string, value: unknown) => {
     setOptions(prev => ({ ...prev, [key]: value }));
   };
 
   const obfuscateCode = () => {
     if (!originalCode.trim()) {
-      toast.error("Please enter JavaScript code to obfuscate!");
+  notify.error("Please enter JavaScript code to obfuscate!");
       return;
     }
 
@@ -120,16 +120,16 @@ export const JavaScriptObfuscator = () => {
       }
 
       setObfuscatedCode(obfuscated);
-      toast.success("Code obfuscated successfully!");
+  notify.success("Code obfuscated successfully!");
     } catch (error) {
-      toast.error("Failed to obfuscate code. Please check your JavaScript syntax.");
+  notify.error("Failed to obfuscate code. Please check your JavaScript syntax.");
     }
   };
 
   const copyObfuscatedCode = async () => {
     try {
       await navigator.clipboard.writeText(obfuscatedCode);
-      toast.success("Obfuscated code copied to clipboard!");
+  notify.success("Obfuscated code copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -145,7 +145,7 @@ export const JavaScriptObfuscator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Obfuscated code downloaded!");
+  notify.success("Obfuscated code downloaded!");
   };
 
   const clearAll = () => {
@@ -202,7 +202,7 @@ export const JavaScriptObfuscator = () => {
     };
 
     setOptions(prev => ({ ...prev, ...presets[preset] }));
-    toast.success(`${preset.charAt(0).toUpperCase() + preset.slice(1)} preset applied!`);
+  notify.success(`${preset.charAt(0).toUpperCase() + preset.slice(1)} preset applied!`);
   };
 
   return (

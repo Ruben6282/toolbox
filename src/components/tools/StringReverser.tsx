@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const StringReverser = () => {
   const [input, setInput] = useState("");
@@ -11,12 +11,12 @@ export const StringReverser = () => {
   const reverse = () => {
     const reversed = input.split("").reverse().join("");
     setOutput(reversed);
-    toast.success("Text reversed!");
+  notify.success("Text reversed!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

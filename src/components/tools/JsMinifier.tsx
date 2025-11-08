@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const JsMinifier = () => {
   const [input, setInput] = useState("");
@@ -10,11 +10,11 @@ export const JsMinifier = () => {
 
   const minify = () => {
     if (!input.trim()) {
-      toast.error("Please enter some JavaScript!");
+      notify.error("Please enter some JavaScript!");
       return;
     }
 
-    let minified = input
+  const minified = input
       .replace(/\/\*[\s\S]*?\*\//g, "") // Remove multi-line comments
       .replace(/\/\/.*/g, "") // Remove single-line comments
       .replace(/\s+/g, " ") // Replace multiple spaces with single space
@@ -24,12 +24,12 @@ export const JsMinifier = () => {
 
     setOutput(minified);
     const savings = ((1 - minified.length / input.length) * 100).toFixed(1);
-    toast.success(`JavaScript minified! ${savings}% reduction`);
+  notify.success(`JavaScript minified! ${savings}% reduction`);
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

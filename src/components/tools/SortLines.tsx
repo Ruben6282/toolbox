@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -21,12 +21,12 @@ export const SortLines = () => {
       }
     });
     setOutput(sorted.join("\n"));
-    toast.success("Lines sorted!");
+  notify.success("Lines sorted!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

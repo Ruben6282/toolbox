@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Shield, AlertTriangle, CheckCircle, XCircle, ExternalLink, RotateCcw,
 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface SafetyResult {
   url: string;
@@ -38,7 +38,7 @@ export const UrlSafetyChecker = () => {
 
   const checkUrlSafety = async () => {
     if (!url.trim()) {
-      toast.error("Please enter a URL to check!");
+  notify.error("Please enter a URL to check!");
       return;
     }
 
@@ -116,9 +116,9 @@ export const UrlSafetyChecker = () => {
       };
 
       setResult(safetyResult);
-      toast.success("URL analysis complete!");
+  notify.success("URL analysis complete!");
     } catch (error) {
-      toast.error("Invalid or malformed URL.");
+  notify.error("Invalid or malformed URL.");
     } finally {
       setIsChecking(false);
     }

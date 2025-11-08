@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const QrGenerator = () => {
   const [text, setText] = useState("");
@@ -12,16 +12,16 @@ export const QrGenerator = () => {
 
   const generate = async () => {
     if (!text) {
-      toast.error("Please enter text!");
+  notify.error("Please enter text!");
       return;
     }
 
     try {
       const dataUrl = await QRCode.toDataURL(text, { width: 300 });
       setQrUrl(dataUrl);
-      toast.success("QR code generated!");
+  notify.success("QR code generated!");
     } catch (err) {
-      toast.error("Failed to generate QR code.");
+  notify.error("Failed to generate QR code.");
     }
   };
 
@@ -30,7 +30,7 @@ export const QrGenerator = () => {
     link.href = qrUrl;
     link.download = "qrcode.png";
     link.click();
-    toast.success("QR code downloaded!");
+  notify.success("QR code downloaded!");
   };
 
   return (

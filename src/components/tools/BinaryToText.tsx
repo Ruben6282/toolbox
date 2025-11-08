@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const BinaryToText = () => {
   const [binary, setBinary] = useState("");
@@ -21,13 +21,13 @@ export const BinaryToText = () => {
         .join("");
       setText(textResult);
     } catch (error) {
-      toast.error("Invalid binary format");
+      notify.error("Invalid binary format");
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    notify.success("Copied to clipboard!");
   };
 
   return (

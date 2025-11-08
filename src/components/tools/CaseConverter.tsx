@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const CaseConverter = () => {
   const [text, setText] = useState("");
@@ -33,12 +33,12 @@ export const CaseConverter = () => {
         break;
     }
     setText(result);
-    toast.success("Text converted!");
+    notify.success("Text converted!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    notify.success("Copied to clipboard!");
   };
 
   return (

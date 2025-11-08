@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const JsonFormatter = () => {
   const [input, setInput] = useState("");
@@ -14,10 +14,10 @@ export const JsonFormatter = () => {
       const parsed = JSON.parse(input);
       setOutput(JSON.stringify(parsed, null, 2));
       setError("");
-      toast.success("JSON formatted successfully!");
+  notify.success("JSON formatted successfully!");
     } catch (e) {
       setError((e as Error).message);
-      toast.error("Invalid JSON!");
+  notify.error("Invalid JSON!");
     }
   };
 
@@ -26,16 +26,16 @@ export const JsonFormatter = () => {
       const parsed = JSON.parse(input);
       setOutput(JSON.stringify(parsed));
       setError("");
-      toast.success("JSON minified!");
+  notify.success("JSON minified!");
     } catch (e) {
       setError((e as Error).message);
-      toast.error("Invalid JSON!");
+  notify.error("Invalid JSON!");
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

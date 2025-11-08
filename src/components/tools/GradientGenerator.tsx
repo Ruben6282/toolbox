@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -15,12 +15,12 @@ export const GradientGenerator = () => {
   const generateGradient = () => {
     const css = `background: linear-gradient(${direction}, ${color1}, ${color2});`;
     setCssCode(css);
-    toast.success("Gradient generated!");
+  notify.success("Gradient generated!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(cssCode);
-    toast.success("CSS copied!");
+  notify.success("CSS copied!");
   };
 
   const gradientStyle = {

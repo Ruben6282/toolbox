@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const TimestampConverter = () => {
   // Helper to format a Date for an <input type="datetime-local"> using LOCAL time (no timezone)
@@ -29,9 +29,9 @@ export const TimestampConverter = () => {
       const date = new Date(tsMs);
       if (isNaN(date.getTime())) throw new Error("Invalid timestamp");
       setDateTime(formatLocalDateTimeForInput(date));
-      toast.success("Converted to date!");
+  notify.success("Converted to date!");
     } catch (e) {
-      toast.error("Invalid timestamp!");
+  notify.error("Invalid timestamp!");
     }
   };
 
@@ -41,9 +41,9 @@ export const TimestampConverter = () => {
       const ts = d.getTime();
       if (!Number.isFinite(ts)) throw new Error("Invalid date");
       setTimestamp(ts.toString());
-      toast.success("Converted to timestamp!");
+  notify.success("Converted to timestamp!");
     } catch (e) {
-      toast.error("Invalid date!");
+  notify.error("Invalid date!");
     }
   };
 
@@ -51,7 +51,7 @@ export const TimestampConverter = () => {
     const now = new Date();
     setTimestamp(now.getTime().toString());
     setDateTime(formatLocalDateTimeForInput(now));
-    toast.success("Current time loaded!");
+  notify.success("Current time loaded!");
   };
 
   return (

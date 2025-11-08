@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const TextToSlug = () => {
   const [input, setInput] = useState("");
@@ -16,12 +16,12 @@ export const TextToSlug = () => {
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-");
     setOutput(slug);
-    toast.success("Slug generated!");
+  notify.success("Slug generated!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

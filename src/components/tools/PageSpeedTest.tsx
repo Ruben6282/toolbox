@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Gauge, Clock, Zap, AlertTriangle, CheckCircle, ExternalLink, RotateCcw, Smartphone, Monitor } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface SpeedMetrics {
   fcp: number; // First Contentful Paint
@@ -156,7 +156,7 @@ export const PageSpeedTest = () => {
 
   const runSpeedTest = async () => {
     if (!url.trim()) {
-      toast.error("Please enter a URL!");
+      notify.error("Please enter a URL!");
       return;
     }
 
@@ -202,11 +202,11 @@ export const PageSpeedTest = () => {
         strategy
       });
       
-      toast.success("Speed test completed!");
+      notify.success("Speed test completed!");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to run speed test";
       setError(errorMessage);
-      toast.error(errorMessage);
+      notify.error(errorMessage);
       console.error('PageSpeed test error:', err);
     } finally {
       setIsLoading(false);

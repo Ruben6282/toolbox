@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Upload } from "lucide-react";
 
 export const ImageResizer = () => {
@@ -28,7 +28,7 @@ export const ImageResizer = () => {
         setWidth(img.width);
         setHeight(img.height);
         setOriginalPreview(reader.result as string);
-        toast.success("Image loaded!");
+        notify.success("Image loaded!");
       };
       img.src = reader.result as string;
     };
@@ -73,14 +73,14 @@ export const ImageResizer = () => {
   // Download resized image
   const handleDownload = () => {
     if (!resizedPreview) {
-      toast.error("No resized image to download!");
+      notify.error("No resized image to download!");
       return;
     }
     const link = document.createElement("a");
     link.href = resizedPreview;
     link.download = "resized-image.png";
     link.click();
-    toast.success("Image downloaded!");
+    notify.success("Image downloaded!");
   };
 
   return (

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Play, Pause, Scissors, Video, Volume2 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const VideoCutter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -70,9 +70,9 @@ export const VideoCutter = () => {
       };
       video.src = url;
       
-      toast.success("Video file loaded!");
+  notify.success("Video file loaded!");
     } else {
-      toast.error("Please select a valid video file!");
+  notify.error("Please select a valid video file!");
     }
   };
 
@@ -110,7 +110,7 @@ export const VideoCutter = () => {
 
   const cutVideo = async () => {
     if (!selectedFile || startTime >= endTime) {
-      toast.error("Please select valid start and end times!");
+  notify.error("Please select valid start and end times!");
       return;
     }
 
@@ -140,9 +140,9 @@ export const VideoCutter = () => {
       const cutBlob = new Blob([mockCutData], { type: selectedFile.type });
       
       setCutVideoBlob(cutBlob);
-      toast.success("Video cut successfully!");
+  notify.success("Video cut successfully!");
     } catch (error) {
-      toast.error("Failed to cut video. Please try again.");
+  notify.error("Failed to cut video. Please try again.");
     } finally {
       setIsCutting(false);
     }
@@ -160,7 +160,7 @@ export const VideoCutter = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    toast.success("Cut video downloaded!");
+  notify.success("Cut video downloaded!");
   };
 
   const clearAll = () => {

@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Loader2 } from "lucide-react";
 
 export const PrimeNumberChecker = () => {
@@ -88,7 +88,7 @@ export const PrimeNumberChecker = () => {
   const checkPrime = async () => {
     const value = number.trim();
     if (!value) {
-      toast.error("Please enter a number");
+  notify.error("Please enter a number");
       return;
     }
 
@@ -96,12 +96,12 @@ export const PrimeNumberChecker = () => {
     try {
       num = BigInt(value);
     } catch {
-      toast.error("Invalid number");
+  notify.error("Invalid number");
       return;
     }
 
     if (num < 1n) {
-      toast.error("Please enter a positive integer");
+  notify.error("Please enter a positive integer");
       return;
     }
 
@@ -115,7 +115,7 @@ export const PrimeNumberChecker = () => {
     let factors: bigint[] | undefined;
 
     if (num > MAX_SAFE_FACTORIZE) {
-      toast.info("Number too large to fully factorize — using probabilistic check.");
+  notify.info("Number too large to fully factorize — using probabilistic check.");
       isPrimeResult = millerRabinTest(num);
     } else {
       isPrimeResult = isPrime(num);

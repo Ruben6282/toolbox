@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const UsernameGenerator = () => {
   const [usernameCount, setUsernameCount] = useState(5);
@@ -129,7 +129,7 @@ export const UsernameGenerator = () => {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(username);
-        toast.success("Username copied!");
+  notify.success("Username copied!");
       } else {
         const textArea = document.createElement("textarea");
         textArea.value = username;
@@ -142,14 +142,14 @@ export const UsernameGenerator = () => {
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
         if (successful) {
-          toast.success("Username copied!");
+          notify.success("Username copied!");
         } else {
-          toast.error("Failed to copy username");
+          notify.error("Failed to copy username");
         }
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error("Failed to copy username");
+  notify.error("Failed to copy username");
     }
   };
 
@@ -158,7 +158,7 @@ export const UsernameGenerator = () => {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(all);
-        toast.success("All usernames copied!");
+  notify.success("All usernames copied!");
       } else {
         const textArea = document.createElement("textarea");
         textArea.value = all;
@@ -171,14 +171,14 @@ export const UsernameGenerator = () => {
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
         if (successful) {
-          toast.success("All usernames copied!");
+          notify.success("All usernames copied!");
         } else {
-          toast.error("Failed to copy");
+          notify.error("Failed to copy");
         }
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error("Failed to copy");
+  notify.error("Failed to copy");
     }
   };
 

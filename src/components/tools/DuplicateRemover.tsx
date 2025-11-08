@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const DuplicateRemover = () => {
   const [input, setInput] = useState("");
@@ -13,12 +13,12 @@ export const DuplicateRemover = () => {
     const uniqueLines = Array.from(new Set(lines));
     setOutput(uniqueLines.join("\n"));
     const removed = lines.length - uniqueLines.length;
-    toast.success(`Removed ${removed} duplicate line${removed !== 1 ? "s" : ""}!`);
+  notify.success(`Removed ${removed} duplicate line${removed !== 1 ? "s" : ""}!`);
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

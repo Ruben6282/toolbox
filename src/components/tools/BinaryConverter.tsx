@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Label } from "@/components/ui/label";
 
 export const BinaryConverter = () => {
@@ -18,49 +18,49 @@ export const BinaryConverter = () => {
   const fromBinary = (bin: string) => {
     const dec = parseInt(bin, 2);
     if (isNaN(dec)) {
-      toast.error("Invalid binary number!");
+  notify.error("Invalid binary number!");
       return;
     }
     setDecimal(dec.toString());
     setHex(dec.toString(16).toUpperCase());
     setOctal(dec.toString(8));
-    toast.success("Converted from binary!");
+  notify.success("Converted from binary!");
   };
 
   const fromDecimal = (dec: string) => {
     const num = parseInt(dec, 10);
     if (isNaN(num)) {
-      toast.error("Invalid decimal number!");
+  notify.error("Invalid decimal number!");
       return;
     }
     setBinary(num.toString(2));
     setHex(num.toString(16).toUpperCase());
     setOctal(num.toString(8));
-    toast.success("Converted from decimal!");
+  notify.success("Converted from decimal!");
   };
 
   const fromHex = (hexVal: string) => {
     const dec = parseInt(hexVal, 16);
     if (isNaN(dec)) {
-      toast.error("Invalid hexadecimal number!");
+  notify.error("Invalid hexadecimal number!");
       return;
     }
     setDecimal(dec.toString());
     setBinary(dec.toString(2));
     setOctal(dec.toString(8));
-    toast.success("Converted from hexadecimal!");
+  notify.success("Converted from hexadecimal!");
   };
 
   const fromOctal = (octVal: string) => {
     const dec = parseInt(octVal, 8);
     if (isNaN(dec)) {
-      toast.error("Invalid octal number!");
+  notify.error("Invalid octal number!");
       return;
     }
     setDecimal(dec.toString());
     setBinary(dec.toString(2));
     setHex(dec.toString(16).toUpperCase());
-    toast.success("Converted from octal!");
+  notify.success("Converted from octal!");
   };
 
   const copyToClipboard = async (text: string, type: string) => {
@@ -68,7 +68,7 @@ export const BinaryConverter = () => {
       // Modern approach - works on most browsers including mobile
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
-        toast.success(`${type} copied!`);
+  notify.success(`${type} copied!`);
       } else {
         // Fallback for older browsers or when clipboard API is not available
         const textArea = document.createElement("textarea");
@@ -83,20 +83,20 @@ export const BinaryConverter = () => {
         try {
           const successful = document.execCommand('copy');
           if (successful) {
-            toast.success(`${type} copied!`);
+            notify.success(`${type} copied!`);
           } else {
-            toast.error("Failed to copy!");
+            notify.error("Failed to copy!");
           }
         } catch (err) {
           console.error('Fallback: Failed to copy', err);
-          toast.error("Failed to copy!");
+          notify.error("Failed to copy!");
         }
         
         document.body.removeChild(textArea);
       }
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error("Failed to copy to clipboard!");
+  notify.error("Failed to copy to clipboard!");
     }
   };
 

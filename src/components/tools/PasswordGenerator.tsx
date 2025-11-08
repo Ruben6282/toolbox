@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Copy, RefreshCw } from "lucide-react";
 
 export const PasswordGenerator = () => {
@@ -23,7 +23,7 @@ export const PasswordGenerator = () => {
     if (useSymbols) chars += "!@#$%^&*()_+-=[]{}|;:,.<>?";
 
     if (chars === "") {
-      toast.error("Select at least one character type!");
+  notify.error("Select at least one character type!");
       return;
     }
 
@@ -32,12 +32,12 @@ export const PasswordGenerator = () => {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setPassword(result);
-    toast.success("Password generated!");
+  notify.success("Password generated!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(password);
-    toast.success("Password copied!");
+  notify.success("Password copied!");
   };
 
   return (

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const Base64Encoder = () => {
   const [input, setInput] = useState("");
@@ -12,9 +12,9 @@ export const Base64Encoder = () => {
     try {
       const encoded = btoa(input);
       setOutput(encoded);
-      toast.success("Encoded to Base64!");
+      notify.success("Encoded to Base64!");
     } catch (e) {
-      toast.error("Encoding failed!");
+      notify.error("Encoding failed!");
     }
   };
 
@@ -22,15 +22,15 @@ export const Base64Encoder = () => {
     try {
       const decoded = atob(input);
       setOutput(decoded);
-      toast.success("Decoded from Base64!");
+      notify.success("Decoded from Base64!");
     } catch (e) {
-      toast.error("Decoding failed! Invalid Base64 string.");
+      notify.error("Decoding failed! Invalid Base64 string.");
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+    notify.success("Copied to clipboard!");
   };
 
   return (

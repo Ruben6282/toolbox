@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 export const HtmlEncoder = () => {
   const [input, setInput] = useState("");
@@ -16,7 +16,7 @@ export const HtmlEncoder = () => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
     setOutput(encoded);
-    toast.success("HTML encoded!");
+  notify.success("HTML encoded!");
   };
 
   const decode = () => {
@@ -27,12 +27,12 @@ export const HtmlEncoder = () => {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
     setOutput(decoded);
-    toast.success("HTML decoded!");
+  notify.success("HTML decoded!");
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(output);
-    toast.success("Copied to clipboard!");
+  notify.success("Copied to clipboard!");
   };
 
   return (

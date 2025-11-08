@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Download, ExternalLink, RotateCcw, Play, Image, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface ThumbnailInfo {
   url: string;
@@ -88,7 +88,7 @@ export const YouTubeThumbnailDownloader = () => {
 
   const getThumbnails = async () => {
     if (!videoUrl.trim()) {
-      toast.error("Please enter a YouTube URL!");
+  notify.error("Please enter a YouTube URL!");
       return;
     }
 
@@ -97,7 +97,7 @@ export const YouTubeThumbnailDownloader = () => {
     try {
       const id = extractVideoId(videoUrl);
       if (!id) {
-        toast.error("Invalid YouTube URL! Please check the URL format.");
+  notify.error("Invalid YouTube URL! Please check the URL format.");
         setIsLoading(false);
         return;
       }
@@ -109,9 +109,9 @@ export const YouTubeThumbnailDownloader = () => {
       // Simulate getting video title (in real implementation, you'd call YouTube API)
       setVideoTitle(`YouTube Video ${id}`);
       
-      toast.success("Thumbnails generated successfully!");
+  notify.success("Thumbnails generated successfully!");
     } catch (error) {
-      toast.error("Failed to process YouTube URL. Please try again.");
+  notify.error("Failed to process YouTube URL. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -131,9 +131,9 @@ export const YouTubeThumbnailDownloader = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      toast.success(`Downloaded ${thumbnail.quality} thumbnail!`);
+  notify.success(`Downloaded ${thumbnail.quality} thumbnail!`);
     } catch (error) {
-      toast.error("Failed to download thumbnail. Please try again.");
+  notify.error("Failed to download thumbnail. Please try again.");
     }
   };
 
@@ -147,7 +147,7 @@ export const YouTubeThumbnailDownloader = () => {
         console.error(`Failed to download ${thumbnail.quality}:`, error);
       }
     }
-    toast.success("All thumbnails downloaded!");
+  notify.success("All thumbnails downloaded!");
   };
 
   const clearAll = () => {

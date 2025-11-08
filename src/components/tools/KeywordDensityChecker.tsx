@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Search, BarChart3 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface KeywordData {
   keyword: string;
@@ -21,7 +21,7 @@ export const KeywordDensityChecker = () => {
   const [excludeCommon, setExcludeCommon] = useState(true);
   const [customExclusions, setCustomExclusions] = useState("");
 
-  const commonWords = [
+  const commonWords = useMemo(() => [
     "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with",
     "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they", "we", "say", "her",
     "she", "or", "an", "will", "my", "one", "all", "would", "there", "their", "what", "so", "up",
@@ -33,7 +33,7 @@ export const KeywordDensityChecker = () => {
     "were", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "could",
     "should", "may", "might", "must", "can", "shall", "am", "is", "are", "was", "were", "be",
     "being", "been", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should"
-  ];
+  ], []);
 
   const keywordAnalysis = useMemo(() => {
     if (!text.trim()) return { keywords: [], totalWords: 0, uniqueWords: 0 };
@@ -85,7 +85,7 @@ export const KeywordDensityChecker = () => {
       totalWords,
       uniqueWords: keywords.length
     };
-  }, [text, minWordLength, excludeCommon, customExclusions]);
+  }, [text, minWordLength, excludeCommon, customExclusions, commonWords]);
 
   const copyResults = async () => {
     const results = keywordAnalysis.keywords
@@ -95,7 +95,7 @@ export const KeywordDensityChecker = () => {
     
     try {
       await navigator.clipboard.writeText(results);
-      toast.success("Results copied to clipboard!");
+  notify.success("Results copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }

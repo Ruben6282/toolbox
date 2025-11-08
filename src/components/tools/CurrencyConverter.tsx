@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCcw, ArrowUpDown } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface ExchangeRates {
   [key: string]: number;
@@ -133,7 +133,7 @@ export const CurrencyConverter = () => {
         }
       } catch {
         console.warn("⚠️ Using fallback exchange rates.");
-        toast.warning("Using fallback exchange rates (offline data).");
+        notify.warning("Using fallback exchange rates (offline data).");
         
         // Convert defaultRates (which are USD-based) to be relative to fromCurrency
         const baseRate = defaultRates[fromCurrency] || 1;

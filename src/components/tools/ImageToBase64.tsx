@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -14,7 +14,7 @@ export const ImageToBase64 = () => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file!");
+      notify.error("Please select an image file!");
       return;
     }
 
@@ -23,14 +23,14 @@ export const ImageToBase64 = () => {
       const result = reader.result as string;
       setBase64(result);
       setPreview(result);
-      toast.success("Image converted to Base64!");
+      notify.success("Image converted to Base64!");
     };
     reader.readAsDataURL(file);
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(base64);
-    toast.success("Base64 string copied!");
+    notify.success("Base64 string copied!");
   };
 
   return (

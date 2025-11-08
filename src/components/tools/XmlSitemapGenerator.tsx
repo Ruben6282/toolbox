@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Plus, Trash2, Map } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface SitemapUrl {
   url: string;
@@ -45,13 +45,13 @@ export const XmlSitemapGenerator = () => {
 
   const generateSitemap = () => {
     if (!baseUrl.trim()) {
-      toast.error("Please enter a base URL!");
+  notify.error("Please enter a base URL!");
       return;
     }
 
     const validUrls = urls.filter(url => url.url.trim());
     if (validUrls.length === 0) {
-      toast.error("Please add at least one URL!");
+  notify.error("Please add at least one URL!");
       return;
     }
 
@@ -72,13 +72,13 @@ export const XmlSitemapGenerator = () => {
     sitemap += `</urlset>`;
 
     setGeneratedSitemap(sitemap);
-    toast.success("XML Sitemap generated!");
+  notify.success("XML Sitemap generated!");
   };
 
   const generateFromText = () => {
     const textarea = document.getElementById('url-list') as HTMLTextAreaElement;
     if (!textarea?.value.trim()) {
-      toast.error("Please enter URLs in the text area!");
+  notify.error("Please enter URLs in the text area!");
       return;
     }
 
@@ -91,13 +91,13 @@ export const XmlSitemapGenerator = () => {
     }));
 
     setUrls(newUrls);
-    toast.success(`${newUrls.length} URLs added!`);
+  notify.success(`${newUrls.length} URLs added!`);
   };
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generatedSitemap);
-      toast.success("Sitemap copied to clipboard!");
+  notify.success("Sitemap copied to clipboard!");
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -113,7 +113,7 @@ export const XmlSitemapGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Sitemap downloaded!");
+  notify.success("Sitemap downloaded!");
   };
 
   const clearAll = () => {

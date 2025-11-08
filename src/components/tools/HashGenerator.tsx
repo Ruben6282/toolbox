@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const HashGenerator = () => {
@@ -13,7 +13,7 @@ export const HashGenerator = () => {
 
   const generateHashes = async () => {
     if (!input) {
-      toast.error("Please enter some text!");
+      notify.error("Please enter some text!");
       return;
     }
 
@@ -37,7 +37,7 @@ export const HashGenerator = () => {
     // MD5 (simple implementation - not cryptographically secure)
     setMd5Hash(simpleMD5(input));
 
-    toast.success("Hashes generated!");
+  notify.success("Hashes generated!");
   };
 
   // Simple MD5 implementation
@@ -53,7 +53,7 @@ export const HashGenerator = () => {
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${type} hash copied!`);
+  notify.success(`${type} hash copied!`);
   };
 
   return (
