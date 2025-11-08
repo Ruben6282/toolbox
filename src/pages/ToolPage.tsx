@@ -1128,7 +1128,7 @@ const ToolPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="bg-gradient-to-br from-primary/5 via-accent/5 to-background py-12">
+      <section className="bg-gradient-to-br from-primary/5 via-accent/5 to-background py-6 sm:py-12">
         <div className="container">
           <Breadcrumb className="mb-6">
             <BreadcrumbList>
@@ -1153,19 +1153,39 @@ const ToolPage = () => {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start mb-6 sm:mb-0">
             <div className="flex-1">
-              <div className="mb-4 flex items-center gap-4">
-                <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">
-                  <IconComponent className="h-10 w-10 text-primary" />
+              <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4 text-center sm:text-left">
+                {/* Icon */}
+                <div className="mx-auto sm:mx-0 shrink-0 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 sm:p-4">
+                  <IconComponent className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
                 </div>
-                <div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <h1 className="text-4xl font-bold">{tool.name}</h1>
-                    {tool.isNew && <Badge className="bg-accent text-accent-foreground">New</Badge>}
-                    {tool.isPopular && <Badge variant="secondary">Popular</Badge>}
+
+                {/* Text content */}
+                <div className="flex-1 min-w-0 mt-3 sm:mt-0">
+                  <div className="mb-2">
+                    {/* Title & badges */}
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 mb-2">
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight break-words">
+                        {tool.name}
+                      </h1>
+                      {(tool.isNew || tool.isPopular) && (
+                        <div className="flex justify-center sm:justify-start flex-wrap gap-2 mt-2 sm:mt-0">
+                          {tool.isNew && (
+                            <Badge className="bg-accent text-accent-foreground border-accent/20 shrink-0">New</Badge>
+                          )}
+                          {tool.isPopular && (
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 shrink-0">Popular</Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-lg text-muted-foreground">{tool.description}</p>
+
+                  {/* Description */}
+                  <p className="text-sm sm:text-base lg:text-lg text-muted-foreground leading-relaxed">
+                    {tool.description}
+                  </p>
                 </div>
               </div>
             </div>

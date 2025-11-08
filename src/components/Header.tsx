@@ -41,6 +41,9 @@ export const Header = () => {
           <Link to="/popular" className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground whitespace-nowrap">
             Popular
           </Link>
+          <Link to="/new" className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground whitespace-nowrap">
+            New
+          </Link>
           
           <Button 
             variant="ghost" 
@@ -108,6 +111,13 @@ export const Header = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Popular
+                </Link>
+                <Link 
+                  to="/new" 
+                  className="text-lg font-medium text-foreground/80 transition-colors hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  New
                 </Link>
                 
                 <div className="border-t pt-4 mt-4">

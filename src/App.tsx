@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import CategoryPage from "./pages/CategoryPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import PopularPage from "./pages/PopularPage";
+import NewToolsPage from "./pages/NewToolsPage";
 import ToolPage from "./pages/ToolPage";
 import SearchPage from "./pages/SearchPage";
 import AboutPage from "./pages/AboutPage";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/popular" element={<PopularPage />} />
+            <Route path="/new" element={<NewToolsPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

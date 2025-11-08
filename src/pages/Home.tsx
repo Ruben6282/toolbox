@@ -72,12 +72,15 @@ const Home = () => {
       </section>
 
       {/* Categories Section */}
-      <section id="categories" className="container py-20">
-        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h2 className="mb-4 text-3xl font-bold sm:text-4xl">Browse by Category</h2>
-          <p className="text-lg text-muted-foreground">
-            Find the perfect tool for your needs
-          </p>
+      <section id="categories" className="container py-12 sm:py-16">
+        <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">Categories</h2>
+            <Link to="/categories" className="text-primary hover:text-primary/80 transition-colors font-medium flex items-center gap-1 group whitespace-nowrap">
+              View all
+              <Icons.ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {categories.map((category) => (
@@ -87,13 +90,15 @@ const Home = () => {
       </section>
 
       {/* Popular Tools Section */}
-      <section id="popular" className="bg-secondary/20 py-20">
+      <section id="popular" className="bg-secondary/20 py-12 sm:py-16">
         <div className="container">
-          <div className="mb-12 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <TrendingUp className="h-8 w-8 text-primary" />
-            <div>
-              <h2 className="text-3xl font-bold sm:text-4xl">Popular Tools</h2>
-              <p className="text-muted-foreground">Most used tools by our community</p>
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">Popular Tools</h2>
+              <Link to="/popular" className="text-primary hover:text-primary/80 transition-colors font-medium flex items-center gap-1 group whitespace-nowrap">
+                View all
+                <Icons.ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -105,12 +110,14 @@ const Home = () => {
       </section>
 
       {/* New Tools Section */}
-      <section className="container py-20">
-        <div className="mb-12 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <Clock className="h-8 w-8 text-accent" />
-          <div>
-            <h2 className="text-3xl font-bold sm:text-4xl">Recently Added</h2>
-            <p className="text-muted-foreground">Check out our latest tools</p>
+      <section className="container py-12 sm:py-16">
+        <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">Recently Added</h2>
+            <Link to="/new" className="text-primary hover:text-primary/80 transition-colors font-medium flex items-center gap-1 group whitespace-nowrap">
+              View all
+              <Icons.ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
           </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
