@@ -100,10 +100,31 @@ export const JavaScriptObfuscator = () => {
 
   const copyObfuscatedCode = async () => {
     try {
-      await navigator.clipboard.writeText(obfuscatedCode);
-  notify.success("Obfuscated code copied to clipboard!");
+      // Try modern Clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(obfuscatedCode);
+        notify.success("Obfuscated code copied to clipboard!");
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = obfuscatedCode;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        textArea.remove();
+        if (successful) {
+          notify.success("Obfuscated code copied to clipboard!");
+        } else {
+          notify.error("Failed to copy code. Please copy manually.");
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy code. Please try again.");
     }
   };
 
@@ -207,12 +228,12 @@ export const JavaScriptObfuscator = () => {
             />
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={obfuscateCode} className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button onClick={obfuscateCode} className="flex items-center gap-2 w-full">
               <Shield className="h-4 w-4" />
               Obfuscate Code
             </Button>
-            <Button onClick={clearAll} variant="outline">
+            <Button onClick={clearAll} variant="outline" className="w-full">
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -418,14 +439,14 @@ export const JavaScriptObfuscator = () => {
       {obfuscatedCode && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Obfuscated Code
-              <div className="flex gap-2">
-                <Button onClick={copyObfuscatedCode} variant="outline" size="sm">
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>Obfuscated Code</span>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={copyObfuscatedCode} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Copy className="h-4 w-4 mr-2" />
                   Copy
                 </Button>
-                <Button onClick={downloadObfuscatedCode} variant="outline" size="sm">
+                <Button onClick={downloadObfuscatedCode} variant="outline" size="sm" className="w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
