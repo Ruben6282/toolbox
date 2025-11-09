@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,151 @@ export const ColorPicker = () => {
   const [hexInput, setHexInput] = useState("#3b82f6");
   const [rgbInput, setRgbInput] = useState("59, 130, 246");
   const [hslInput, setHslInput] = useState("217, 91%, 60%");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [hoveredHex, setHoveredHex] = useState<string | null>(null);
+  const [showMagnifier, setShowMagnifier] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [magnifierPos, setMagnifierPos] = useState({ x: 0, y: 0 });
+  const magnifierCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      notify.error("Please select an image file");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setImageUrl(url);
+    setIsImageLoaded(false);
+  };
+
+  const drawImageToCanvas = useCallback(() => {
+    if (!canvasRef.current || !imgRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = imgRef.current;
+    // Scale image to fit max dimensions while maintaining aspect ratio
+    const maxWidth = 600;
+    const maxHeight = 400;
+    let { width, height } = img;
+    const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+    width = Math.floor(width * ratio);
+    height = Math.floor(height * ratio);
+    canvas.width = width;
+    canvas.height = height;
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    setIsImageLoaded(true);
+  }, []);
+
+  const handleImageLoad = () => {
+    drawImageToCanvas();
+  };
+
+  const pickColorFromCanvas = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.floor(((e.clientX - rect.left) / rect.width) * canvasRef.current.width);
+    const y = Math.floor(((e.clientY - rect.top) / rect.height) * canvasRef.current.height);
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+    try {
+      const data = ctx.getImageData(x, y, 1, 1).data;
+      const hex = rgbToHex(data[0], data[1], data[2]);
+      updateColor(hex);
+      notify.success(`Picked ${hex.toUpperCase()}`);
+    } catch {
+      notify.error("Unable to pick color");
+    }
+  };
+
+  const samplePixel = (clientX: number, clientY: number, apply: boolean) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.floor(((clientX - rect.left) / rect.width) * canvasRef.current.width);
+    const y = Math.floor(((clientY - rect.top) / rect.height) * canvasRef.current.height);
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+    try {
+      const regionSize = 11; // for magnifier
+      const half = Math.floor(regionSize / 2);
+      const data = ctx.getImageData(x, y, 1, 1).data;
+      const hex = rgbToHex(data[0], data[1], data[2]);
+      setHoveredHex(hex);
+      // Draw magnifier zoom
+      if (magnifierCanvasRef.current) {
+        const magCtx = magnifierCanvasRef.current.getContext("2d");
+        if (magCtx) {
+          magnifierCanvasRef.current.width = regionSize;
+          magnifierCanvasRef.current.height = regionSize;
+          // Clamp region
+          const sx = Math.max(0, x - half);
+          const sy = Math.max(0, y - half);
+          const sw = (sx + regionSize > canvasRef.current.width) ? canvasRef.current.width - sx : regionSize;
+          const sh = (sy + regionSize > canvasRef.current.height) ? canvasRef.current.height - sy : regionSize;
+          const imgData = ctx.getImageData(sx, sy, sw, sh);
+          magCtx.putImageData(imgData, 0, 0);
+          // Scale up for crisp zoom using CSS
+        }
+      }
+      if (apply) {
+        updateColor(hex);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isImageLoaded) return;
+    setShowMagnifier(true);
+    setMagnifierPos({ x: e.clientX, y: e.clientY });
+    samplePixel(e.clientX, e.clientY, isDragging);
+  };
+
+  const handleCanvasMouseLeave = () => {
+    setShowMagnifier(false);
+    setHoveredHex(null);
+    setIsDragging(false);
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDragging(true);
+    samplePixel(e.clientX, e.clientY, true);
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Support paste of image from clipboard
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (e.clipboardData) {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) {
+              const url = URL.createObjectURL(file);
+              setImageUrl(url);
+              setIsImageLoaded(false);
+              notify.success("Image pasted from clipboard");
+            }
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
 
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -182,6 +327,96 @@ export const ColorPicker = () => {
                 onChange={(e) => updateColor(e.target.value)}
                 className="h-20 w-full cursor-pointer"
               />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Pick from Image</Label>
+            <div className="flex flex-col gap-3">
+              <Input type="file" accept="image/*" onChange={handleImageUpload} />
+              {imageUrl && (
+                <div className="space-y-2">
+                  {/* Hidden img for loading into canvas */}
+                  <img
+                    src={imageUrl}
+                    ref={imgRef}
+                    alt="Uploaded"
+                    onLoad={handleImageLoad}
+                    className="hidden"
+                  />
+                  <div className="relative inline-block">
+                    <canvas
+                      ref={canvasRef}
+                      onClick={pickColorFromCanvas}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseLeave={handleCanvasMouseLeave}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseUp={handleCanvasMouseUp}
+                      onTouchStart={(e) => {
+                        if (!isImageLoaded) return;
+                        setIsDragging(true);
+                        const touch = e.touches[0];
+                        if (touch) samplePixel(touch.clientX, touch.clientY, true);
+                      }}
+                      onTouchMove={(e) => {
+                        if (!isImageLoaded) return;
+                        const touch = e.touches[0];
+                        if (touch) {
+                          setShowMagnifier(true);
+                          setMagnifierPos({ x: touch.clientX, y: touch.clientY });
+                          samplePixel(touch.clientX, touch.clientY, isDragging);
+                        }
+                        // prevent page scroll while sampling
+                        e.preventDefault();
+                      }}
+                      onTouchEnd={() => {
+                        setIsDragging(false);
+                        setShowMagnifier(false);
+                        setHoveredHex(null);
+                      }}
+                      className={`border rounded-md ${isImageLoaded ? 'cursor-crosshair' : 'cursor-not-allowed'} max-w-full touch-none`}
+                    />
+                    {showMagnifier && hoveredHex && (
+                      <div
+                        style={{
+                          position: 'fixed',
+                          top: magnifierPos.y + 20,
+                          left: magnifierPos.x + 20,
+                          zIndex: 50
+                        }}
+                        className="pointer-events-none"
+                      >
+                        <div className="rounded-md shadow-lg border bg-popover p-2 flex flex-col items-center gap-2">
+                          <div className="overflow-hidden rounded-sm" style={{ width: 88, height: 88 }}>
+                            <canvas
+                              ref={magnifierCanvasRef}
+                              style={{
+                                width: 88,
+                                height: 88,
+                                imageRendering: 'pixelated'
+                              }}
+                            />
+                          </div>
+                          <div className="text-xs font-mono flex flex-col items-center">
+                            <span>{hoveredHex.toUpperCase()}</span>
+                            {(() => {
+                              const rgbVal = hexToRgb(hoveredHex);
+                              if (!rgbVal) return null;
+                              return <span>{`rgb(${rgbVal.r}, ${rgbVal.g}, ${rgbVal.b})`}</span>;
+                            })()}
+                          </div>
+                          <div
+                            className="w-full h-4 rounded"
+                            style={{ backgroundColor: hoveredHex }}
+                          />
+                          {isDragging && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sampling…</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Click or drag on the image to pick colors. Hover shows a magnified preview. You can also paste an image (Ctrl+V).</p>
+                </div>
+              )}
             </div>
           </div>
 

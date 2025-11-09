@@ -638,10 +638,10 @@ const ToolPage = () => {
         "Select and copy a username you like"
       ],
       "business-name-generator": [
-        "Enter keywords related to your business",
-        "Select industry or business type if available",
-        "Click 'Generate' to create business name ideas",
-        "Choose and register a name that fits your brand"
+        "Enter a keyword or theme that describes your business (optional)",
+        "Select your industry and preferred name style",
+        "Click 'Generate Names' to create unique suggestions",
+        "Mark favorites, check domain availability, and copy the names you like"
       ],
       "hashtag-generator": [
         "Enter keywords or describe your content",
@@ -932,10 +932,10 @@ const ToolPage = () => {
         "Download the QR code image or copy it to your clipboard"
       ],
       "color-picker": [
-        "Click on the color picker to select a color",
-        "Use the color wheel or sliders to fine-tune your selection",
-        "View the color in different formats (HEX, RGB, HSL)",
-        "Copy the color code for use in your projects"
+        "Upload an image or paste one (Ctrl+V), or use the built-in color input",
+        "Hover or drag over the image to preview colors with the magnifier",
+        "Click/tap or drag to sample a color — HEX, RGB, and HSL update automatically",
+        "Copy the color code to use in your projects"
       ],
       "binary-converter": [
         "Enter a number in any supported format (binary, decimal, hex, octal)",
@@ -1065,7 +1065,7 @@ const ToolPage = () => {
         return <RomanToNumber />;
       case "username-generator":
         return <UsernameGenerator />;
-      case "business-name-generator-dev":
+      case "business-name-generator":
         return <BusinessNameGenerator />;
       case "html-minifier":
         return <HtmlMinifier />;
@@ -1149,7 +1149,7 @@ const ToolPage = () => {
         return <FacebookPostPreview />;
       case "hashtag-counter":
         return <HashtagCounter />;
-      case "javascript-obfuscator":
+      case "javascript-obfuscator-dev":
         return <JavaScriptObfuscator />;
       case "countdown-timer":
         return <CountdownTimer />;
