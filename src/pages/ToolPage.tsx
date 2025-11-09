@@ -1129,7 +1129,7 @@ const ToolPage = () => {
         return <StopwatchTimer />;
       case "world-clock":
         return <WorldClock />;
-      case "meme-generator-dev":
+      case "meme-generator":
         return <MemeGenerator />;
       case "robots-txt-generator":
         return <RobotsTxtGenerator />;

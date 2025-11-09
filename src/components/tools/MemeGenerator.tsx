@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, RotateCcw, Upload, Plus, Trash2 } from "lucide-react";
+import { Download, RotateCcw, Plus, Trash2, Image as ImageIcon, Type } from "lucide-react";
+import { notify } from "@/lib/notify";
 
 interface TextBox {
   id: string;
@@ -27,348 +28,515 @@ interface TextBox {
   color: string;
   stroke: string;
   strokeWidth: number;
-  rotation: number; // degrees
+  rotation: number;
   fontFamily: string;
 }
 
-interface MemeTemplate {
-  id: string;
-  name: string;
-  url: string;
-}
-
-const MEME_TEMPLATES: MemeTemplate[] = [
-  { id: "drake", name: "Drake Pointing", url: "/memes/drake.jpg" },
-  { id: "distracted", name: "Distracted Boyfriend", url: "/memes/distracted.jpg" },
-  { id: "woman", name: "Woman Yelling at Cat", url: "/memes/woman.jpg" },
-  { id: "change", name: "Change My Mind", url: "/memes/change.jpg" },
-  { id: "two", name: "Two Buttons", url: "/memes/two.jpg" },
-  { id: "roll", name: "Roll Safe", url: "/memes/roll.jpg" },
-];
-
-const FONT_FAMILIES = ["Impact", "Arial", "Comic Sans MS", "Verdana", "Tahoma"];
+const FONT_FAMILIES = ["Impact", "Arial", "Comic Sans MS", "Verdana", "Courier New", "Georgia", "Times New Roman"];
+const DEFAULT_TEXT_STYLE = {
+  fontSize: 48,
+  color: "#ffffff",
+  stroke: "#000000",
+  strokeWidth: 3,
+  rotation: 0,
+  fontFamily: "Impact",
+};
 
 export const MemeGenerator = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
 
-  const [selectedTemplate, setSelectedTemplate] = useState<MemeTemplate>(MEME_TEMPLATES[0]);
-  const [customImage, setCustomImage] = useState<string | null>(null);
-  const [textBoxes, setTextBoxes] = useState<TextBox[]>([
-    { id: "1", text: "TOP TEXT", x: 250, y: 50, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
-    { id: "2", text: "BOTTOM TEXT", x: 250, y: 450, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
-  ]);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 500, height: 500 });
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [isDrawing, setIsDrawing] = useState(false);
 
-  /** Draw Meme */
+  /** Draw Meme on Canvas */
   const drawMeme = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !uploadedImage) return;
+    
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    setIsDrawing(true);
     const img = new Image();
-    img.src = customImage || selectedTemplate.url;
+    img.crossOrigin = "anonymous";
+    
     img.onload = () => {
-      const scale = Math.min(600 / img.width, 600 / img.height);
-      const width = img.width * scale;
-      const height = img.height * scale;
+      try {
+        const maxWidth = 800;
+        const maxHeight = 600;
+        const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+        const width = Math.floor(img.width * scale);
+        const height = Math.floor(img.height * scale);
 
-      canvas.width = width;
-      canvas.height = height;
-      setCanvasSize({ width, height });
+        canvas.width = width;
+        canvas.height = height;
+        setCanvasSize({ width, height });
 
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
 
-      textBoxes.forEach((box) => {
-        ctx.save();
-        ctx.translate(box.x, box.y);
-        ctx.rotate((box.rotation * Math.PI) / 180);
-        ctx.font = `bold ${box.fontSize}px ${box.fontFamily}, Arial, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineWidth = box.strokeWidth;
-        ctx.strokeStyle = box.stroke;
-        ctx.fillStyle = box.color;
-        ctx.strokeText(box.text, 0, 0);
-        ctx.fillText(box.text, 0, 0);
-        ctx.restore();
-      });
+        textBoxes.forEach((box) => {
+          ctx.save();
+          ctx.translate(box.x, box.y);
+          ctx.rotate((box.rotation * Math.PI) / 180);
+          ctx.font = `bold ${box.fontSize}px ${box.fontFamily}, Impact, Arial, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.lineWidth = box.strokeWidth;
+          ctx.strokeStyle = box.stroke;
+          ctx.fillStyle = box.color;
+          ctx.strokeText(box.text.toUpperCase(), 0, 0);
+          ctx.fillText(box.text.toUpperCase(), 0, 0);
+          ctx.restore();
+        });
+        setIsDrawing(false);
+      } catch (error) {
+        console.error("Error drawing meme:", error);
+        notify.error("Failed to render meme");
+        setIsDrawing(false);
+      }
     };
-  }, [selectedTemplate, customImage, textBoxes]);
+    
+    img.onerror = () => {
+      notify.error("Failed to load image");
+      setIsDrawing(false);
+    };
+    
+    img.src = uploadedImage;
+  }, [uploadedImage, textBoxes]);
 
   useEffect(() => {
-    drawMeme();
-  }, [drawMeme]);
+    if (uploadedImage && canvasRef.current) {
+      // Small delay to ensure canvas is mounted in DOM
+      const timer = setTimeout(() => {
+        drawMeme();
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadedImage, textBoxes, drawMeme]);
 
-  /** Drag Handlers */
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  /** Pointer Event Handlers (works for mouse and touch) */
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const clickedBox = textBoxes.find(
-      (t) =>
-        Math.abs(x - t.x) < t.text.length * (t.fontSize / 3) &&
-        Math.abs(y - t.y) < t.fontSize
-    );
+    const clickedBox = textBoxes.find((t) => {
+      const approxWidth = t.text.length * (t.fontSize / 2);
+      return Math.abs(x - t.x) < approxWidth && Math.abs(y - t.y) < t.fontSize;
+    });
+
     if (clickedBox) {
       setActiveTextId(clickedBox.id);
       setDragOffset({ x: x - clickedBox.x, y: y - clickedBox.y });
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        pointerIdRef.current = e.pointerId;
+      } catch (err) {
+        console.warn("Pointer capture failed:", err);
+      }
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!activeTextId || !dragOffset) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - dragOffset.x;
-    const y = e.clientY - rect.top - dragOffset.y;
+    const x = Math.max(0, Math.min(canvas.width, e.clientX - rect.left - dragOffset.x));
+    const y = Math.max(0, Math.min(canvas.height, e.clientY - rect.top - dragOffset.y));
 
     setTextBoxes((prev) =>
       prev.map((t) => (t.id === activeTextId ? { ...t, x, y } : t))
     );
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pointerIdRef.current !== null) {
+      try {
+        e.currentTarget.releasePointerCapture(pointerIdRef.current);
+      } catch (err) {
+        console.warn("Pointer release failed:", err);
+      }
+      pointerIdRef.current = null;
+    }
     setActiveTextId(null);
     setDragOffset(null);
   };
 
   /** Add/Delete Text */
   const addTextBox = () => {
-    setTextBoxes((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        text: "NEW TEXT",
-        x: canvasSize.width / 2,
-        y: canvasSize.height / 2,
-        fontSize: 40,
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeWidth: 3,
-        rotation: 0,
-        fontFamily: "Impact",
-      },
-    ]);
+    if (!uploadedImage) {
+      notify.error("Please upload an image first");
+      return;
+    }
+    
+    const newBox: TextBox = {
+      id: crypto.randomUUID(),
+      text: "Your Text Here",
+      x: canvasSize.width / 2,
+      y: canvasSize.height / 2,
+      ...DEFAULT_TEXT_STYLE,
+    };
+    
+    setTextBoxes((prev) => [...prev, newBox]);
+    notify.success("Text added! Drag to position");
   };
 
   const deleteTextBox = (id: string) => {
     setTextBoxes((prev) => prev.filter((t) => t.id !== id));
+    if (activeTextId === id) setActiveTextId(null);
+    notify.success("Text removed");
+  };
+
+  const updateTextBox = (id: string, changes: Partial<TextBox>) => {
+    setTextBoxes((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...changes } : t))
+    );
   };
 
   /** Upload Image */
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      notify.error("Please select a valid image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      notify.error("Image size must be less than 10MB");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (ev) => setCustomImage(ev.target?.result as string);
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setUploadedImage(result);
+      setTextBoxes([]);
+      notify.success("Image uploaded successfully!");
+    };
+    reader.onerror = () => {
+      notify.error("Failed to read image file");
+    };
     reader.readAsDataURL(file);
   };
 
-  /** Download Meme High-Res */
+  /** Download Meme (High Resolution) */
   const downloadMeme = () => {
+    if (!uploadedImage) {
+      notify.error("Please upload an image first");
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // create high-res canvas
-    const scale = 3;
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = canvas.width * scale;
-    exportCanvas.height = canvas.height * scale;
-    const ctx = exportCanvas.getContext("2d");
-    if (!ctx) return;
+    try {
+      const scale = 2;
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = canvas.width * scale;
+      exportCanvas.height = canvas.height * scale;
+      const ctx = exportCanvas.getContext("2d");
+      if (!ctx) throw new Error("Failed to get canvas context");
 
-    const img = new Image();
-    img.src = customImage || selectedTemplate.url;
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
-      textBoxes.forEach((box) => {
-        ctx.save();
-        ctx.translate(box.x * scale, box.y * scale);
-        ctx.rotate((box.rotation * Math.PI) / 180);
-        ctx.font = `bold ${box.fontSize * scale}px ${box.fontFamily}, Arial, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineWidth = box.strokeWidth * scale;
-        ctx.strokeStyle = box.stroke;
-        ctx.fillStyle = box.color;
-        ctx.strokeText(box.text, 0, 0);
-        ctx.fillText(box.text, 0, 0);
-        ctx.restore();
-      });
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
+          
+          textBoxes.forEach((box) => {
+            ctx.save();
+            ctx.translate(box.x * scale, box.y * scale);
+            ctx.rotate((box.rotation * Math.PI) / 180);
+            ctx.font = `bold ${box.fontSize * scale}px ${box.fontFamily}, Impact, Arial, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineWidth = box.strokeWidth * scale;
+            ctx.strokeStyle = box.stroke;
+            ctx.fillStyle = box.color;
+            ctx.strokeText(box.text.toUpperCase(), 0, 0);
+            ctx.fillText(box.text.toUpperCase(), 0, 0);
+            ctx.restore();
+          });
 
-      const link = document.createElement("a");
-      link.download = "meme.png";
-      link.href = exportCanvas.toDataURL("image/png");
-      link.click();
-    };
+          exportCanvas.toBlob((blob) => {
+            if (!blob) {
+              notify.error("Failed to create image");
+              return;
+            }
+            
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.download = `meme-${Date.now()}.png`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+            notify.success("Meme downloaded successfully!");
+          }, "image/png");
+        } catch (error) {
+          console.error("Download error:", error);
+          notify.error("Failed to download meme");
+        }
+      };
+      
+      img.onerror = () => {
+        notify.error("Failed to load image for download");
+      };
+      
+      img.src = uploadedImage;
+    } catch (error) {
+      console.error("Download error:", error);
+      notify.error("Failed to download meme");
+    }
   };
 
-  /** Reset Meme */
+  /** Reset Everything */
   const resetMeme = () => {
-    setTextBoxes([
-      { id: "1", text: "TOP TEXT", x: 250, y: 50, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
-      { id: "2", text: "BOTTOM TEXT", x: 250, y: 450, fontSize: 40, color: "#ffffff", stroke: "#000000", strokeWidth: 3, rotation: 0, fontFamily: "Impact" },
-    ]);
-    setCustomImage(null);
-    setSelectedTemplate(MEME_TEMPLATES[0]);
+    setUploadedImage(null);
+    setTextBoxes([]);
+    setActiveTextId(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    notify.success("Meme reset successfully!");
   };
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
+      {/* Upload Image */}
       <Card>
         <CardHeader>
-          <CardTitle>🔥 Meme Generator Pro</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="w-5 h-5" />
+            Meme Generator
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Template selection */}
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Template</Label>
-            <Select
-              value={selectedTemplate.id}
-              onValueChange={(value) => {
-                const t = MEME_TEMPLATES.find((tpl) => tpl.id === value);
-                if (t) {
-                  setSelectedTemplate(t);
-                  setCustomImage(null);
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select template" />
-              </SelectTrigger>
-              <SelectContent>
-                {MEME_TEMPLATES.map((tpl) => (
-                  <SelectItem key={tpl.id} value={tpl.id}>{tpl.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Input type="file" accept="image/*" onChange={handleUpload} />
-              <Button variant="outline" className="flex items-center gap-2">
-                <Upload className="h-4 w-4" /> Upload
-              </Button>
-            </div>
-          </div>
-
-          {/* Text layers */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label className="text-lg font-semibold">Text Layers</Label>
-              <Button onClick={addTextBox} size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" /> Add Text
-              </Button>
-            </div>
-            {textBoxes.map((box) => (
-              <div key={box.id} className="p-3 border rounded-lg space-y-2 bg-muted">
-                <div className="flex justify-between items-center">
-                  <Input
-                    value={box.text}
-                    onChange={(e) =>
-                      setTextBoxes((prev) =>
-                        prev.map((tb) => tb.id === box.id ? { ...tb, text: e.target.value } : tb)
-                      )
-                    }
-                    className="flex-1"
-                  />
-                  <Button onClick={() => deleteTextBox(box.id)} variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  <div>
-                    <Label>Font Size</Label>
-                    <Slider
-                      min={20} max={80} step={2} value={[box.fontSize]}
-                      onValueChange={(v) => setTextBoxes((prev) =>
-                        prev.map((tb) => tb.id === box.id ? { ...tb, fontSize: v[0] } : tb)
-                      )}
-                    />
-                  </div>
-                  <div>
-                    <Label>Text Color</Label>
-                    <Input type="color" value={box.color} onChange={(e) =>
-                      setTextBoxes((prev) =>
-                        prev.map((tb) => tb.id === box.id ? { ...tb, color: e.target.value } : tb)
-                      )
-                    }/>
-                  </div>
-                  <div>
-                    <Label>Stroke Color</Label>
-                    <Input type="color" value={box.stroke} onChange={(e) =>
-                      setTextBoxes((prev) =>
-                        prev.map((tb) => tb.id === box.id ? { ...tb, stroke: e.target.value } : tb)
-                      )
-                    }/>
-                  </div>
-                  <div>
-                    <Label>Rotation</Label>
-                    <Slider min={0} max={360} step={1} value={[box.rotation]} onValueChange={(v) =>
-                      setTextBoxes((prev) =>
-                        prev.map((tb) => tb.id === box.id ? { ...tb, rotation: v[0] } : tb)
-                      )
-                    }/>
-                  </div>
-                </div>
-                <div>
-                  <Label>Font</Label>
-                  <Select value={box.fontFamily} onValueChange={(v) =>
-                    setTextBoxes((prev) =>
-                      prev.map((tb) => tb.id === box.id ? { ...tb, fontFamily: v } : tb)
-                    )
-                  }>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Font" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FONT_FAMILIES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={downloadMeme} className="flex items-center gap-2">
-              <Download className="h-4 w-4" /> Download
-            </Button>
-            <Button onClick={resetMeme} variant="outline" className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4" /> Reset
-            </Button>
+            <Label htmlFor="image-upload" className="text-sm font-medium">
+              Upload Your Image
+            </Label>
+            <Input
+              id="image-upload"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              aria-label="Upload image for meme"
+            />
+            <p className="text-xs text-muted-foreground">
+              Supports JPG, PNG, GIF (max 10MB)
+            </p>
           </div>
         </CardContent>
       </Card>
+
+      {/* Text Editor */}
+      {uploadedImage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <Type className="w-5 h-5" />
+                Text Layers
+              </span>
+              <Button 
+                onClick={addTextBox} 
+                size="sm" 
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Text
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {textBoxes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No text added yet. Click "Add Text" to get started!
+              </p>
+            ) : (
+              textBoxes.map((box) => (
+                <div key={box.id} className="p-3 sm:p-4 border rounded-lg space-y-3 bg-muted/30">
+                  <div className="flex gap-2 items-start">
+                    <Input
+                      value={box.text}
+                      onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                      placeholder="Enter text"
+                      className="flex-1 h-10 sm:h-9 text-base sm:text-sm"
+                      maxLength={100}
+                    />
+                    <Button
+                      onClick={() => deleteTextBox(box.id)}
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 sm:h-9 sm:w-9 flex-shrink-0"
+                      aria-label="Delete text"
+                    >
+                      <Trash2 className="w-5 h-5 sm:w-4 sm:h-4 text-destructive" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm sm:text-xs font-medium">Font Size</Label>
+                        <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.fontSize}px</span>
+                      </div>
+                      <Slider
+                        min={20}
+                        max={120}
+                        step={2}
+                        value={[box.fontSize]}
+                        onValueChange={(v) => updateTextBox(box.id, { fontSize: v[0] })}
+                        className="cursor-pointer touch-none"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm sm:text-xs font-medium">Stroke Width</Label>
+                        <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.strokeWidth}px</span>
+                      </div>
+                      <Slider
+                        min={0}
+                        max={10}
+                        step={1}
+                        value={[box.strokeWidth]}
+                        onValueChange={(v) => updateTextBox(box.id, { strokeWidth: v[0] })}
+                        className="cursor-pointer touch-none"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm sm:text-xs font-medium">Rotation</Label>
+                        <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.rotation}°</span>
+                      </div>
+                      <Slider
+                        min={-180}
+                        max={180}
+                        step={5}
+                        value={[box.rotation]}
+                        onValueChange={(v) => updateTextBox(box.id, { rotation: v[0] })}
+                        className="cursor-pointer touch-none"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm sm:text-xs font-medium">Font Family</Label>
+                      <Select
+                        value={box.fontFamily}
+                        onValueChange={(v) => updateTextBox(box.id, { fontFamily: v })}
+                      >
+                        <SelectTrigger className="h-10 sm:h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FONT_FAMILIES.map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {f}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm sm:text-xs font-medium">Text Color</Label>
+                      <Input
+                        type="color"
+                        value={box.color}
+                        onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
+                        className="h-12 sm:h-10 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm sm:text-xs font-medium">Stroke Color</Label>
+                      <Input
+                        type="color"
+                        value={box.stroke}
+                        onChange={(e) => updateTextBox(box.id, { stroke: e.target.value })}
+                        className="h-12 sm:h-10 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Canvas Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Meme Preview (Drag text to move)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg p-4 bg-muted flex justify-center">
-            <canvas
-              ref={canvasRef}
-              width={canvasSize.width}
-              height={canvasSize.height}
-              className="cursor-move rounded shadow"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {uploadedImage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview & Download</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="border rounded-lg p-2 sm:p-4 bg-muted/30 flex justify-center items-center min-h-[300px] sm:min-h-[400px] overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                className="max-w-full rounded shadow-sm cursor-move active:cursor-grabbing touch-none bg-transparent select-none"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                style={{ 
+                  opacity: isDrawing ? 0.7 : 1,
+                  imageRendering: 'auto',
+                  touchAction: 'none',
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none'
+                }}
+                aria-label="Meme canvas - drag text to reposition"
+              />
+            </div>
+            {textBoxes.length > 0 && (
+              <p className="text-xs text-muted-foreground text-center px-4">
+                💡 Tap and drag text on the canvas to reposition it
+              </p>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 px-2 sm:px-0">
+              <Button 
+                onClick={downloadMeme} 
+                className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold"
+              >
+                <Download className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />
+                Download Meme
+              </Button>
+              <Button 
+                onClick={resetMeme} 
+                variant="outline" 
+                className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold"
+              >
+                <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />
+                Start Over
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
