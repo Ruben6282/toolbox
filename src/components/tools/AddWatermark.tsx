@@ -393,83 +393,197 @@ export const AddWatermark = () => {
                   // Mobile bottom sheet variant
                   if (isMobile) {
                     return (
-                      <div id="watermark-popup" className="fixed inset-x-0 bottom-0 z-50">
-                        <Card className={`border-t rounded-t-xl shadow-xl bg-white/95 backdrop-blur transition-transform duration-300 ${sheetCollapsed ? 'translate-y-[calc(100%-3rem)]' : 'translate-y-0'}`}>
-                          <div className="flex items-center justify-between px-4 pt-3">
-                            <div className="text-sm font-medium truncate max-w-[70%]">
-                              {wm.type === 'text' ? (wm.text ? wm.text.slice(0,30) : 'Text') : 'Image'} settings
-                            </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="ghost" onClick={() => setSheetCollapsed(c => !c)}>{sheetCollapsed ? 'Expand' : 'Collapse'}</Button>
-                              <Button size="sm" variant="ghost" onClick={() => setActiveId(null)}><X className="w-4 h-4" /></Button>
-                            </div>
-                          </div>
+                      <div id="watermark-popup" className="fixed inset-x-0 bottom-0 z-50 pointer-events-none">
+                        <div className="pointer-events-auto">
+                          {/* Backdrop for collapsed state */}
                           {!sheetCollapsed && (
-                            <CardContent className="pt-2 pb-4 space-y-3 overflow-y-auto max-h-[45vh]">
-                              {wm.type === 'text' && (
-                                <div className="space-y-2">
-                                  <Label className="text-xs">Text</Label>
-                                  <Textarea
-                                    rows={2}
-                                    value={wm.text}
-                                    onChange={(e) => updateWatermark(activeId, { text: e.target.value })}
-                                    className="text-sm"
-                                  />
-                                  <div className="flex items-center gap-2">
-                                    <Label className="text-xs">Color</Label>
+                            <div 
+                              className="fixed inset-0 bg-black/30 -z-10 animate-in fade-in duration-200"
+                              onClick={() => setSheetCollapsed(true)}
+                            />
+                          )}
+                          
+                          <Card className={`border-t rounded-t-3xl shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out bg-card text-card-foreground ${sheetCollapsed ? 'translate-y-[calc(100%-4rem)]' : 'translate-y-0'}`}>
+                            {/* Drag Handle & Header */}
+                            <div 
+                              className="flex flex-col items-center pt-2 pb-3 px-4 cursor-pointer active:cursor-grabbing touch-none bg-card"
+                              onClick={() => setSheetCollapsed(c => !c)}
+                            >
+                              {/* Drag handle indicator */}
+                              <div className="w-12 h-1.5 bg-border rounded-full mb-3 transition-colors opacity-50" />
+                              
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {wm.type === 'text' ? (
+                                    <Type className="w-4 h-4 flex-shrink-0 text-foreground" />
+                                  ) : (
+                                    <ImageIcon className="w-4 h-4 flex-shrink-0 text-foreground" />
+                                  )}
+                                  <span className="text-sm font-semibold truncate text-foreground">
+                                    {wm.type === 'text' ? (wm.text || 'Text Watermark') : 'Image Watermark'}
+                                  </span>
+                                  {sheetCollapsed && (
+                                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                                      Tap to expand
+                                    </span>
+                                  )}
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="flex-shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveId(null);
+                                  }}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            {!sheetCollapsed && (
+                              <CardContent className="pt-0 pb-6 px-4 space-y-4 overflow-y-auto max-h-[50vh] animate-in slide-in-from-bottom-2 duration-200 bg-card">
+                                {wm.type === 'text' && (
+                                  <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+                                    <div>
+                                      <Label className="text-xs font-semibold mb-1.5 block text-foreground">
+                                        Text Content
+                                      </Label>
+                                      <Textarea
+                                        rows={2}
+                                        value={wm.text}
+                                        onChange={(e) => updateWatermark(activeId, { text: e.target.value })}
+                                        className="text-sm resize-none bg-background text-foreground"
+                                        placeholder="Enter watermark text"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs font-semibold mb-1.5 block text-foreground">
+                                        Text Color
+                                      </Label>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="color"
+                                          value={wm.color}
+                                          onChange={(e) => updateWatermark(activeId, { color: e.target.value })}
+                                          className="h-10 w-20 p-1 cursor-pointer"
+                                        />
+                                        <span className="text-xs font-mono text-foreground bg-background px-2 py-1 rounded border border-border">
+                                          {wm.color}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                {wm.type === 'image' && !wm.src && (
+                                  <div className="p-3 bg-muted/30 rounded-lg border border-border">
+                                    <Label className="text-xs font-semibold mb-1.5 block text-foreground">
+                                      Upload Logo
+                                    </Label>
                                     <Input
-                                      type="color"
-                                      value={wm.color}
-                                      onChange={(e) => updateWatermark(activeId, { color: e.target.value })}
-                                      className="h-8 p-1 w-16"
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handleLogoUpload(activeId, e)}
+                                      className="text-xs cursor-pointer text-foreground"
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Sliders Section */}
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs font-semibold text-foreground">
+                                        Opacity
+                                      </Label>
+                                      <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
+                                        {wm.opacity}%
+                                      </span>
+                                    </div>
+                                    <Slider 
+                                      value={[wm.opacity]} 
+                                      onValueChange={(v) => updateWatermark(activeId, { opacity: v[0] })} 
+                                      min={10} 
+                                      max={100}
+                                      className="cursor-pointer"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs font-semibold text-foreground">
+                                        Scale
+                                      </Label>
+                                      <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
+                                        {wm.scale.toFixed(2)}x
+                                      </span>
+                                    </div>
+                                    <Slider 
+                                      value={[wm.scale]} 
+                                      onValueChange={(v) => updateWatermark(activeId, { scale: v[0] })} 
+                                      min={0.2} 
+                                      max={3} 
+                                      step={0.1}
+                                      className="cursor-pointer"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs font-semibold text-foreground">
+                                        Rotation
+                                      </Label>
+                                      <span className="text-xs font-mono text-foreground bg-muted px-2 py-0.5 rounded">
+                                        {wm.rotation}°
+                                      </span>
+                                    </div>
+                                    <Slider 
+                                      value={[wm.rotation]} 
+                                      onValueChange={(v) => updateWatermark(activeId, { rotation: v[0] })} 
+                                      min={-180} 
+                                      max={180}
+                                      className="cursor-pointer"
                                     />
                                   </div>
                                 </div>
-                              )}
-                              {wm.type === 'image' && !wm.src && (
-                                <div>
-                                  <Label className="text-xs">Upload Logo</Label>
-                                  <Input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => handleLogoUpload(activeId, e)}
-                                    className="text-xs"
-                                  />
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2 pt-2 border-t border-border">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => {
+                                      setWatermarks((prev) => [
+                                        ...prev,
+                                        { ...wm, id: crypto.randomUUID(), x: wm.x + 20, y: wm.y + 20 },
+                                      ]);
+                                      notify.success('Watermark duplicated!');
+                                    }}
+                                  >
+                                    <Copy className="w-4 h-4 mr-1.5" /> 
+                                    <span className="font-medium">Duplicate</span>
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    className="flex-1"
+                                    onClick={() => {
+                                      setWatermarks((prev) => prev.filter((w) => w.id !== activeId));
+                                      setActiveId(null);
+                                      notify.success('Watermark deleted!');
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-1.5" /> 
+                                    <span className="font-medium">Delete</span>
+                                  </Button>
                                 </div>
-                              )}
-                              <div className="space-y-2">
-                                <Label className="text-xs">Opacity: {wm.opacity}%</Label>
-                                <Slider value={[wm.opacity]} onValueChange={(v) => updateWatermark(activeId, { opacity: v[0] })} min={10} max={100} />
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-xs">Scale: {wm.scale.toFixed(2)}</Label>
-                                <Slider value={[wm.scale]} onValueChange={(v) => updateWatermark(activeId, { scale: v[0] })} min={0.2} max={3} step={0.1} />
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-xs">Rotation: {wm.rotation}°</Label>
-                                <Slider value={[wm.rotation]} onValueChange={(v) => updateWatermark(activeId, { rotation: v[0] })} min={-180} max={180} />
-                              </div>
-                              <div className="flex flex-wrap gap-2 pt-2">
-                                <Button size="sm" onClick={() => {
-                                  setWatermarks((prev) => [
-                                    ...prev,
-                                    { ...wm, id: crypto.randomUUID(), x: wm.x + 20, y: wm.y + 20 },
-                                  ]);
-                                  notify.success('Watermark duplicated!');
-                                }}>
-                                  <Copy className="w-4 h-4 mr-1" /> Duplicate
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => {
-                                  setWatermarks((prev) => prev.filter((w) => w.id !== activeId));
-                                  setActiveId(null);
-                                  notify.success('Watermark deleted!');
-                                }}>
-                                  <Trash2 className="w-4 h-4 mr-1" /> Delete
-                                </Button>
-                              </div>
-                            </CardContent>
-                          )}
-                        </Card>
+                              </CardContent>
+                            )}
+                          </Card>
+                        </div>
                       </div>
                     );
                   }
