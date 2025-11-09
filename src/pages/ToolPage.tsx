@@ -1091,7 +1091,7 @@ const ToolPage = () => {
         return <VoiceRecorder />;
       case "image-format-converter":
         return <ImageFormatConverter />;
-      case "add-watermark-dev":
+      case "add-watermark":
         return <AddWatermark />;
       case "roi-calculator":
         return <RoiCalculator />;
