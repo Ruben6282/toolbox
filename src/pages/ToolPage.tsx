@@ -1149,7 +1149,7 @@ const ToolPage = () => {
         return <FacebookPostPreview />;
       case "hashtag-counter":
         return <HashtagCounter />;
-      case "javascript-obfuscator-dev":
+      case "js-obfuscator":
         return <JavaScriptObfuscator />;
       case "countdown-timer":
         return <CountdownTimer />;

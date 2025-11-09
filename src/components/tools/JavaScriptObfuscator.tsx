@@ -1,4 +1,34 @@
 import { useState } from "react";
+import Obfuscator from 'javascript-obfuscator';
+
+type ObfuscatorOptions = {
+  compact: boolean;
+  controlFlowFlattening: boolean;
+  deadCodeInjection: boolean;
+  debugProtection: boolean;
+  debugProtectionInterval: number;
+  disableConsoleOutput: boolean;
+  identifierNamesGenerator: 'dictionary' | 'hexadecimal' | 'mangled' | 'mangled-shuffled';
+  log: boolean;
+  numbersToExpressions: boolean;
+  renameGlobals: boolean;
+  selfDefending: boolean;
+  simplify: boolean;
+  splitStrings: boolean;
+  stringArray: boolean;
+  stringArrayCallsTransform: boolean;
+  stringArrayEncoding: Array<'none' | 'base64' | 'rc4'>;
+  stringArrayIndexShift: boolean;
+  stringArrayRotate: boolean;
+  stringArrayShuffle: boolean;
+  stringArrayWrappersCount: number;
+  stringArrayWrappersChainedCalls: boolean;
+  stringArrayWrappersParametersMaxCount: number;
+  stringArrayWrappersType: 'variable' | 'function';
+  stringArrayThreshold: number;
+  transformObjectKeys: boolean;
+  unicodeEscapeSequence: boolean;
+};
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,17 +39,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Copy, Download, RotateCcw, Shield, Code, Eye, EyeOff } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+/**
+ * JavaScript Obfuscator Tool
+ * Uses 'javascript-obfuscator' for robust, production-ready obfuscation.
+ * See: https://github.com/javascript-obfuscator/javascript-obfuscator
+ */
 export const JavaScriptObfuscator = () => {
   const [originalCode, setOriginalCode] = useState("");
   const [obfuscatedCode, setObfuscatedCode] = useState("");
-  const [options, setOptions] = useState({
+  const [options, setOptions] = useState<ObfuscatorOptions>({
     compact: true,
     controlFlowFlattening: false,
     deadCodeInjection: false,
     debugProtection: false,
     debugProtectionInterval: 0,
     disableConsoleOutput: false,
-    identifierNamesGenerator: 'hexadecimal',
+  identifierNamesGenerator: 'hexadecimal', // valid: 'dictionary', 'hexadecimal', 'mangled', 'mangled-shuffled'
     log: false,
     numbersToExpressions: false,
     renameGlobals: false,
@@ -28,14 +63,14 @@ export const JavaScriptObfuscator = () => {
     splitStrings: false,
     stringArray: true,
     stringArrayCallsTransform: false,
-    stringArrayEncoding: ['base64'],
+  stringArrayEncoding: ['base64'],
     stringArrayIndexShift: true,
     stringArrayRotate: true,
     stringArrayShuffle: true,
     stringArrayWrappersCount: 1,
     stringArrayWrappersChainedCalls: true,
     stringArrayWrappersParametersMaxCount: 2,
-    stringArrayWrappersType: 'variable',
+  stringArrayWrappersType: 'variable', // valid: 'variable', 'function'
     stringArrayThreshold: 0.75,
     transformObjectKeys: false,
     unicodeEscapeSequence: false
@@ -49,82 +84,19 @@ export const JavaScriptObfuscator = () => {
 
   const obfuscateCode = () => {
     if (!originalCode.trim()) {
-  notify.error("Please enter JavaScript code to obfuscate!");
+      notify.error("Please enter JavaScript code to obfuscate!");
       return;
     }
-
     try {
-      // Simple obfuscation implementation
-      let obfuscated = originalCode;
-
-      // Apply obfuscation based on options
-      if (options.compact) {
-        obfuscated = obfuscated.replace(/\s+/g, ' ').trim();
-      }
-
-      if (options.stringArray) {
-        // Extract strings and replace with array references
-        const strings = obfuscated.match(/"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/g) || [];
-        const stringArray = strings.map((str, index) => `_0x${index.toString(16)}`);
-        
-        strings.forEach((str, index) => {
-          obfuscated = obfuscated.replace(str, `_0x${index.toString(16)}`);
-        });
-
-        // Add string array at the beginning
-        const arrayDeclaration = `var _0x${Array.from({length: strings.length}, (_, i) => i.toString(16)).join('=')}=[${strings.join(',')}];`;
-        obfuscated = arrayDeclaration + obfuscated;
-      }
-
-      if (options.renameGlobals) {
-        // Simple variable renaming (basic implementation)
-        const variables = obfuscated.match(/\b[a-zA-Z_$][a-zA-Z0-9_$]*\b/g) || [];
-        const uniqueVars = [...new Set(variables)].filter(v => 
-          !['var', 'let', 'const', 'function', 'if', 'else', 'for', 'while', 'return', 'true', 'false', 'null', 'undefined'].includes(v)
-        );
-        
-        uniqueVars.forEach((variable, index) => {
-          const newName = `_0x${index.toString(16)}`;
-          obfuscated = obfuscated.replace(new RegExp(`\\b${variable}\\b`, 'g'), newName);
-        });
-      }
-
-      if (options.unicodeEscapeSequence) {
-        // Convert strings to unicode escape sequences
-        obfuscated = obfuscated.replace(/"([^"\\]|\\.)*"/g, (match) => {
-          return match.replace(/./g, (char) => {
-            if (char === '"') return char;
-            return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
-          });
-        });
-      }
-
-      if (options.numbersToExpressions) {
-        // Convert numbers to expressions
-        obfuscated = obfuscated.replace(/\b\d+\b/g, (num) => {
-          const n = parseInt(num);
-          if (n === 0) return '0';
-          if (n === 1) return '1';
-          return `(${Math.floor(Math.random() * n)}+${n - Math.floor(Math.random() * n)})`;
-        });
-      }
-
-      if (options.selfDefending) {
-        // Add self-defending code
-        obfuscated = `(function(){var _0x${Math.random().toString(36).substring(7)}=function(){return true;};if(!_0x${Math.random().toString(36).substring(7)}()){throw new Error('Debugger detected');}${obfuscated}})();`;
-      }
-
-      if (options.disableConsoleOutput) {
-        // Disable console methods
-        obfuscated = `(function(){var _0x${Math.random().toString(36).substring(7)}=console;console.log=function(){};console.warn=function(){};console.error=function(){};${obfuscated}})();`;
-      }
-
+      // Use options directly, identifierNamesGenerator is set to enum value
+      const obfuscated = Obfuscator.obfuscate(originalCode, options).getObfuscatedCode();
       setObfuscatedCode(obfuscated);
-  notify.success("Code obfuscated successfully!");
+      notify.success("Code obfuscated successfully!");
     } catch (error) {
-  notify.error("Failed to obfuscate code. Please check your JavaScript syntax.");
+      notify.error("Failed to obfuscate code. Please check your JavaScript syntax.");
     }
   };
+  // ...existing code...
 
   const copyObfuscatedCode = async () => {
     try {
@@ -154,12 +126,13 @@ export const JavaScriptObfuscator = () => {
   };
 
   const applyPreset = (preset: 'light' | 'medium' | 'heavy') => {
-    const presets = {
+    const presets: Record<string, Partial<ObfuscatorOptions>> = {
       light: {
         compact: true,
         stringArray: true,
         stringArrayThreshold: 0.5,
-        simplify: true
+        simplify: true,
+        stringArrayEncoding: ['base64'],
       },
       medium: {
         compact: true,
@@ -170,7 +143,7 @@ export const JavaScriptObfuscator = () => {
         stringArrayRotate: true,
         stringArrayShuffle: true,
         simplify: true,
-        numbersToExpressions: true
+        numbersToExpressions: true,
       },
       heavy: {
         compact: true,
@@ -197,12 +170,11 @@ export const JavaScriptObfuscator = () => {
         stringArrayWrappersType: 'function',
         stringArrayThreshold: 1,
         transformObjectKeys: true,
-        unicodeEscapeSequence: true
-      }
+        unicodeEscapeSequence: true,
+      },
     };
-
-    setOptions(prev => ({ ...prev, ...presets[preset] }));
-  notify.success(`${preset.charAt(0).toUpperCase() + preset.slice(1)} preset applied!`);
+    setOptions(prev => ({ ...prev, ...presets[preset] } as ObfuscatorOptions));
+    notify.success(`${preset.charAt(0).toUpperCase() + preset.slice(1)} preset applied!`);
   };
 
   return (
@@ -487,6 +459,7 @@ export const JavaScriptObfuscator = () => {
           </ul>
         </CardContent>
       </Card>
+
     </div>
   );
 };
