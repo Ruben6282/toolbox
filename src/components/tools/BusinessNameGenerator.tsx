@@ -399,10 +399,28 @@ export const BusinessNameGenerator = () => {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-3">
-              <CardTitle>
-                Generated Names ({generatedNames.length})
+              <CardTitle className="flex items-center gap-2">
+                <span>Generated Names ({generatedNames.length})</span>
+                {favoriteCount > 0 && (
+                  <Badge variant="secondary" className="hidden sm:inline-flex items-center">
+                    <Star className="h-3 w-3 mr-1 fill-yellow-500 text-yellow-500" />
+                    {favoriteCount} favorites
+                  </Badge>
+                )}
+                <div className="hidden sm:flex items-center gap-2 ml-auto">
+                  {favoriteCount > 0 && (
+                    <Button size="sm" variant="outline" onClick={copyFavoritesToClipboard}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Favorites
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={copyAllToClipboard}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy All
+                  </Button>
+                </div>
               </CardTitle>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+              <div className="flex flex-col gap-2 sm:hidden">
                 <div>
                   {favoriteCount > 0 && (
                     <Badge variant="secondary">
