@@ -1,6 +1,7 @@
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { tools, categories } from "@/data/tools";
 import { ToolCard } from "@/components/ToolCard";
 import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
@@ -84,6 +85,14 @@ const SearchPage = () => {
       ? `https://toolcheetah.com/search?q=${encodeURIComponent(query)}`
       : 'https://toolcheetah.com/search';
     ogUrl.setAttribute('content', url);
+
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
 
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
@@ -355,6 +364,7 @@ const SearchPage = () => {
           )}
         </div>
       </section>
+      <Footer />
     </div>
   );
 };

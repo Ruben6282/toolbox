@@ -120,9 +120,18 @@
   textarea,
   select,
   button {
-    font-size: 16px !important;  /* prevents iOS zoom */
+    font-size: 16px !important; /* prevents iOS zoom */
     font-family: inherit;
     line-height: 1.5;
+  }
+
+  /* ✅ Simple cross-browser fix for date and datetime-local inputs */
+  input[type="date"],
+  input[type="datetime-local"] {
+    @apply w-full min-w-0 box-border;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
   }
 }
 

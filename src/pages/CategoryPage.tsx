@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ToolCard } from "@/components/ToolCard";
 import { categories, tools } from "@/data/tools";
 import * as Icons from "lucide-react";
@@ -59,7 +60,15 @@ const CategoryPage = () => {
         ogUrl.setAttribute('property', 'og:url');
         document.head.appendChild(ogUrl);
       }
-      ogUrl.setAttribute('content', `https://toolcheetah.com/category/${categoryId}`);
+      ogUrl.setAttribute('content', `https://toolcheetah.com/${categoryId}`);
+
+      let ogType = document.querySelector('meta[property="og:type"]');
+      if (!ogType) {
+        ogType = document.createElement('meta');
+        ogType.setAttribute('property', 'og:type');
+        document.head.appendChild(ogType);
+      }
+      ogType.setAttribute('content', 'website');
 
       // Canonical URL
       let canonical = document.querySelector('link[rel="canonical"]');
@@ -68,9 +77,33 @@ const CategoryPage = () => {
         canonical.setAttribute('rel', 'canonical');
         document.head.appendChild(canonical);
       }
-      canonical.setAttribute('href', `https://toolcheetah.com/category/${categoryId}`);
+      canonical.setAttribute('href', `https://toolcheetah.com/${categoryId}`);
     }
   }, [category, categoryId, categoryTools]);
+
+  // Handle "Category Not Found" case metadata
+  useEffect(() => {
+    if (!category) {
+      document.title = "Category Not Found | ToolCheetah";
+      
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', "The category you're looking for doesn't exist. Browse our available tool categories.");
+
+      // Tell search engines not to index this error page
+      let metaRobots = document.querySelector('meta[name="robots"]');
+      if (!metaRobots) {
+        metaRobots = document.createElement('meta');
+        metaRobots.setAttribute('name', 'robots');
+        document.head.appendChild(metaRobots);
+      }
+      metaRobots.setAttribute('content', 'noindex, follow');
+    }
+  }, [category]);
 
   if (!category) {
     return (
@@ -130,13 +163,13 @@ const CategoryPage = () => {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-4">
-              <IconComponent className="h-10 w-10 text-primary" />
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="shrink-0 w-fit rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 sm:p-4">
+              <IconComponent className="h-8 w-8 text-primary sm:h-10 sm:w-10" />
             </div>
             <div>
-              <h1 className="mb-2 text-4xl font-bold">{category.name}</h1>
-              <p className="text-lg text-muted-foreground">{category.description}</p>
+              <h1 className="mb-2 text-3xl font-bold sm:text-4xl">{category.name}</h1>
+              <p className="text-base text-muted-foreground sm:text-lg">{category.description}</p>
               <p className="mt-2 text-sm font-medium text-primary">{categoryTools.length} tools available</p>
             </div>
           </div>
@@ -167,6 +200,7 @@ const CategoryPage = () => {
           )}
         </div>
       </section>
+      <Footer />
     </div>
   );
 };

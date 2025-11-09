@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { tools, categories } from "@/data/tools";
 import { ArrowLeft, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -151,13 +152,81 @@ const ToolPage = () => {
     link.setAttribute('href', canonicalUrl);
   }, [tool]);
 
-  // Set the page title dynamically based on the tool name
+  // Set the page title and metadata dynamically based on the tool
   useEffect(() => {
-    if (tool) {
-      document.title = `${tool.name} - ToolCheetah`;
-    }
-  }, [tool]);
+    if (tool && category) {
+      const title = `${tool.name} - Free Online Tool | ToolCheetah`;
+      const description = `${tool.description} Use our free ${tool.name.toLowerCase()} tool online. No registration required, works directly in your browser.`;
+      
+      document.title = title;
+      
+      // Meta description
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', description);
 
+      // Open Graph tags
+      let ogTitle = document.querySelector('meta[property="og:title"]');
+      if (!ogTitle) {
+        ogTitle = document.createElement('meta');
+        ogTitle.setAttribute('property', 'og:title');
+        document.head.appendChild(ogTitle);
+      }
+      ogTitle.setAttribute('content', title);
+
+      let ogDescription = document.querySelector('meta[property="og:description"]');
+      if (!ogDescription) {
+        ogDescription = document.createElement('meta');
+        ogDescription.setAttribute('property', 'og:description');
+        document.head.appendChild(ogDescription);
+      }
+      ogDescription.setAttribute('content', description);
+
+      let ogUrl = document.querySelector('meta[property="og:url"]');
+      if (!ogUrl) {
+        ogUrl = document.createElement('meta');
+        ogUrl.setAttribute('property', 'og:url');
+        document.head.appendChild(ogUrl);
+      }
+      ogUrl.setAttribute('content', `https://toolcheetah.com/${tool.category}/${tool.id}`);
+
+      let ogType = document.querySelector('meta[property="og:type"]');
+      if (!ogType) {
+        ogType = document.createElement('meta');
+        ogType.setAttribute('property', 'og:type');
+        document.head.appendChild(ogType);
+      }
+      ogType.setAttribute('content', 'website');
+    }
+  }, [tool, category]);
+
+  // Handle "Tool Not Found" case metadata
+  useEffect(() => {
+    if (!tool || !category) {
+      document.title = "Tool Not Found | ToolCheetah";
+      
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', "The tool you're looking for doesn't exist. Search our collection of free online tools.");
+
+      // Tell search engines not to index this error page
+      let metaRobots = document.querySelector('meta[name="robots"]');
+      if (!metaRobots) {
+        metaRobots = document.createElement('meta');
+        metaRobots.setAttribute('name', 'robots');
+        document.head.appendChild(metaRobots);
+      }
+      metaRobots.setAttribute('content', 'noindex, follow');
+    }
+  }, [tool, category]);
 
   if (!tool || !category) {
     return (
@@ -1155,14 +1224,14 @@ const ToolPage = () => {
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start mb-6 sm:mb-0">
             <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                 {/* Icon */}
-                <div className="mx-auto sm:mx-0 shrink-0 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 sm:p-4">
-                  <IconComponent className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
+                <div className="shrink-0 w-fit rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 p-3 sm:p-4">
+                  <IconComponent className="h-8 w-8 sm:h-12 sm:w-12 text-primary" />
                 </div>
 
                 {/* Text content */}
-                <div className="flex-1 min-w-0 mt-3 sm:mt-0">
+                <div className="flex-1 min-w-0">
                   <div className="mb-2">
                     {/* Title & badges */}
                     <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 mb-2">
@@ -1170,7 +1239,7 @@ const ToolPage = () => {
                         {tool.name}
                       </h1>
                       {(tool.isNew || tool.isPopular) && (
-                        <div className="flex justify-center sm:justify-start flex-wrap gap-2 mt-2 sm:mt-0">
+                        <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
                           {tool.isNew && (
                             <Badge className="bg-accent text-accent-foreground border-accent/20 shrink-0">New</Badge>
                           )}
@@ -1248,6 +1317,7 @@ const ToolPage = () => {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ArrowLeft, FileText, AlertCircle, Scale, CheckCircle, XCircle, Shield } from "lucide-react";
 
 const TermsOfServicePage = () => {
@@ -45,6 +46,14 @@ const TermsOfServicePage = () => {
       document.head.appendChild(ogUrl);
     }
     ogUrl.setAttribute('content', 'https://toolcheetah.com/terms-of-service');
+
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
 
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
@@ -150,7 +159,7 @@ const TermsOfServicePage = () => {
             <div className="space-y-3">
               <h4 className="font-semibold">2.3 Age Requirement</h4>
               <p className="text-sm text-muted-foreground">
-                Our services are available to users of all ages. However, if you are under 10 years old, you should 
+                Our services are available to users of all ages. However, if you are under 13 years old, you should 
                 use our services with parental guidance.
               </p>
             </div>
@@ -409,6 +418,7 @@ const TermsOfServicePage = () => {
           </Button>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

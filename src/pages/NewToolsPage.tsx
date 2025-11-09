@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ToolCard } from "@/components/ToolCard";
 import { tools } from "@/data/tools";
 import { Link } from "react-router-dom";
@@ -55,6 +56,14 @@ const NewToolsPage = () => {
     }
     ogUrl.setAttribute('content', 'https://toolcheetah.com/new');
 
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
+
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
@@ -97,6 +106,7 @@ const NewToolsPage = () => {
           ))}
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

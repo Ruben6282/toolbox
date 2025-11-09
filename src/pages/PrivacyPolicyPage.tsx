@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ArrowLeft, Shield, Eye, Lock, Server, Cookie, Mail } from "lucide-react";
 
 const PrivacyPolicyPage = () => {
@@ -45,6 +46,14 @@ const PrivacyPolicyPage = () => {
       document.head.appendChild(ogUrl);
     }
     ogUrl.setAttribute('content', 'https://toolcheetah.com/privacy-policy');
+
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
 
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
@@ -322,6 +331,7 @@ const PrivacyPolicyPage = () => {
           </Button>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

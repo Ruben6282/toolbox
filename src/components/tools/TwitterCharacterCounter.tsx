@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Copy, RotateCcw, Twitter } from "lucide-react";
+import { Copy, RotateCcw, Twitter, MessageCircle, Repeat2, Heart, Share2 } from "lucide-react";
 import { notify } from "@/lib/notify";
 
 export const TwitterCharacterCounter = () => {
@@ -90,10 +90,10 @@ export const TwitterCharacterCounter = () => {
             <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{text}</div>
             <div className="flex items-center justify-between mt-3 text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="whitespace-nowrap">💬 Reply</span>
-                <span className="whitespace-nowrap">🔄 Retweet</span>
-                <span className="whitespace-nowrap">❤️ Like</span>
-                <span className="whitespace-nowrap">📤 Share</span>
+                <span className="whitespace-nowrap flex items-center gap-1"><MessageCircle className="h-4 w-4" /> Reply</span>
+                <span className="whitespace-nowrap flex items-center gap-1"><Repeat2 className="h-4 w-4" /> Retweet</span>
+                <span className="whitespace-nowrap flex items-center gap-1"><Heart className="h-4 w-4" /> Like</span>
+                <span className="whitespace-nowrap flex items-center gap-1"><Share2 className="h-4 w-4" /> Share</span>
               </div>
             </div>
           </div>

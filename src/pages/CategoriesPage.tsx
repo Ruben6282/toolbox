@@ -1,4 +1,5 @@
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { CategoryCard } from "@/components/CategoryCard";
 import { categories } from "@/data/tools";
 import { Link } from "react-router-dom";
@@ -53,6 +54,14 @@ const CategoriesPage = () => {
     }
     ogUrl.setAttribute('content', 'https://toolcheetah.com/categories');
 
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
+
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
@@ -95,6 +104,7 @@ const CategoriesPage = () => {
           ))}
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

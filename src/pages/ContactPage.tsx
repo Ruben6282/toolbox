@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ArrowLeft, Instagram, Lightbulb, Bug, Copy, Check } from "lucide-react";
 
 const ContactPage = () => {
@@ -49,6 +50,14 @@ const ContactPage = () => {
       document.head.appendChild(ogUrl);
     }
     ogUrl.setAttribute('content', 'https://toolcheetah.com/contact');
+
+    let ogType = document.querySelector('meta[property="og:type"]');
+    if (!ogType) {
+      ogType = document.createElement('meta');
+      ogType.setAttribute('property', 'og:type');
+      document.head.appendChild(ogType);
+    }
+    ogType.setAttribute('content', 'website');
 
     // Canonical URL
     let canonical = document.querySelector('link[rel="canonical"]');
@@ -199,13 +208,13 @@ Attachments (optional):
               Building quality tools takes time (research, design, and testing), so timelines may vary.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <p className="font-medium">DM format (copy and fill in):</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => copyToClipboard(ideaTemplate, setCopiedIdea)}
-                  className="shrink-0"
+                  className="shrink-0 w-fit"
                   aria-label="Copy tool idea DM format"
                 >
                   {copiedIdea ? (
@@ -235,13 +244,13 @@ Attachments (optional):
               Spot something off? Send us a DM with the details below so we can reproduce and fix it quickly.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <p className="font-medium">DM format (copy and fill in):</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => copyToClipboard(bugTemplate, setCopiedBug)}
-                  className="shrink-0"
+                  className="shrink-0 w-fit"
                   aria-label="Copy bug report DM format"
                 >
                   {copiedBug ? (
@@ -258,6 +267,7 @@ Attachments (optional):
           </CardContent>
         </Card>
       </div>
+      <Footer />
     </div>
   );
 };
