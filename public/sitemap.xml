@@ -480,7 +480,6 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://toolcheetah.com/developer-tools/regex-tester</loc>
     <changefreq>weekly</changefreq>
@@ -581,7 +580,6 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://toolcheetah.com/developer-tools/url-encoder</loc>
     <changefreq>weekly</changefreq>

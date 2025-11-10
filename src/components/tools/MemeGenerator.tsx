@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Download, RotateCcw, Plus, Trash2, Image as ImageIcon, Type } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, stripHtml, truncateText, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
 
 interface TextBox {
   id: string;
@@ -49,6 +51,7 @@ export const MemeGenerator = () => {
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
+  const { createImageUrl } = useObjectUrls();
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
@@ -64,7 +67,7 @@ export const MemeGenerator = () => {
 
     setIsDrawing(true);
     const img = new Image();
-    img.crossOrigin = "anonymous";
+  img.crossOrigin = "anonymous"; // ensure no taint issues for future operations
     
     img.onload = () => {
       try {
@@ -120,6 +123,8 @@ export const MemeGenerator = () => {
       return () => clearTimeout(timer);
     }
   }, [uploadedImage, textBoxes, drawMeme]);
+
+  // Note: object URL cleanup handled by useObjectUrls internally
 
   /** Pointer Event Handlers (works for mouse and touch) */
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -182,17 +187,25 @@ export const MemeGenerator = () => {
       notify.error("Please upload an image first");
       return;
     }
-    
+    const newId = crypto.randomUUID();
     const newBox: TextBox = {
-      id: crypto.randomUUID(),
+      id: newId,
       text: "Your Text Here",
       x: canvasSize.width / 2,
       y: canvasSize.height / 2,
       ...DEFAULT_TEXT_STYLE,
     };
-    
     setTextBoxes((prev) => [...prev, newBox]);
+    setActiveTextId(newId);
     notify.success("Text added! Drag to position");
+    // On mobile, scroll to and focus the input
+    if (window.innerWidth < 640) {
+      setTimeout(() => {
+        const input = document.getElementById(`meme-text-input-${newId}`);
+        input?.scrollIntoView({ behavior: "smooth", block: "center" });
+        input?.focus();
+      }, 300);
+    }
   };
 
   const deleteTextBox = (id: string) => {
@@ -202,37 +215,23 @@ export const MemeGenerator = () => {
   };
 
   const updateTextBox = (id: string, changes: Partial<TextBox>) => {
-    setTextBoxes((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...changes } : t))
-    );
+    setTextBoxes((prev) => prev.map((t) => (t.id === id ? { ...t, ...changes } : t)));
   };
 
   /** Upload Image */
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      notify.error("Please select a valid image file");
+    const error = validateImageFile(file);
+    if (error) {
+      notify.error(error);
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      notify.error("Image size must be less than 10MB");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      setUploadedImage(result);
-      setTextBoxes([]);
-      notify.success("Image uploaded successfully!");
-    };
-    reader.onerror = () => {
-      notify.error("Failed to read image file");
-    };
-    reader.readAsDataURL(file);
+    const url = await createImageUrl(file, { downscaleLarge: true, maxDimension: MAX_IMAGE_DIMENSION });
+    if (!url) return;
+    setUploadedImage(url);
+    setTextBoxes([]);
+    notify.success("Image uploaded successfully!");
   };
 
   /** Download Meme (High Resolution) */
@@ -336,7 +335,7 @@ export const MemeGenerator = () => {
               id="image-upload"
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={ALLOWED_IMAGE_TYPES.join(",")}
               onChange={handleImageUpload}
               aria-label="Upload image for meme"
             />
@@ -377,11 +376,13 @@ export const MemeGenerator = () => {
                 <div key={box.id} className="p-3 sm:p-4 border rounded-lg space-y-3 bg-muted/30">
                   <div className="flex gap-2 items-start">
                     <Input
+                      id={`meme-text-input-${box.id}`}
                       value={box.text}
-                      onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                      onChange={(e) => updateTextBox(box.id, { text: truncateText(stripHtml(e.target.value), 100) })}
                       placeholder="Enter text"
                       className="flex-1 h-10 sm:h-9 text-base sm:text-sm"
                       maxLength={100}
+                      onTouchStart={e => e.stopPropagation()}
                     />
                     <Button
                       onClick={() => deleteTextBox(box.id)}

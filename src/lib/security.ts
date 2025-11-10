@@ -13,6 +13,8 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // Allowed image MIME types
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+// Maximum pixel dimension for width or height; larger images will be downscaled for processing/preview
+export const MAX_IMAGE_DIMENSION = 4096; // Guardrail to prevent excessive memory usage
 
 /**
  * Sanitize HTML content to prevent XSS attacks
@@ -128,6 +130,52 @@ export function createSafeObjectUrl(file: File): string | null {
   }
   
   return URL.createObjectURL(file);
+}
+
+/**
+ * Downscale an image object URL if it exceeds MAX_IMAGE_DIMENSION in either axis.
+ * Returns the original URL if no scaling needed. If scaling occurs, original URL is NOT revoked here;
+ * caller should revoke it after receiving the new URL.
+ * @param url existing object URL pointing to an image
+ * @param maxDim maximum allowed dimension (width or height)
+ */
+export async function enforceMaxDimensions(url: string, maxDim: number = MAX_IMAGE_DIMENSION): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const { width, height } = img;
+        if (width <= maxDim && height <= maxDim) {
+          resolve(url);
+          return;
+        }
+        const scale = Math.min(maxDim / width, maxDim / height);
+        const targetW = Math.round(width * scale);
+        const targetH = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(url);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(url);
+            return;
+          }
+          const newUrl = URL.createObjectURL(blob);
+          resolve(newUrl);
+        }, 'image/png'); // Re-encode as PNG, stripping metadata
+      } catch {
+        resolve(url);
+      }
+    };
+    img.onerror = () => resolve(url);
+    img.src = url;
+  });
 }
 
 /**

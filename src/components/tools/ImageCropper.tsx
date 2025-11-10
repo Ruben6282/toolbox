@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, RotateCcw, Crop } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { ALLOWED_IMAGE_TYPES } from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
 
 interface CropArea {
   x: number;
@@ -27,6 +29,7 @@ export const ImageCropper = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { createImageUrl, revoke } = useObjectUrls();
 
   const aspectRatios = [
     { label: "Free", value: "free" },
@@ -99,23 +102,16 @@ export const ImageCropper = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aspectRatio]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const imgSrc = ev.target?.result as string;
-      setSelectedImage(imgSrc);
-      setTimeout(() => {
-        if (!imageRef.current) return;
-        const img = imageRef.current;
-        let initialCrop: CropArea = { x: 0, y: 0, width: img.width, height: img.height };
-        if (aspectRatio !== "free") initialCrop = adjustCropToAspect(initialCrop, aspectRatio, true, true);
-        setCropArea(initialCrop);
-        notify.success("Image uploaded successfully!");
-      }, 50);
-    };
-    reader.readAsDataURL(file);
+    const url = await createImageUrl(file, { downscaleLarge: true });
+    if (!url) return;
+    // Revoke previous URL if needed
+    setSelectedImage((prev) => {
+      if (prev) revoke(prev);
+      return url;
+    });
   };
 
   const handleMouseDown = (e: React.MouseEvent, handle?: string) => {
@@ -312,6 +308,7 @@ export const ImageCropper = () => {
   };
 
   const clearImage = () => {
+    if (selectedImage) revoke(selectedImage);
     setSelectedImage(null);
     setCropArea({ x: 0, y: 0, width: 100, height: 100 });
     if (canvasRef.current) {
@@ -326,6 +323,8 @@ export const ImageCropper = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cropArea, selectedImage, aspectRatio]);
 
+  // useObjectUrls handles cleanup automatically on unmount
+
   return (
     <div className="space-y-6">
       <Card>
@@ -337,7 +336,7 @@ export const ImageCropper = () => {
           <div className="space-y-2">
             <Label htmlFor="image-upload">Upload Image</Label>
             <div className="flex items-center gap-2">
-              <Input id="image-upload" type="file" accept="image/*" onChange={handleImageUpload} className="flex-1" />
+              <Input id="image-upload" type="file" accept={ALLOWED_IMAGE_TYPES.join(",")} onChange={handleImageUpload} className="flex-1" />
               <Button variant="outline" onClick={clearImage}>
                 <RotateCcw className="h-4 w-4 mr-2" /> Clear
               </Button>
@@ -398,6 +397,15 @@ export const ImageCropper = () => {
                   onMouseDown={(e) => handleMouseDown(e)}
                   onTouchStart={(e) => handleTouchStart(e)}
                   style={{ cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
+                  onLoad={() => {
+                    // Initialize crop once image has loaded
+                    if (!imageRef.current) return;
+                    const img = imageRef.current;
+                    let initialCrop: CropArea = { x: 0, y: 0, width: img.width, height: img.height };
+                    if (aspectRatio !== "free") initialCrop = adjustCropToAspect(initialCrop, aspectRatio, true, true);
+                    setCropArea(initialCrop);
+                    notify.success("Image uploaded successfully!");
+                  }}
                 />
 
                 {/* Crop overlay */}

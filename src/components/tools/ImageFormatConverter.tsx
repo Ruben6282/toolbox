@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, sanitizeFilename } from "@/lib/security";
 
 export const ImageFormatConverter = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -43,12 +44,20 @@ export const ImageFormatConverter = () => {
     setError(null);
     setConvertedImage(null);
 
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      notify.error(validationError);
+      return;
+    }
+    // We keep base64 for conversion but sanitize filename metadata
+    const safeName = sanitizeFilename(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       setSelectedImage(e.target?.result as string);
-      setOriginalFormat(file.name.split(".").pop()?.toLowerCase() || "unknown");
+      setOriginalFormat(safeName.split(".").pop()?.toLowerCase() || "unknown");
       notify.success("Image uploaded successfully!");
     };
+    reader.onerror = () => notify.error("Failed to read image file");
     reader.readAsDataURL(file);
   };
 
@@ -132,7 +141,7 @@ export const ImageFormatConverter = () => {
               <Input
                 id="upload"
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_TYPES.join(",")}
                 onChange={handleImageUpload}
                 className="flex-1"
               />
@@ -240,7 +249,7 @@ export const ImageFormatConverter = () => {
               {selectedImage ? (
                 <img
                   src={selectedImage}
-                  alt="Original"
+                  alt="Original" /* Base64 data URL from validated image file */
                   className="max-w-full h-auto rounded-md"
                 />
               ) : (
@@ -261,7 +270,7 @@ export const ImageFormatConverter = () => {
               {convertedImage ? (
                 <img
                   src={convertedImage}
-                  alt="Converted"
+                  alt="Converted" /* Canvas-generated sanitized output */
                   className="max-w-full h-auto rounded-md"
                 />
               ) : (

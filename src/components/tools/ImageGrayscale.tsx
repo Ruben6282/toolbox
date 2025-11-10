@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Download, RotateCcw, Upload, Palette } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { ALLOWED_IMAGE_TYPES, validateImageFile } from "@/lib/security";
 
 export const ImageGrayscale = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -27,14 +28,19 @@ export const ImageGrayscale = () => {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
-        notify.success("Image uploaded successfully!");
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) {
+      notify.error(error);
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedImage(e.target?.result as string); // base64 from validated file
+      notify.success("Image uploaded successfully!");
+    };
+    reader.onerror = () => notify.error("Failed to read image file");
+    reader.readAsDataURL(file);
   };
 
   const convertToGrayscale = () => {
@@ -145,7 +151,7 @@ export const ImageGrayscale = () => {
               <Input
                 id="image-upload"
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_TYPES.join(",")}
                 onChange={handleImageUpload}
                 className="flex-1"
               />

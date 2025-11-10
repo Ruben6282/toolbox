@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 import { Upload } from "lucide-react";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
 
 export const ImageResizer = () => {
   const [width, setWidth] = useState<number>(800);
@@ -14,25 +16,30 @@ export const ImageResizer = () => {
   const [originalPreview, setOriginalPreview] = useState<string>("");
   const [resizedPreview, setResizedPreview] = useState<string>("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { createImageUrl } = useObjectUrls();
 
   // Load image when uploaded
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const img = new Image();
-      img.onload = () => {
-        setOriginalImage(img);
-        setWidth(img.width);
-        setHeight(img.height);
-        setOriginalPreview(reader.result as string);
-        notify.success("Image loaded!");
-      };
-      img.src = reader.result as string;
+    const error = validateImageFile(file);
+    if (error) {
+      notify.error(error);
+      return;
+    }
+    // Create validated URL with downscaling for very large images
+  const url = await createImageUrl(file, { downscaleLarge: true, maxDimension: MAX_IMAGE_DIMENSION });
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => {
+      setOriginalImage(img);
+      setWidth(img.width);
+      setHeight(img.height);
+      setOriginalPreview(url);
+      notify.success("Image loaded!");
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => notify.error("Failed to load image");
+    img.src = url;
   };
 
   // Maintain aspect ratio
@@ -83,6 +90,8 @@ export const ImageResizer = () => {
     notify.success("Image downloaded!");
   };
 
+  // Note: Object URL cleanup is handled within useObjectUrls hook automatically on unmount
+
   return (
     <div className="space-y-6">
       {/* Upload */}
@@ -99,7 +108,7 @@ export const ImageResizer = () => {
               </div>
               <input
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_TYPES.join(",")}
                 onChange={handleFileChange}
                 className="hidden"
               />

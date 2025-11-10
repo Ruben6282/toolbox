@@ -16,6 +16,12 @@ import {
   X,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import {
+  ALLOWED_IMAGE_TYPES,
+  stripHtml,
+  truncateText,
+} from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
 
 type Watermark = {
   id: string;
@@ -43,34 +49,33 @@ export const AddWatermark = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wmRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  // Use shared object URL management (validation + optional downscale + auto cleanup)
+  const { createImageUrl, revoke } = useObjectUrls();
 
   // ------------------- Upload Handlers -------------------
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSelectedImage(ev.target?.result as string);
-      notify.success("Image uploaded successfully!");
-    };
-    reader.onerror = () => notify.error("Failed to upload image");
-    reader.readAsDataURL(file);
+    const url = await createImageUrl(file, { downscaleLarge: true });
+    if (!url) return;
+    setSelectedImage((prev) => {
+      if (prev) revoke(prev);
+      return url;
+    });
+    notify.success("Image uploaded successfully!");
   };
 
-  const handleLogoUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setWatermarks((prev) =>
-        prev.map((wm) =>
-          wm.id === id ? { ...wm, src: ev.target?.result as string } : wm
-        )
-      );
-      notify.success("Logo uploaded successfully!");
-    };
-    reader.onerror = () => notify.error("Failed to upload logo");
-    reader.readAsDataURL(file);
+    const url = await createImageUrl(file, { downscaleLarge: true });
+    if (!url) return;
+    setWatermarks((prev) => prev.map((wm) => {
+      if (wm.id !== id) return wm;
+      if (wm.src) revoke(wm.src);
+      return { ...wm, src: url };
+    }));
+    notify.success("Logo uploaded successfully!");
   };
 
   // ------------------- Toolbar Actions -------------------
@@ -91,6 +96,8 @@ export const AddWatermark = () => {
     };
     setWatermarks((prev) => [...prev, newWM]);
     setActiveId(newWM.id);
+    // On mobile, expand the bottom sheet so input is visible
+    if (window.innerWidth < 640) setSheetCollapsed(false);
     notify.success(`${type === "text" ? "Text" : "Image"} watermark added!`);
   };
 
@@ -98,6 +105,10 @@ export const AddWatermark = () => {
     if (watermarks.length === 0) {
       notify.error("No watermarks to remove");
       return;
+    }
+    // Revoke all watermark image object URLs
+    for (const wm of watermarks) {
+      if (wm.src) revoke(wm.src);
     }
     setWatermarks([]);
     setActiveId(null);
@@ -189,6 +200,8 @@ export const AddWatermark = () => {
       window.removeEventListener("mousedown", handleClickOutside);
     };
   }, [draggingId, lastPos, activeId]);
+
+  // Cleanup now handled centrally by useObjectUrls hook
 
   // ------------------- Responsive -------------------
   useEffect(() => {
@@ -285,7 +298,11 @@ export const AddWatermark = () => {
           <CardTitle>Upload Image</CardTitle>
         </CardHeader>
         <CardContent>
-          <Input type="file" accept="image/*" onChange={handleImageUpload} />
+          <Input
+            type="file"
+            accept={ALLOWED_IMAGE_TYPES.join(",")}
+            onChange={handleImageUpload}
+          />
         </CardContent>
       </Card>
 
@@ -378,7 +395,7 @@ export const AddWatermark = () => {
                     ) : (
                       <Input
                         type="file"
-                        accept="image/*"
+                        accept={ALLOWED_IMAGE_TYPES.join(",")}
                         onChange={(e) => handleLogoUpload(wm.id, e)}
                       />
                     )}
@@ -454,9 +471,13 @@ export const AddWatermark = () => {
                                       <Textarea
                                         rows={2}
                                         value={wm.text}
-                                        onChange={(e) => updateWatermark(activeId, { text: e.target.value })}
+                                        onChange={(e) => {
+                                          const safe = truncateText(stripHtml(e.target.value), 200);
+                                          updateWatermark(activeId, { text: safe });
+                                        }}
                                         className="text-sm resize-none bg-background text-foreground"
                                         placeholder="Enter watermark text"
+                                        onTouchStart={e => e.stopPropagation()}
                                       />
                                     </div>
                                     <div>
@@ -469,6 +490,7 @@ export const AddWatermark = () => {
                                           value={wm.color}
                                           onChange={(e) => updateWatermark(activeId, { color: e.target.value })}
                                           className="h-10 w-20 p-1 cursor-pointer"
+                                          onTouchStart={e => e.stopPropagation()}
                                         />
                                         <span className="text-xs font-mono text-foreground bg-background px-2 py-1 rounded border border-border">
                                           {wm.color}
@@ -484,9 +506,10 @@ export const AddWatermark = () => {
                                     </Label>
                                     <Input
                                       type="file"
-                                      accept="image/*"
+                                      accept={ALLOWED_IMAGE_TYPES.join(",")}
                                       onChange={(e) => handleLogoUpload(activeId, e)}
                                       className="text-xs cursor-pointer text-foreground"
+                                      onTouchStart={e => e.stopPropagation()}
                                     />
                                   </div>
                                 )}
@@ -614,7 +637,14 @@ export const AddWatermark = () => {
                         {wm.type === 'text' && (
                           <div>
                             <Label>Text</Label>
-                            <Textarea rows={2} value={wm.text} onChange={(e) => updateWatermark(activeId, { text: e.target.value })} />
+                            <Textarea
+                              rows={2}
+                              value={wm.text}
+                              onChange={(e) => {
+                                const safe = truncateText(stripHtml(e.target.value), 200);
+                                updateWatermark(activeId, { text: safe });
+                              }}
+                            />
                             <Label>Color</Label>
                             <Input type="color" value={wm.color} onChange={(e) => updateWatermark(activeId, { color: e.target.value })} />
                           </div>
@@ -622,7 +652,7 @@ export const AddWatermark = () => {
                         {wm.type === 'image' && !wm.src && (
                           <div>
                             <Label>Upload Logo</Label>
-                            <Input type="file" accept="image/*" onChange={(e) => handleLogoUpload(activeId, e)} />
+                            <Input type="file" accept={ALLOWED_IMAGE_TYPES.join(",")} onChange={(e) => handleLogoUpload(activeId, e)} />
                           </div>
                         )}
                         <Label>Opacity: {wm.opacity}%</Label>
