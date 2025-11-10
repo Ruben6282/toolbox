@@ -18,7 +18,7 @@ const PopularPage = () => {
 
   // SEO Meta Tags
   useEffect(() => {
-    const title = "Most Popular Tools - ToolCheetah";
+    const title = "Popular Tools - ToolCheetah";
     const description = `Discover the most popular and highly-rated tools used by thousands daily. Includes ${popularTools.slice(0, 5).map(t => t.name).join(', ')}, and more essential utilities.`;
     
     document.title = title;
