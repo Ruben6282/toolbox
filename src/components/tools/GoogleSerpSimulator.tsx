@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Search, ExternalLink, RotateCcw, Star, MapPin, Clock } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeText, truncateText } from "@/lib/security";
 
 interface SerpResult {
   title: string;
@@ -33,6 +34,11 @@ export const GoogleSerpSimulator = () => {
       return;
     }
 
+    // Sanitize and truncate user inputs
+    const safeQuery = sanitizeText(truncateText(query));
+    const safeLocation = location ? sanitizeText(truncateText(location)) : 'your area';
+    const urlSlug = safeQuery.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
     setIsLoading(true);
     
     try {
@@ -42,74 +48,74 @@ export const GoogleSerpSimulator = () => {
       // Generate mock SERP results
       const mockResults: SerpResult[] = [
         {
-          title: `${query} - Official Website`,
-          url: `https://example.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Find everything you need to know about ${query}. Comprehensive guide, tips, and resources for ${query.toLowerCase()}.`,
+          title: `${safeQuery} - Official Website`,
+          url: `https://example.com/${urlSlug}`,
+          description: `Find everything you need to know about ${safeQuery}. Comprehensive guide, tips, and resources for ${safeQuery.toLowerCase()}.`,
           type: 'organic',
           position: 1
         },
         {
-          title: `Best ${query} Services | Top Rated`,
-          url: `https://services.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Professional ${query} services with 5-star ratings. Get quotes from verified providers in your area.`,
+          title: `Best ${safeQuery} Services | Top Rated`,
+          url: `https://services.com/${urlSlug}`,
+          description: `Professional ${safeQuery} services with 5-star ratings. Get quotes from verified providers in your area.`,
           type: 'ad',
           position: 2,
           rating: 4.8,
           reviews: 1247
         },
         {
-          title: `${query} Guide 2024 - Complete Tutorial`,
-          url: `https://guide.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Step-by-step ${query} tutorial for beginners. Learn the basics and advanced techniques.`,
+          title: `${safeQuery} Guide 2024 - Complete Tutorial`,
+          url: `https://guide.com/${urlSlug}`,
+          description: `Step-by-step ${safeQuery} tutorial for beginners. Learn the basics and advanced techniques.`,
           type: 'featured',
           position: 3
         },
         {
-          title: `${query} Near Me - Local Results`,
-          url: `https://local.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `${query} services in ${location || 'your area'}. Open now, reviews, and contact information.`,
+          title: `${safeQuery} Near Me - Local Results`,
+          url: `https://local.com/${urlSlug}`,
+          description: `${safeQuery} services in ${safeLocation}. Open now, reviews, and contact information.`,
           type: 'local',
           position: 4,
           rating: 4.5,
           reviews: 89
         },
         {
-          title: `${query} Images - Visual Results`,
-          url: `https://images.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Browse thousands of ${query} images. High-quality photos and illustrations.`,
+          title: `${safeQuery} Images - Visual Results`,
+          url: `https://images.com/${urlSlug}`,
+          description: `Browse thousands of ${safeQuery} images. High-quality photos and illustrations.`,
           type: 'image',
           position: 5,
           image: `https://picsum.photos/200/150?random=${Math.floor(Math.random() * 1000)}`
         },
         {
-          title: `${query} Video Tutorial - YouTube`,
+          title: `${safeQuery} Video Tutorial - YouTube`,
           url: `https://youtube.com/watch?v=${Math.random().toString(36).substring(7)}`,
-          description: `Watch this comprehensive ${query} video tutorial. Perfect for visual learners.`,
+          description: `Watch this comprehensive ${safeQuery} video tutorial. Perfect for visual learners.`,
           type: 'video',
           position: 6,
           rating: 4.7,
           reviews: 2341
         },
         {
-          title: `${query} FAQ - Common Questions`,
-          url: `https://faq.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Frequently asked questions about ${query}. Get answers to the most common queries.`,
+          title: `${safeQuery} FAQ - Common Questions`,
+          url: `https://faq.com/${urlSlug}`,
+          description: `Frequently asked questions about ${safeQuery}. Get answers to the most common queries.`,
           type: 'organic',
           position: 7
         },
         {
-          title: `${query} Tools & Resources`,
-          url: `https://tools.com/${query.toLowerCase().replace(/\s+/g, '-')}`,
-          description: `Free ${query} tools and resources. Calculators, generators, and helpful utilities.`,
+          title: `${safeQuery} Tools & Resources`,
+          url: `https://tools.com/${urlSlug}`,
+          description: `Free ${safeQuery} tools and resources. Calculators, generators, and helpful utilities.`,
           type: 'organic',
           position: 8
         }
       ];
 
       setResults(mockResults);
-  notify.success("SERP results generated!");
+      notify.success("SERP results generated!");
     } catch (error) {
-  notify.error("Failed to generate SERP results. Please try again.");
+      notify.error("Failed to generate SERP results. Please try again.");
     } finally {
       setIsLoading(false);
     }

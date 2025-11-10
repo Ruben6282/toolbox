@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Share2 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeUrl, truncateText, encodeMetaTag, sanitizeNumber, SEO_LIMITS } from "@/lib/security";
 
 export const OgMetaGenerator = () => {
   const [formData, setFormData] = useState({
@@ -32,51 +33,75 @@ export const OgMetaGenerator = () => {
       imageWidth, imageHeight, imageAlt
     } = formData;
 
+    // Encode and enforce OG-specific character limits
+    const safeTitle = encodeMetaTag(truncateText(title, SEO_LIMITS.OG_TITLE));
+    const safeDescription = encodeMetaTag(truncateText(description, SEO_LIMITS.OG_DESCRIPTION));
+    const safeSiteName = encodeMetaTag(truncateText(siteName, 100));
+    const safeImageAlt = encodeMetaTag(truncateText(imageAlt, 200));
+    const safeLocale = encodeMetaTag(locale);
+    const safeType = encodeMetaTag(type);
+    
+    // Validate and sanitize URLs (prefer HTTPS for images)
+    const safeImage = image ? (sanitizeUrl(image, false) || '') : '';
+    const safeUrl = url ? (sanitizeUrl(url, false) || '') : '';
+    
+    // Validate image URLs use HTTPS
+    if (safeImage && !safeImage.startsWith('https://')) {
+      notify.warning('OG Image URL should use HTTPS for better compatibility');
+    }
+    if (safeUrl && !safeUrl.startsWith('https://')) {
+      notify.warning('OG URL should use HTTPS for better security');
+    }
+    
+    // Sanitize and validate numeric inputs
+    const safeImageWidth = sanitizeNumber(imageWidth, 1, 4096) || 1200;
+    const safeImageHeight = sanitizeNumber(imageHeight, 1, 4096) || 630;
+
     let ogMeta = `<!-- Open Graph Meta Tags -->\n`;
 
-    if (title) {
-      ogMeta += `<meta property="og:title" content="${title}">\n`;
+    if (safeTitle) {
+      ogMeta += `<meta property="og:title" content="${safeTitle}">\n`;
     }
 
-    if (description) {
-      ogMeta += `<meta property="og:description" content="${description}">\n`;
+    if (safeDescription) {
+      ogMeta += `<meta property="og:description" content="${safeDescription}">\n`;
     }
 
-    if (image) {
-      ogMeta += `<meta property="og:image" content="${image}">\n`;
-      ogMeta += `<meta property="og:image:width" content="${imageWidth}">\n`;
-      ogMeta += `<meta property="og:image:height" content="${imageHeight}">\n`;
-      if (imageAlt) {
-        ogMeta += `<meta property="og:image:alt" content="${imageAlt}">\n`;
+    if (safeImage) {
+      ogMeta += `<meta property="og:image" content="${encodeMetaTag(safeImage)}">\n`;
+      ogMeta += `<meta property="og:image:width" content="${safeImageWidth}">\n`;
+      ogMeta += `<meta property="og:image:height" content="${safeImageHeight}">\n`;
+      if (safeImageAlt) {
+        ogMeta += `<meta property="og:image:alt" content="${safeImageAlt}">\n`;
       }
     }
 
-    if (url) {
-      ogMeta += `<meta property="og:url" content="${url}">\n`;
+    if (safeUrl) {
+      ogMeta += `<meta property="og:url" content="${encodeMetaTag(safeUrl)}">\n`;
     }
 
-    ogMeta += `<meta property="og:type" content="${type}">\n`;
+    ogMeta += `<meta property="og:type" content="${safeType}">\n`;
 
-    if (siteName) {
-      ogMeta += `<meta property="og:site_name" content="${siteName}">\n`;
+    if (safeSiteName) {
+      ogMeta += `<meta property="og:site_name" content="${safeSiteName}">\n`;
     }
 
-    ogMeta += `<meta property="og:locale" content="${locale}">\n`;
+    ogMeta += `<meta property="og:locale" content="${safeLocale}">\n`;
 
     // Add Twitter Card tags
     ogMeta += `\n<!-- Twitter Card Meta Tags -->\n`;
     ogMeta += `<meta name="twitter:card" content="summary_large_image">\n`;
     
-    if (title) {
-      ogMeta += `<meta name="twitter:title" content="${title}">\n`;
+    if (safeTitle) {
+      ogMeta += `<meta name="twitter:title" content="${safeTitle}">\n`;
     }
     
-    if (description) {
-      ogMeta += `<meta name="twitter:description" content="${description}">\n`;
+    if (safeDescription) {
+      ogMeta += `<meta name="twitter:description" content="${safeDescription}">\n`;
     }
     
-    if (image) {
-      ogMeta += `<meta name="twitter:image" content="${image}">\n`;
+    if (safeImage) {
+      ogMeta += `<meta name="twitter:image" content="${safeImage}">\n`;
     }
 
     return ogMeta;
@@ -92,7 +117,8 @@ export const OgMetaGenerator = () => {
   };
 
   const downloadOgMeta = () => {
-    const blob = new Blob([generateOgMeta()], { type: 'text/html' });
+    // Use text/plain to prevent HTML execution in browser
+    const blob = new Blob([generateOgMeta()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -101,7 +127,7 @@ export const OgMetaGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  notify.success("OG Meta tags downloaded!");
+    notify.success("OG Meta tags downloaded!");
   };
 
   const clearAll = () => {

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeText, sanitizeUrl, truncateText, encodeMetaTag, SEO_LIMITS } from "@/lib/security";
 
 export const MetaTagGenerator = () => {
   const [formData, setFormData] = useState({
@@ -42,73 +43,102 @@ export const MetaTagGenerator = () => {
       canonicalUrl, themeColor
     } = formData;
 
+    // Sanitize and enforce SEO-specific character limits
+    const safeTitle = encodeMetaTag(truncateText(title, SEO_LIMITS.META_TITLE));
+    const safeDescription = encodeMetaTag(truncateText(description, SEO_LIMITS.META_DESCRIPTION));
+    const safeKeywords = encodeMetaTag(truncateText(keywords, 500));
+    const safeAuthor = encodeMetaTag(truncateText(author, 100));
+    const safeOgTitle = encodeMetaTag(truncateText(ogTitle || title, SEO_LIMITS.OG_TITLE));
+    const safeOgDescription = encodeMetaTag(truncateText(ogDescription || description, SEO_LIMITS.OG_DESCRIPTION));
+    const safeTwitterSite = encodeMetaTag(truncateText(twitterSite, 100));
+    const safeTwitterCreator = encodeMetaTag(truncateText(twitterCreator, 100));
+
+    // Validate and sanitize URLs (prefer HTTPS)
+    const safeOgImage = ogImage ? (sanitizeUrl(ogImage, false) || '') : '';
+    const safeOgUrl = ogUrl ? (sanitizeUrl(ogUrl, false) || '') : '';
+    const safeCanonicalUrl = canonicalUrl ? (sanitizeUrl(canonicalUrl, false) || '') : '';
+    
+    // Warn if URLs are not HTTPS
+    if (safeOgImage && !safeOgImage.startsWith('https://')) {
+      notify.warning('OG Image URL should use HTTPS for better security');
+    }
+
+    // Encode fixed/select values as well
+    const safeLang = encodeMetaTag(language);
+    const safeCharset = encodeMetaTag(charset);
+    const safeViewport = encodeMetaTag(viewport);
+    const safeRobots = encodeMetaTag(robots);
+    const safeOgType = encodeMetaTag(ogType);
+    const safeTwitterCard = encodeMetaTag(twitterCard);
+    const safeThemeColor = encodeMetaTag(themeColor);
+
     let metaTags = `<!DOCTYPE html>
-<html lang="${language}">
+<html lang="${safeLang}">
 <head>
-    <meta charset="${charset}">
-    <meta name="viewport" content="${viewport}">
-    <title>${title}</title>
-    <meta name="description" content="${description}">`;
+    <meta charset="${safeCharset}">
+    <meta name="viewport" content="${safeViewport}">
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}">`;
 
-    if (keywords) {
-      metaTags += `\n    <meta name="keywords" content="${keywords}">`;
+    if (safeKeywords) {
+      metaTags += `\n    <meta name="keywords" content="${safeKeywords}">`;
     }
 
-    if (author) {
-      metaTags += `\n    <meta name="author" content="${author}">`;
+    if (safeAuthor) {
+      metaTags += `\n    <meta name="author" content="${safeAuthor}">`;
     }
 
-    metaTags += `\n    <meta name="robots" content="${robots}">`;
+    metaTags += `\n    <meta name="robots" content="${safeRobots}">`;
 
     if (themeColor) {
-      metaTags += `\n    <meta name="theme-color" content="${themeColor}">`;
+      metaTags += `\n    <meta name="theme-color" content="${safeThemeColor}">`;
     }
 
     // Open Graph tags
-    if (ogTitle || title) {
-      metaTags += `\n    <meta property="og:title" content="${ogTitle || title}">`;
+    if (safeOgTitle) {
+      metaTags += `\n    <meta property="og:title" content="${safeOgTitle}">`;
     }
 
-    if (ogDescription || description) {
-      metaTags += `\n    <meta property="og:description" content="${ogDescription || description}">`;
+    if (safeOgDescription) {
+      metaTags += `\n    <meta property="og:description" content="${safeOgDescription}">`;
     }
 
-    if (ogImage) {
-      metaTags += `\n    <meta property="og:image" content="${ogImage}">`;
+    if (safeOgImage) {
+      metaTags += `\n    <meta property="og:image" content="${encodeMetaTag(safeOgImage)}">`;
     }
 
-    if (ogUrl) {
-      metaTags += `\n    <meta property="og:url" content="${ogUrl}">`;
+    if (safeOgUrl) {
+      metaTags += `\n    <meta property="og:url" content="${encodeMetaTag(safeOgUrl)}">`;
     }
 
-    metaTags += `\n    <meta property="og:type" content="${ogType}">`;
+    metaTags += `\n    <meta property="og:type" content="${safeOgType}">`;
 
     // Twitter Card tags
-    metaTags += `\n    <meta name="twitter:card" content="${twitterCard}">`;
+    metaTags += `\n    <meta name="twitter:card" content="${safeTwitterCard}">`;
 
-    if (twitterSite) {
-      metaTags += `\n    <meta name="twitter:site" content="${twitterSite}">`;
+    if (safeTwitterSite) {
+      metaTags += `\n    <meta name="twitter:site" content="${safeTwitterSite}">`;
     }
 
-    if (twitterCreator) {
-      metaTags += `\n    <meta name="twitter:creator" content="${twitterCreator}">`;
+    if (safeTwitterCreator) {
+      metaTags += `\n    <meta name="twitter:creator" content="${safeTwitterCreator}">`;
     }
 
-    if (ogTitle || title) {
-      metaTags += `\n    <meta name="twitter:title" content="${ogTitle || title}">`;
+    if (safeOgTitle) {
+      metaTags += `\n    <meta name="twitter:title" content="${safeOgTitle}">`;
     }
 
-    if (ogDescription || description) {
-      metaTags += `\n    <meta name="twitter:description" content="${ogDescription || description}">`;
+    if (safeOgDescription) {
+      metaTags += `\n    <meta name="twitter:description" content="${safeOgDescription}">`;
     }
 
-    if (ogImage) {
-      metaTags += `\n    <meta name="twitter:image" content="${ogImage}">`;
+    if (safeOgImage) {
+      metaTags += `\n    <meta name="twitter:image" content="${encodeMetaTag(safeOgImage)}">`;
     }
 
     // Canonical URL
-    if (canonicalUrl) {
-      metaTags += `\n    <link rel="canonical" href="${canonicalUrl}">`;
+    if (safeCanonicalUrl) {
+      metaTags += `\n    <link rel="canonical" href="${encodeMetaTag(safeCanonicalUrl)}">`;
     }
 
     metaTags += `\n</head>
@@ -158,7 +188,8 @@ export const MetaTagGenerator = () => {
   };
 
   const downloadMetaTags = () => {
-    const blob = new Blob([generateMetaTags()], { type: 'text/html' });
+    // Use text/plain to prevent HTML execution in browser
+    const blob = new Blob([generateMetaTags()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

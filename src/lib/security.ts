@@ -43,19 +43,32 @@ export function sanitizeText(text: string): string {
 /**
  * Validate and sanitize URL
  * @param url - URL string to validate
+ * @param httpsOnly - Require HTTPS protocol (default: false)
  * @returns Sanitized URL or null if invalid
  */
-export function sanitizeUrl(url: string): string | null {
+export function sanitizeUrl(url: string, httpsOnly: boolean = false): string | null {
   try {
-    const urlObj = new URL(url);
+    // Trim whitespace and remove potentially dangerous characters
+    const cleanUrl = url.trim();
     
-    // Only allow http and https protocols
-    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+    // Prevent javascript: protocol and other dangerous schemes before URL parsing
+    const lowerUrl = cleanUrl.toLowerCase();
+    if (lowerUrl.includes('javascript:') || 
+        lowerUrl.includes('data:') || 
+        lowerUrl.includes('vbscript:') ||
+        lowerUrl.includes('file:') ||
+        lowerUrl.includes('about:')) {
       return null;
     }
     
-    // Prevent javascript: protocol and other dangerous schemes
-    if (url.toLowerCase().includes('javascript:') || url.toLowerCase().includes('data:')) {
+    const urlObj = new URL(cleanUrl);
+    
+    // Only allow http and https protocols
+    if (httpsOnly && urlObj.protocol !== 'https:') {
+      return null;
+    }
+    
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
       return null;
     }
     
@@ -64,6 +77,17 @@ export function sanitizeUrl(url: string): string | null {
     return null;
   }
 }
+
+// SEO-specific character limits
+export const SEO_LIMITS = {
+  META_TITLE: 60,
+  META_DESCRIPTION: 160,
+  OG_TITLE: 95,
+  OG_DESCRIPTION: 200,
+  KEYWORD_TEXT: 50000, // 50KB limit for keyword density checker
+  ROBOTS_PATH: 500,
+  SITEMAP_URL: 2048,
+} as const;
 
 /**
  * Validate text length
@@ -209,6 +233,60 @@ export function sanitizeFilename(filename: string): string {
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/\.{2,}/g, '.')
     .substring(0, 255);
+}
+
+/**
+ * Encode text for safe use in HTML meta tags
+ * Escapes quotes, angle brackets, and other special characters
+ * @param text - Text to encode
+ * @returns Encoded text safe for meta tag attributes
+ */
+export function encodeMetaTag(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '');
+}
+
+/**
+ * Validate robots.txt path
+ * Prevents special characters and control sequences
+ * @param path - Path to validate
+ * @returns true if valid, false otherwise
+ */
+export function validateRobotsPath(path: string): boolean {
+  // Must start with /
+  if (!path.startsWith('/')) {
+    return false;
+  }
+  
+  // Check length
+  if (path.length > SEO_LIMITS.ROBOTS_PATH) {
+    return false;
+  }
+  
+  // Prevent line breaks, null bytes, and other control characters
+  if (/[\r\n\0\t]/.test(path)) {
+    return false;
+  }
+  
+  // Only allow safe URL path characters
+  return /^[a-zA-Z0-9/_.\-*?=&%]+$/.test(path);
+}
+
+/**
+ * Sanitize robots.txt user agent name
+ * @param userAgent - User agent string
+ * @returns Sanitized user agent
+ */
+export function sanitizeUserAgent(userAgent: string): string {
+  return userAgent
+    .replace(/[^a-zA-Z0-9\-_.*]/g, '')
+    .substring(0, 100);
 }
 
 /**

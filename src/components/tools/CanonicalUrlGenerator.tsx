@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy, Download, RotateCcw, Link } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeUrl, encodeMetaTag } from "@/lib/security";
 
 export const CanonicalUrlGenerator = () => {
   const [currentUrl, setCurrentUrl] = useState("");
@@ -30,16 +31,31 @@ export const CanonicalUrlGenerator = () => {
       return;
     }
 
+    // Validate and sanitize canonical URL (prefer HTTPS)
+    const safeCanonicalUrl = sanitizeUrl(canonicalUrl, false);
+    if (!safeCanonicalUrl) {
+      notify.error("Invalid canonical URL format!");
+      return;
+    }
+    
+    // Warn if not HTTPS
+    if (!safeCanonicalUrl.startsWith('https://')) {
+      notify.warning('Canonical URL should use HTTPS for better SEO');
+    }
+
     let canonicalTags = `<!-- Canonical URL Tags -->\n`;
     
-    // Main canonical tag
-    canonicalTags += `<link rel="canonical" href="${canonicalUrl}">\n\n`;
+    // Main canonical tag with encoded URL
+    canonicalTags += `<link rel="canonical" href="${encodeMetaTag(safeCanonicalUrl)}">\n\n`;
     
     // Additional URLs (for reference)
     if (urls.length > 0) {
       canonicalTags += `<!-- Alternative URLs (for reference) -->\n`;
       urls.forEach((url, index) => {
-        canonicalTags += `<!-- URL ${index + 1}: ${url} -->\n`;
+        const safeUrl = sanitizeUrl(url, false);
+        if (safeUrl) {
+          canonicalTags += `<!-- URL ${index + 1}: ${encodeMetaTag(safeUrl)} -->\n`;
+        }
       });
     }
 
@@ -54,13 +70,28 @@ export const CanonicalUrlGenerator = () => {
     }
 
     let bulkCanonicals = `<!-- Bulk Canonical URL Tags -->\n`;
+    let hasHttpWarning = false;
     
     urls.forEach((url, index) => {
       const canonical = canonicalUrl || url; // Use provided canonical or the URL itself
-      bulkCanonicals += `<!-- Page ${index + 1} -->\n`;
-      bulkCanonicals += `<link rel="canonical" href="${canonical}">\n`;
-      bulkCanonicals += `<!-- Original URL: ${url} -->\n\n`;
+      const safeCanonical = sanitizeUrl(canonical, false);
+      const safeUrl = sanitizeUrl(url, false);
+      
+      if (safeCanonical && safeUrl) {
+        // Track HTTP usage for warning
+        if (!safeCanonical.startsWith('https://') || !safeUrl.startsWith('https://')) {
+          hasHttpWarning = true;
+        }
+        
+        bulkCanonicals += `<!-- Page ${index + 1} -->\n`;
+        bulkCanonicals += `<link rel="canonical" href="${encodeMetaTag(safeCanonical)}">\n`;
+        bulkCanonicals += `<!-- Original URL: ${encodeMetaTag(safeUrl)} -->\n\n`;
+      }
     });
+
+    if (hasHttpWarning) {
+      notify.warning('Some URLs use HTTP instead of HTTPS');
+    }
 
     setGeneratedCanonicals(bulkCanonicals);
     notify.success("Bulk canonical tags generated!");
@@ -76,7 +107,8 @@ export const CanonicalUrlGenerator = () => {
   };
 
   const downloadCanonicals = () => {
-    const blob = new Blob([generatedCanonicals], { type: 'text/html' });
+    // Use text/plain to prevent HTML execution in browser
+    const blob = new Blob([generatedCanonicals], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -86,9 +118,7 @@ export const CanonicalUrlGenerator = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     notify.success("Canonical tags downloaded!");
-  };
-
-  const clearAll = () => {
+  };  const clearAll = () => {
     setCurrentUrl("");
     setCanonicalUrl("");
     setUrls([]);

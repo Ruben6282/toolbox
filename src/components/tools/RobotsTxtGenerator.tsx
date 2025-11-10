@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Download, RotateCcw, Bot } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeUrl, truncateText, sanitizeUserAgent, validateRobotsPath, SEO_LIMITS } from "@/lib/security";
 
 export const RobotsTxtGenerator = () => {
   const [siteUrl, setSiteUrl] = useState("");
@@ -53,40 +54,77 @@ export const RobotsTxtGenerator = () => {
 
   const generateRobotsTxt = () => {
     let robots = "";
+    let hasErrors = false;
 
     // Add user agent rules
     userAgents.forEach((agent) => {
-      robots += `User-agent: ${agent.name}\n`;
+      // Sanitize user agent name (only alphanumeric, dash, underscore, dot, asterisk)
+      const safeAgentName = sanitizeUserAgent(agent.name);
+      if (!safeAgentName) {
+        notify.error(`Invalid user agent name: ${agent.name}`);
+        hasErrors = true;
+        return;
+      }
+      robots += `User-agent: ${safeAgentName}\n`;
       
       if (agent.allow) {
         robots += "Allow: /\n";
       }
       
       agent.disallow.forEach((path) => {
-        if (path.trim()) {
-          robots += `Disallow: ${path}\n`;
+        const trimmedPath = path.trim();
+        if (trimmedPath) {
+          // Validate path format (must start with /, no special chars)
+          if (!validateRobotsPath(trimmedPath)) {
+            notify.error(`Invalid path format: ${trimmedPath}. Must start with / and contain only safe characters`);
+            hasErrors = true;
+            return;
+          }
+          const safePath = truncateText(trimmedPath, SEO_LIMITS.ROBOTS_PATH);
+          robots += `Disallow: ${safePath}\n`;
         }
       });
       
       if (agent.crawlDelay > 0) {
-        robots += `Crawl-delay: ${agent.crawlDelay}\n`;
+        robots += `Crawl-delay: ${Math.min(Math.max(0, agent.crawlDelay), 3600)}\n`;
       }
       
       robots += "\n";
     });
 
-    // Add sitemap
-    if (sitemapUrl) {
-      robots += `Sitemap: ${sitemapUrl}\n`;
+    if (hasErrors) {
+      return;
     }
 
-    // Add custom rules
+    // Add sitemap with URL validation (prefer HTTPS)
+    if (sitemapUrl) {
+      const safeSitemapUrl = sanitizeUrl(sitemapUrl, false);
+      if (!safeSitemapUrl) {
+        notify.error("Invalid sitemap URL format!");
+        return;
+      }
+      if (!safeSitemapUrl.startsWith('https://')) {
+        notify.warning('Sitemap URL should use HTTPS for better security');
+      }
+      if (safeSitemapUrl.length > SEO_LIMITS.SITEMAP_URL) {
+        notify.error(`Sitemap URL too long (max ${SEO_LIMITS.SITEMAP_URL} characters)`);
+        return;
+      }
+      robots += `Sitemap: ${safeSitemapUrl}\n`;
+    }
+
+    // Add custom rules with sanitization (remove control characters)
     if (customRules.trim()) {
-      robots += `\n# Custom rules\n${customRules}\n`;
+      const safeCustomRules = truncateText(customRules, 5000)
+        .replace(/[\r\n\0\t]+/g, '\n')  // Normalize line breaks
+        .split('\n')
+        .filter(line => line.trim())
+        .join('\n');
+      robots += `\n# Custom rules\n${safeCustomRules}\n`;
     }
 
     setGeneratedRobots(robots.trim());
-  notify.success("Robots.txt generated!");
+    notify.success("Robots.txt generated!");
   };
 
   const copyToClipboard = async () => {

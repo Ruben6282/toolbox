@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Search, BarChart3 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { SEO_LIMITS } from "@/lib/security";
 
 interface KeywordData {
   keyword: string;
@@ -20,6 +21,16 @@ export const KeywordDensityChecker = () => {
   const [minWordLength, setMinWordLength] = useState(3);
   const [excludeCommon, setExcludeCommon] = useState(true);
   const [customExclusions, setCustomExclusions] = useState("");
+  
+  // Handle text input with size limit
+  const handleTextChange = (newText: string) => {
+    if (newText.length > SEO_LIMITS.KEYWORD_TEXT) {
+      notify.warning(`Text exceeds ${SEO_LIMITS.KEYWORD_TEXT / 1000}KB limit and was truncated`);
+      setText(newText.substring(0, SEO_LIMITS.KEYWORD_TEXT));
+    } else {
+      setText(newText);
+    }
+  };
 
   const commonWords = useMemo(() => [
     "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with",
@@ -130,14 +141,17 @@ export const KeywordDensityChecker = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="text-input">Text to Analyze</Label>
+            <Label htmlFor="text-input">Text to Analyze (max {SEO_LIMITS.KEYWORD_TEXT / 1000}KB)</Label>
             <Textarea
               id="text-input"
               placeholder="Enter your text here to analyze keyword density..."
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => handleTextChange(e.target.value)}
               rows={8}
             />
+            <p className="text-xs text-muted-foreground">
+              {text.length.toLocaleString()} / {SEO_LIMITS.KEYWORD_TEXT.toLocaleString()} characters
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

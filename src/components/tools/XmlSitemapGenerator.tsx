@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Plus, Trash2, Map } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeUrl, SEO_LIMITS } from "@/lib/security";
 
 interface SitemapUrl {
   url: string;
@@ -21,6 +22,49 @@ export const XmlSitemapGenerator = () => {
     { url: "", lastmod: new Date().toISOString().split('T')[0], changefreq: "weekly", priority: "1.0" }
   ]);
   const [generatedSitemap, setGeneratedSitemap] = useState("");
+
+  // Escape XML special characters
+  const escapeXml = (unsafe: string): string => {
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+      switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '\'': return '&apos;';
+        case '"': return '&quot;';
+        default: return c;
+      }
+    });
+  };
+
+  // Validate date format (YYYY-MM-DD)
+  const validateDate = (dateString: string): boolean => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return false;
+    }
+    const date = new Date(dateString);
+    return !isNaN(date.getTime()) && date.toISOString().split('T')[0] === dateString;
+  };
+
+  // Validate changefreq value
+  const validateChangefreq = (freq: string): boolean => {
+    const allowed = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
+    return allowed.includes(freq);
+  };
+
+  // Validate priority value
+  const validatePriority = (priority: string): boolean => {
+    const num = parseFloat(priority);
+    return !isNaN(num) && num >= 0 && num <= 1;
+  };
+
+  // Sanitize URL path to prevent path traversal
+  const sanitizePath = (path: string): string => {
+    return path
+      .replace(/\.\./g, '') // Remove parent directory references
+      .replace(/\/\//g, '/') // Remove double slashes
+      .trim();
+  };
 
   const addUrl = () => {
     setUrls([...urls, { 
@@ -45,53 +89,115 @@ export const XmlSitemapGenerator = () => {
 
   const generateSitemap = () => {
     if (!baseUrl.trim()) {
-  notify.error("Please enter a base URL!");
+      notify.error("Please enter a base URL!");
       return;
+    }
+
+    // Validate and sanitize base URL (prefer HTTPS)
+    const safeBaseUrl = sanitizeUrl(baseUrl, false);
+    if (!safeBaseUrl) {
+      notify.error("Invalid base URL format!");
+      return;
+    }
+    
+    // Warn if not HTTPS
+    if (!safeBaseUrl.startsWith('https://')) {
+      notify.warning('Base URL should use HTTPS for better SEO');
     }
 
     const validUrls = urls.filter(url => url.url.trim());
     if (validUrls.length === 0) {
-  notify.error("Please add at least one URL!");
+      notify.error("Please add at least one URL!");
       return;
     }
+
+    // Check for duplicates
+    const seenUrls = new Set<string>();
+    let hasDuplicates = false;
 
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     sitemap += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     validUrls.forEach((urlData) => {
-      const fullUrl = urlData.url.startsWith('http') ? urlData.url : `${baseUrl.replace(/\/$/, '')}/${urlData.url.replace(/^\//, '')}`;
+      // Sanitize path to prevent traversal attempts
+      const cleanPath = sanitizePath(urlData.url);
+      const fullUrl = cleanPath.startsWith('http') ? cleanPath : `${safeBaseUrl.replace(/\/$/, '')}/${cleanPath.replace(/^\//, '')}`;
+      
+      // Validate and sanitize the full URL
+      const safeFullUrl = sanitizeUrl(fullUrl, false);
+      if (!safeFullUrl) {
+        return; // Skip invalid URLs
+      }
+      
+      // Enforce URL length limit
+      if (safeFullUrl.length > SEO_LIMITS.SITEMAP_URL) {
+        notify.warning(`URL exceeds ${SEO_LIMITS.SITEMAP_URL} characters and was skipped`);
+        return;
+      }
+      
+      // Check for duplicates
+      if (seenUrls.has(safeFullUrl)) {
+        hasDuplicates = true;
+        return;
+      }
+      seenUrls.add(safeFullUrl);
+      
+      // Validate date format
+      if (!validateDate(urlData.lastmod)) {
+        notify.warning(`Invalid date format for ${safeFullUrl}, using today's date`);
+        urlData.lastmod = new Date().toISOString().split('T')[0];
+      }
+      
+      // Validate changefreq
+      if (!validateChangefreq(urlData.changefreq)) {
+        notify.warning(`Invalid changefreq for ${safeFullUrl}, defaulting to "weekly"`);
+        urlData.changefreq = 'weekly';
+      }
+      
+      // Validate priority
+      if (!validatePriority(urlData.priority)) {
+        notify.warning(`Invalid priority for ${safeFullUrl}, defaulting to "0.5"`);
+        urlData.priority = '0.5';
+      }
       
       sitemap += `  <url>\n`;
-      sitemap += `    <loc>${fullUrl}</loc>\n`;
-      sitemap += `    <lastmod>${urlData.lastmod}</lastmod>\n`;
-      sitemap += `    <changefreq>${urlData.changefreq}</changefreq>\n`;
-      sitemap += `    <priority>${urlData.priority}</priority>\n`;
+      sitemap += `    <loc>${escapeXml(safeFullUrl)}</loc>\n`;
+      sitemap += `    <lastmod>${escapeXml(urlData.lastmod)}</lastmod>\n`;
+      sitemap += `    <changefreq>${escapeXml(urlData.changefreq)}</changefreq>\n`;
+      sitemap += `    <priority>${escapeXml(urlData.priority)}</priority>\n`;
       sitemap += `  </url>\n`;
     });
 
     sitemap += `</urlset>`;
+    
+    if (hasDuplicates) {
+      notify.warning('Duplicate URLs were removed from sitemap');
+    }
 
     setGeneratedSitemap(sitemap);
-  notify.success("XML Sitemap generated!");
+    notify.success("XML Sitemap generated!");
   };
 
   const generateFromText = () => {
     const textarea = document.getElementById('url-list') as HTMLTextAreaElement;
     if (!textarea?.value.trim()) {
-  notify.error("Please enter URLs in the text area!");
+      notify.error("Please enter URLs in the text area!");
       return;
     }
 
     const urlList = textarea.value.split('\n').filter(url => url.trim());
-    const newUrls = urlList.map(url => ({
-      url: url.trim(),
-      lastmod: new Date().toISOString().split('T')[0],
-      changefreq: "weekly",
-      priority: "0.5"
-    }));
+    const newUrls = urlList
+      .map(url => url.trim())
+      .filter(url => url.length > 0) // Filter out empty URLs
+      .map(url => ({
+        url: url,
+        lastmod: new Date().toISOString().split('T')[0],
+        changefreq: "weekly",
+        priority: "0.5"
+      }));
 
     setUrls(newUrls);
-  notify.success(`${newUrls.length} URLs added!`);
+    notify.success(`${newUrls.length} URLs added!`);
   };
 
   const copyToClipboard = async () => {
@@ -104,7 +210,8 @@ export const XmlSitemapGenerator = () => {
   };
 
   const downloadSitemap = () => {
-    const blob = new Blob([generatedSitemap], { type: 'application/xml' });
+    // Use text/plain to prevent XML execution in browser
+    const blob = new Blob([generatedSitemap], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -113,7 +220,7 @@ export const XmlSitemapGenerator = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  notify.success("Sitemap downloaded!");
+    notify.success("Sitemap downloaded!");
   };
 
   const clearAll = () => {
