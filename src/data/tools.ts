@@ -16,83 +16,72 @@ export interface Category {
   toolCount: number;
 }
 
-export const categories: Category[] = [
+const categoriesBase = [
   {
     id: "text-tools",
     name: "Text Tools",
     description: "Tools for manipulating and analyzing text",
     icon: "FileText",
-    toolCount: 17,
   },
   {
     id: "image-tools",
     name: "Image Tools",
     description: "Tools for working with images",
     icon: "Image",
-    toolCount: 7,
   },
   {
     id: "seo-tools",
     name: "SEO Tools",
     description: "Search Engine Optimization tools",
     icon: "TrendingUp",
-    toolCount: 8,
   },
   {
     id: "calculators",
     name: "Calculators",
     description: "Various calculators for different needs",
     icon: "Calculator",
-    toolCount: 14,
   },
   {
     id: "number-tools",
     name: "Number Tools",
     description: "Tools for working with numbers",
     icon: "Hash",
-    toolCount: 10,
   },
   {
     id: "random-generators",
     name: "Random Generators",
     description: "Generate random data and values",
     icon: "Sparkles",
-    toolCount: 12,
   },
   {
     id: "social-tools",
     name: "Social Media Tools",
     description: "Tools for social media content creators",
     icon: "Share2",
-    toolCount: 4,
   },
   {
     id: "developer-tools",
     name: "Developer Tools",
     description: "Tools for web developers",
     icon: "Code",
-    toolCount: 16,
   },
   {
     id: "date-time-tools",
     name: "Date & Time Tools",
     description: "Tools for working with dates and time",
     icon: "Clock",
-    toolCount: 8,
   },
   {
     id: "security-tools",
     name: "Security Tools",
     description: "Security and privacy related tools",
     icon: "Shield",
-    toolCount: 5,
   },
   {
     id: "media-tools",
     name: "Media Tools",
     description: "Audio and video manipulation tools",
     icon: "Music",
-    toolCount: 6,
   },
 ];
 
@@ -866,6 +855,12 @@ export const tools: Tool[] = [
     icon: "ArrowUpDown",
   },
 ];
+
+// Dynamically compute tool counts for each category
+export const categories: Category[] = categoriesBase.map(category => ({
+  ...category,
+  toolCount: tools.filter(tool => tool.category === category.id).length,
+}));
 
 export const popularSearches = [
   "Password",
