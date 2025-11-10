@@ -1,9 +1,24 @@
 import { useState, useMemo } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { validateTextLength, MAX_TEXT_LENGTH, truncateText } from "@/lib/security";
+import { notify } from "@/lib/notify";
 
 export const WordCounter = () => {
   const [text, setText] = useState("");
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    // Security: Validate and truncate text length to prevent DoS
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText(truncateText(newText));
+      return;
+    }
+    
+    setText(newText);
+  };
 
   const stats = useMemo(() => {
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -26,8 +41,9 @@ export const WordCounter = () => {
           <Textarea
             placeholder="Start typing or paste your text here..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             className="min-h-[300px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </CardContent>
       </Card>

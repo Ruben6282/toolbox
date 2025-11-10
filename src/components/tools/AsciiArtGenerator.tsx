@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Shuffle, Image } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 // ✅ Register fonts once
 const REGISTERED_FONTS = {
@@ -61,10 +62,24 @@ export const AsciiArtGenerator = () => {
   const [inputText, setInputText] = useState("");
   const [font, setFont] = useState("Standard");
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setInputText(truncateText(newText));
+      return;
+    }
+    
+    setInputText(newText);
+  };
+
   const asciiArt = useMemo(() => {
     if (!inputText.trim()) return "";
     try {
-      return figlet.textSync(inputText, { font });
+      // Sanitize input before processing
+      const sanitized = sanitizeText(inputText);
+      return figlet.textSync(sanitized, { font });
     } catch {
       return "";
     }
@@ -72,10 +87,38 @@ export const AsciiArtGenerator = () => {
 
   const copyToClipboard = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(asciiArt);
-      notify.success("Copied to clipboard!");
-    } catch {
-      notify.error("Failed to copy");
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(asciiArt);
+        notify.success("Copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = asciiArt;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy!");
     }
   }, [asciiArt]);
 
@@ -146,8 +189,9 @@ export const AsciiArtGenerator = () => {
               id="text-input"
               placeholder="Type text to instantly generate ASCII art..."
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={handleInputChange}
               rows={3}
+              maxLength={MAX_TEXT_LENGTH}
             />
           </div>
 

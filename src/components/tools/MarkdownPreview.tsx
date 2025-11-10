@@ -1,22 +1,22 @@
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeHtml } from "@/lib/security";
+import { notify } from "@/lib/notify";
 
 export const MarkdownPreview = () => {
   const [markdown, setMarkdown] = useState("# Hello World\n\nThis is **bold** and this is *italic*.\n\n- List item 1\n- List item 2\n\n```javascript\nconst hello = 'world';\n```");
 
-  const sanitizeHtml = (html: string) => {
-    // Basic HTML sanitization to prevent XSS
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-      .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-      .replace(/<link\b[^>]*>/gi, '')
-      .replace(/<meta\b[^>]*>/gi, '')
-      .replace(/on\w+="[^"]*"/gi, '')
-      .replace(/on\w+='[^']*'/gi, '')
-      .replace(/javascript:/gi, '');
+  const handleMarkdownChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setMarkdown(truncateText(newText));
+      return;
+    }
+    
+    setMarkdown(newText);
   };
 
   const convertMarkdown = (md: string) => {
@@ -49,13 +49,13 @@ export const MarkdownPreview = () => {
     });
     
     // Lists
-    html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
+    html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
     html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
     
     // Line breaks
     html = html.replace(/\n/gim, '<br>');
     
-    // Sanitize the final HTML
+    // ✅ SECURITY: Use DOMPurify to sanitize the final HTML against XSS attacks
     return sanitizeHtml(html);
   };
 
@@ -69,8 +69,9 @@ export const MarkdownPreview = () => {
           <Textarea
             placeholder="Enter markdown..."
             value={markdown}
-            onChange={(e) => setMarkdown(e.target.value)}
+            onChange={handleMarkdownChange}
             className="min-h-[400px] font-mono"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </CardContent>
       </Card>

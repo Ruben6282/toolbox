@@ -5,13 +5,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 export const TextToBinary = () => {
   const [text, setText] = useState("");
   const [binary, setBinary] = useState("");
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText(truncateText(newText));
+      return;
+    }
+    
+    setText(newText);
+  };
+
   const convertToBinary = () => {
-    const binaryResult = text
+    // Sanitize input before conversion
+    const sanitized = sanitizeText(text);
+    const binaryResult = sanitized
       .split("")
       .map(char => char.charCodeAt(0).toString(2).padStart(8, "0"))
       .join(" ");
@@ -69,8 +84,9 @@ export const TextToBinary = () => {
             id="text"
             placeholder="Enter text to convert to binary"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             className="min-h-[100px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </div>
 

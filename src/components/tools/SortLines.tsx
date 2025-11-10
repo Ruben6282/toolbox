@@ -5,14 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 export const SortLines = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [order, setOrder] = useState("asc");
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setInput(truncateText(newText));
+      return;
+    }
+    
+    setInput(newText);
+  };
+
   const sortLines = () => {
-    const lines = input.split("\n");
+    // Sanitize input before sorting
+    const sanitized = sanitizeText(input);
+    const lines = sanitized.split("\n");
     const sorted = lines.sort((a, b) => {
       if (order === "asc") {
         return a.localeCompare(b);
@@ -24,9 +39,41 @@ export const SortLines = () => {
   notify.success("Lines sorted!");
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(output);
-  notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    try {
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(output);
+        notify.success("Copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = output;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
+    }
   };
 
   return (
@@ -39,8 +86,9 @@ export const SortLines = () => {
           <Textarea
             placeholder="Enter text lines to sort..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             className="min-h-[200px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
           
           <div>

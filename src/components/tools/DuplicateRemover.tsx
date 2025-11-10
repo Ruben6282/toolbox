@@ -3,10 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
 export const DuplicateRemover = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setInput(truncateText(newText));
+      return;
+    }
+    
+    setInput(newText);
+  };
 
   const removeDuplicates = () => {
     const lines = input.split("\n");
@@ -16,9 +29,41 @@ export const DuplicateRemover = () => {
   notify.success(`Removed ${removed} duplicate line${removed !== 1 ? "s" : ""}!`);
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(output);
-  notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    try {
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(output);
+        notify.success("Copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = output;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
+    }
   };
 
   return (
@@ -31,8 +76,9 @@ export const DuplicateRemover = () => {
           <Textarea
             placeholder="Enter text with duplicate lines..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             className="min-h-[200px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </CardContent>
       </Card>

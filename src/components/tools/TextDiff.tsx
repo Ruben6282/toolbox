@@ -1,16 +1,46 @@
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
+import { notify } from "@/lib/notify";
 
 export const TextDiff = () => {
   const [text1, setText1] = useState("");
   const [text2, setText2] = useState("");
 
+  const handleText1Change = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText1(truncateText(newText));
+      return;
+    }
+    
+    setText1(newText);
+  };
+
+  const handleText2Change = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText2(truncateText(newText));
+      return;
+    }
+    
+    setText2(newText);
+  };
+
   const getDiff = () => {
     if (!text1 || !text2) return null;
     
-    const lines1 = text1.split("\n");
-    const lines2 = text2.split("\n");
+    // Sanitize inputs before comparison
+    const sanitized1 = sanitizeText(text1);
+    const sanitized2 = sanitizeText(text2);
+    
+    const lines1 = sanitized1.split("\n");
+    const lines2 = sanitized2.split("\n");
     const maxLines = Math.max(lines1.length, lines2.length);
     
     const differences = [];
@@ -38,8 +68,9 @@ export const TextDiff = () => {
             <Textarea
               placeholder="Enter original text..."
               value={text1}
-              onChange={(e) => setText1(e.target.value)}
+              onChange={handleText1Change}
               className="min-h-[300px] font-mono"
+              maxLength={MAX_TEXT_LENGTH}
             />
           </CardContent>
         </Card>
@@ -52,8 +83,9 @@ export const TextDiff = () => {
             <Textarea
               placeholder="Enter modified text..."
               value={text2}
-              onChange={(e) => setText2(e.target.value)}
+              onChange={handleText2Change}
               className="min-h-[300px] font-mono"
+              maxLength={MAX_TEXT_LENGTH}
             />
           </CardContent>
         </Card>

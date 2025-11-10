@@ -3,9 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
 export const CaseConverter = () => {
   const [text, setText] = useState("");
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText(truncateText(newText));
+      return;
+    }
+    
+    setText(newText);
+  };
 
   const handleConvert = (type: string) => {
     let result = "";
@@ -36,9 +49,41 @@ export const CaseConverter = () => {
     notify.success("Text converted!");
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(text);
-    notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    try {
+      // Modern approach - works on most browsers including mobile
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("Copied to clipboard!");
+      } else {
+        // Fallback for older browsers or when clipboard API is not available
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            notify.success("Copied to clipboard!");
+          } else {
+            notify.error("Failed to copy!");
+          }
+        } catch (err) {
+          console.error('Fallback: Failed to copy', err);
+          notify.error("Failed to copy to clipboard!");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard!");
+    }
   };
 
   return (
@@ -51,8 +96,9 @@ export const CaseConverter = () => {
           <Textarea
             placeholder="Enter your text here..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             className="min-h-[200px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </CardContent>
       </Card>

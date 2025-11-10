@@ -5,21 +5,36 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Copy } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 export const BinaryToText = () => {
   const [binary, setBinary] = useState("");
   const [text, setText] = useState("");
 
+  const handleBinaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setBinary(truncateText(newText));
+      return;
+    }
+    
+    setBinary(newText);
+  };
+
   const convertToText = () => {
     try {
-      const binaryArray = binary.trim().split(/\s+/);
+      // Sanitize input before conversion
+      const sanitized = sanitizeText(binary);
+      const binaryArray = sanitized.trim().split(/\s+/);
       const textResult = binaryArray
         .map(bin => {
           const decimal = parseInt(bin, 2);
           return String.fromCharCode(decimal);
         })
         .join("");
-      setText(textResult);
+      setText(sanitizeText(textResult));
       notify.success("Binary converted to text!");
     } catch (error) {
       notify.error("Invalid binary format");
@@ -76,8 +91,9 @@ export const BinaryToText = () => {
             id="binary"
             placeholder="01001000 01100101 01101100 01101100 01101111"
             value={binary}
-            onChange={(e) => setBinary(e.target.value)}
+            onChange={handleBinaryChange}
             className="min-h-[100px] font-mono"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </div>
 

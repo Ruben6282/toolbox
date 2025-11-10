@@ -2,9 +2,23 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+import { notify } from "@/lib/notify";
 
 export const CharacterCounter = () => {
   const [text, setText] = useState("");
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText(truncateText(newText));
+      return;
+    }
+    
+    setText(newText);
+  };
 
   const characterCount = text.length;
   const characterCountNoSpaces = text.replace(/\s/g, "").length;
@@ -30,8 +44,9 @@ export const CharacterCounter = () => {
             id="text"
             placeholder="Type or paste your text here..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             className="min-h-[200px] font-mono"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </div>
 

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mic, MicOff, Copy, RotateCcw, Download } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 // Minimal typings for Web Speech API to avoid relying on lib.dom SpeechRecognition types
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
@@ -97,9 +98,17 @@ export const SpeechToText = () => {
         }
 
         if (finalTranscript) {
-          setTranscript(prev => prev + finalTranscript + " ");
+          const sanitized = sanitizeText(finalTranscript);
+          setTranscript(prev => {
+            const newText = prev + sanitized + " ";
+            if (!validateTextLength(newText)) {
+              notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+              return truncateText(newText);
+            }
+            return newText;
+          });
         }
-        setInterimTranscript(interimTxt);
+        setInterimTranscript(sanitizeText(interimTxt));
       };
 
       recognition.onerror = () => {

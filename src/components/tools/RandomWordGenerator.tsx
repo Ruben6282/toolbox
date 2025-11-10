@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { sanitizeNumber } from "@/lib/security";
 
 const WORD_CATEGORIES = {
   adjectives: [
@@ -124,7 +125,7 @@ export const RandomWordGenerator = () => {
                 min="1"
                 max="50"
                 value={wordCount}
-                onChange={(e) => setWordCount(parseInt(e.target.value) || 1)}
+                onChange={(e) => setWordCount(sanitizeNumber(parseInt(e.target.value), 1, 50))}
               />
             </div>
             

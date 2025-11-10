@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Play, Pause, Square, Volume2, RotateCcw } from "lucide-react";
+import { validateTextLength, MAX_TEXT_LENGTH, truncateText, sanitizeNumber } from "@/lib/security";
+import { notify } from "@/lib/notify";
 
 export const TextToSpeech = () => {
   const [text, setText] = useState("");
@@ -20,6 +22,19 @@ export const TextToSpeech = () => {
   const [selectedLang, setSelectedLang] = useState<string>("auto");
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const deviceLang = useMemo(() => (navigator.language || "en").toLowerCase().split("-")[0], []);
+  
+  // Security: Handle text input with validation
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    
+    if (!validateTextLength(newText)) {
+      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setText(truncateText(newText));
+      return;
+    }
+    
+    setText(newText);
+  };
 
   // Load voices with retries (mobile browsers sometimes populate asynchronously)
   const loadVoices = () => {
@@ -90,7 +105,10 @@ export const TextToSpeech = () => {
 
     stop(); // Ensure no overlapping speech
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Security: Sanitize text before speech synthesis (remove any potential control characters)
+    // eslint-disable-next-line no-control-regex
+    const sanitizedText = text.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+    const utterance = new SpeechSynthesisUtterance(sanitizedText);
     utteranceRef.current = utterance;
 
     if (voiceUri !== "default" && availableVoices.length > 0) {
@@ -98,9 +116,10 @@ export const TextToSpeech = () => {
       if (selectedVoice) utterance.voice = selectedVoice;
     }
 
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.volume = volume;
+    // Security: Sanitize numeric inputs to prevent invalid values
+    utterance.rate = sanitizeNumber(rate, 0.1, 3) ?? 1;
+    utterance.pitch = sanitizeNumber(pitch, 0.1, 2) ?? 1;
+    utterance.volume = sanitizeNumber(volume, 0, 1) ?? 1;
 
     utterance.onstart = () => {
       setIsPlaying(true);
@@ -186,8 +205,9 @@ export const TextToSpeech = () => {
               id="text-input"
               placeholder="Enter text to convert to speech..."
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={handleTextChange}
               rows={4}
+              maxLength={MAX_TEXT_LENGTH}
             />
           </div>
 
