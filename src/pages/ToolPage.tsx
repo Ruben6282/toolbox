@@ -109,11 +109,9 @@ import { OgMetaGenerator } from "@/components/tools/OgMetaGenerator";
 import { CanonicalUrlGenerator } from "@/components/tools/CanonicalUrlGenerator";
 import { XmlSitemapGenerator } from "@/components/tools/XmlSitemapGenerator";
 import { KeywordDensityChecker } from "@/components/tools/KeywordDensityChecker";
-import { PageSpeedTest } from "@/components/tools/PageSpeedTest";
 import { GoogleSerpSimulator } from "@/components/tools/GoogleSerpSimulator";
 import { FacebookPostPreview } from "@/components/tools/FacebookPostPreview";
 import { HashtagCounter } from "@/components/tools/HashtagCounter";
-import { JavaScriptObfuscator } from "@/components/tools/JavaScriptObfuscator";
 import { CountdownTimer } from "@/components/tools/CountdownTimer";
 import { SleepCycleCalculator } from "@/components/tools/SleepCycleCalculator";
 import { FakeNameGenerator } from "@/components/tools/FakeNameGenerator";
@@ -121,8 +119,6 @@ import { UrlSafetyChecker } from "@/components/tools/UrlSafetyChecker";
 import { YouTubeThumbnailDownloader } from "@/components/tools/YouTubeThumbnailDownloader";
 import { Mp3ToWavConverter } from "@/components/tools/Mp3ToWavConverter";
 import { AudioCutter } from "@/components/tools/AudioCutter";
-import { VideoCutter } from "@/components/tools/VideoCutter";
-import { RemoveAudioFromVideo } from "@/components/tools/RemoveAudioFromVideo";
 
 const ToolPage = () => {
   const { categoryId, toolId } = useParams();
@@ -451,12 +447,6 @@ const ToolPage = () => {
         "Click 'Analyze' to check keyword density",
         "Review the results and optimize your content accordingly"
       ],
-      "page-speed-test": [
-        "Enter your website URL in the input field",
-        "Click 'Test Speed' to analyze your page",
-        "Review the performance metrics and suggestions",
-        "Use the recommendations to improve your site speed"
-      ],
       "google-serp-simulator": [
         "Enter your page title and meta description",
         "Add your target keyword for the search",
@@ -761,12 +751,7 @@ const ToolPage = () => {
         "Add text and icons if desired",
         "Copy the Bootstrap button HTML and CSS"
       ],
-      "js-obfuscator": [
-        "Paste your JavaScript code in the input area",
-        "Configure obfuscation settings for security",
-        "Click 'Obfuscate' to protect your code",
-        "Copy the obfuscated code for production"
-      ],
+
       "regex-tester": [
         "Enter your regular expression pattern",
         "Add test strings to match against",
@@ -892,18 +877,6 @@ const ToolPage = () => {
         "Use the timeline to select start and end points",
         "Preview the selected audio segment",
         "Download the trimmed audio file"
-      ],
-      "video-cutter": [
-        "Upload a video file to trim",
-        "Set the start and end times for your clip",
-        "Preview the trimmed video segment",
-        "Download the cut video file"
-      ],
-      "remove-audio-from-video": [
-        "Upload a video file with audio",
-        "Click 'Remove Audio' to strip the sound track",
-        "Preview the video without audio",
-        "Download the silent video file"
       ],
 
       // Additional tools
@@ -1141,16 +1114,12 @@ const ToolPage = () => {
         return <XmlSitemapGenerator />;
       case "keyword-density-checker":
         return <KeywordDensityChecker />;
-      case "page-speed-test-dev":
-        return <PageSpeedTest />;
       case "google-serp-simulator":
         return <GoogleSerpSimulator />;
       case "facebook-post-preview":
         return <FacebookPostPreview />;
       case "hashtag-counter":
         return <HashtagCounter />;
-      case "js-obfuscator":
-        return <JavaScriptObfuscator />;
       case "countdown-timer":
         return <CountdownTimer />;
       case "sleep-cycle-calculator":
@@ -1165,10 +1134,6 @@ const ToolPage = () => {
         return <Mp3ToWavConverter />;
       case "audio-cutter":
         return <AudioCutter />;
-      case "video-cutter-dev":
-        return <VideoCutter />;
-      case "remove-audio-from-video-dev":
-        return <RemoveAudioFromVideo />;
       default:
         return (
           <Card className="shadow-lg">

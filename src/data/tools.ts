@@ -307,14 +307,6 @@ export const tools: Tool[] = [
     isPopular: true,
   },
   {
-    id: "page-speed-test",
-    name: "Page Speed Test",
-    description: "Test the loading speed of your webpage",
-    category: "seo-tools",
-    icon: "Zap",
-    isPopular: true,
-  },
-  {
     id: "google-serp-simulator",
     name: "Google SERP Simulator",
     description: "Preview how your page might appear in Google search results",
@@ -675,13 +667,7 @@ export const tools: Tool[] = [
     category: "developer-tools",
     icon: "MousePointer",
   },
-  {
-    id: "js-obfuscator",
-    name: "JavaScript Obfuscator",
-    description: "Obfuscate JavaScript code to protect intellectual property",
-    category: "developer-tools",
-    icon: "Lock",
-  },
+
   {
     id: "regex-tester",
     name: "Regex Tester",
@@ -834,21 +820,6 @@ export const tools: Tool[] = [
     category: "media-tools",
     icon: "Scissors",
     isNew: true,
-  },
-  {
-    id: "video-cutter",
-    name: "Video Cutter",
-    description: "Cut and trim video files online",
-    category: "media-tools",
-    icon: "Film",
-    isNew: true,
-  },
-  {
-    id: "remove-audio-from-video",
-    name: "Remove Audio from Video",
-    description: "Remove the audio track from video files",
-    category: "media-tools",
-    icon: "Video",
   },
   
   // Additional converters & utilities

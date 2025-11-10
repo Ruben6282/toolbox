@@ -236,11 +236,6 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://toolcheetah.com/seo-tools/page-speed-test</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
     <loc>https://toolcheetah.com/seo-tools/google-serp-simulator</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
@@ -485,11 +480,7 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
-    <loc>https://toolcheetah.com/developer-tools/js-obfuscator</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
+
   <url>
     <loc>https://toolcheetah.com/developer-tools/regex-tester</loc>
     <changefreq>weekly</changefreq>
@@ -590,16 +581,7 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
-    <loc>https://toolcheetah.com/media-tools/video-cutter</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://toolcheetah.com/media-tools/remove-audio-from-video</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
+
   <url>
     <loc>https://toolcheetah.com/developer-tools/url-encoder</loc>
     <changefreq>weekly</changefreq>
