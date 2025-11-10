@@ -290,7 +290,7 @@ const TermsOfServicePage = () => {
               or practices of any third-party websites or services.
             </p>
             <p className="text-sm text-muted-foreground">
-              Some of our tools may use external APIs (such as currency rates or website performance testing). When 
+              Some of our tools may use external APIs (such as currency conversion rates). When 
               using these tools, the data you input may be transmitted to these third-party services. We recommend 
               reviewing their terms and privacy policies.
             </p>

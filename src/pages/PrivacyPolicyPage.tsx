@@ -247,10 +247,10 @@ const PrivacyPolicyPage = () => {
             <div className="space-y-3">
               <h4 className="font-semibold text-sm">External APIs</h4>
               <p className="text-sm text-muted-foreground">
-                Some tools may make requests to external APIs (such as currency conversion rates or website 
-                performance testing). When using these tools, you understand that the specific data required for 
-                that tool (e.g., a URL for speed testing) will be sent to the respective API service. We recommend 
-                reviewing the privacy policies of these services if you have concerns.
+                Some tools may make requests to external APIs (such as currency conversion rates). When using 
+                these tools, you understand that the specific data required for that tool will be sent to the 
+                respective API service. We recommend reviewing the privacy policies of these services if you 
+                have concerns.
               </p>
             </div>
           </CardContent>
