@@ -228,15 +228,6 @@ const PrivacyPolicyPage = () => {
             </p>
             
             <div className="space-y-3">
-              <h4 className="font-semibold text-sm">Advertising</h4>
-              <p className="text-sm text-muted-foreground">
-                We may display advertisements through Google AdSense or similar services. These services may use 
-                cookies and similar technologies to show relevant ads based on your browsing history. You can 
-                control ad personalization through your Google Ad Settings.
-              </p>
-            </div>
-            
-            <div className="space-y-3">
               <h4 className="font-semibold text-sm">Analytics</h4>
               <p className="text-sm text-muted-foreground">
                 We may use privacy-focused analytics services to understand how our website is used. These services 
@@ -270,7 +261,6 @@ const PrivacyPolicyPage = () => {
               <li>Clearing your browser's cookies and local storage at any time</li>
               <li>Using browser privacy modes or ad blockers</li>
               <li>Disabling JavaScript (though this will prevent tools from working)</li>
-              <li>Opting out of personalized advertising through your browser or device settings</li>
             </ul>
           </CardContent>
         </Card>

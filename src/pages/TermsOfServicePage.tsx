@@ -297,26 +297,12 @@ const TermsOfServicePage = () => {
           </CardContent>
         </Card>
 
-        {/* Advertising */}
-        <Card>
-          <CardHeader>
-            <CardTitle>7. Advertising</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Our website may display third-party advertisements. We use advertising to keep our tools free for 
-              everyone. Advertisers are responsible for ensuring their ads comply with applicable laws. We are not 
-              responsible for the content or accuracy of advertisements or the products/services they promote.
-            </p>
-          </CardContent>
-        </Card>
-
         {/* Data and Privacy */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-purple-500" />
-              8. Data and Privacy
+              7. Data and Privacy
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -331,7 +317,7 @@ const TermsOfServicePage = () => {
         {/* Termination */}
         <Card>
           <CardHeader>
-            <CardTitle>9. Termination</CardTitle>
+            <CardTitle>8. Termination</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -345,7 +331,7 @@ const TermsOfServicePage = () => {
         {/* Governing Law */}
         <Card>
           <CardHeader>
-            <CardTitle>10. Governing Law</CardTitle>
+            <CardTitle>9. Governing Law</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -359,7 +345,7 @@ const TermsOfServicePage = () => {
         {/* Changes to Terms */}
         <Card>
           <CardHeader>
-            <CardTitle>11. Changes to Terms</CardTitle>
+            <CardTitle>10. Changes to Terms</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -373,7 +359,7 @@ const TermsOfServicePage = () => {
         {/* Severability */}
         <Card>
           <CardHeader>
-            <CardTitle>12. Severability</CardTitle>
+            <CardTitle>11. Severability</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
@@ -387,7 +373,7 @@ const TermsOfServicePage = () => {
         {/* Contact */}
         <Card className="bg-muted/30">
           <CardHeader>
-            <CardTitle>13. Contact Information</CardTitle>
+            <CardTitle>12. Contact Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
