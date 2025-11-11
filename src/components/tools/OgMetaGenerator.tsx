@@ -9,6 +9,13 @@ import { Copy, Download, RotateCcw, Share2 } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { sanitizeUrl, truncateText, encodeMetaTag, sanitizeNumber, SEO_LIMITS } from "@/lib/security";
 
+/**
+ * DoS Protection: Maximum input length for text fields
+ * Prevents performance degradation from excessively large inputs
+ * that could cause re-render storms or memory issues.
+ */
+const MAX_INPUT_LENGTH = 2000;
+
 export const OgMetaGenerator = () => {
   const [formData, setFormData] = useState({
     title: "",
@@ -23,7 +30,17 @@ export const OgMetaGenerator = () => {
     imageAlt: ""
   });
 
+  /**
+   * Handle input changes with DoS protection
+   * Rejects inputs exceeding MAX_INPUT_LENGTH to prevent performance issues
+   */
   const handleInputChange = (field: string, value: string) => {
+    // DoS Protection: Reject excessively large inputs early
+    if (value.length > MAX_INPUT_LENGTH) {
+      notify.error(`Input too long (max ${MAX_INPUT_LENGTH} characters)`);
+      return;
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -48,9 +65,11 @@ export const OgMetaGenerator = () => {
     // Validate image URLs use HTTPS
     if (safeImage && !safeImage.startsWith('https://')) {
       notify.warning('OG Image URL should use HTTPS for better compatibility');
+      return;
     }
     if (safeUrl && !safeUrl.startsWith('https://')) {
       notify.warning('OG URL should use HTTPS for better security');
+      return;
     }
     
     // Sanitize and validate numeric inputs

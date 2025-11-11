@@ -9,6 +9,13 @@ import { Copy, RotateCcw, Search, BarChart3 } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { SEO_LIMITS } from "@/lib/security";
 
+/**
+ * Unicode-aware word matching pattern.
+ * \p{L} covers any kind of letter from any language (accents, non-Latin scripts).
+ * Using the 'u' flag enables Unicode property escapes for international SEO support.
+ */
+const WORD_PATTERN = /^[\p{L}]+$/u;
+
 interface KeywordData {
   keyword: string;
   count: number;
@@ -51,13 +58,16 @@ export const KeywordDensityChecker = () => {
 
     // Clean and split text into words
     const cleanText = text.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
+      // Replace anything that's not a Unicode letter or whitespace with a space
+      .replace(/[^\p{L}\s]+/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     
+    // Split text into words and keep only those matching the Unicode letter pattern.
+    // This allows accented and non-English characters (e.g., español, naïve, München, 東京).
     const words = cleanText.split(' ').filter(word => 
       word.length >= minWordLength && 
-      word.match(/^[a-zA-Z]+$/)
+      WORD_PATTERN.test(word)
     );
 
     const totalWords = words.length;
@@ -74,10 +84,23 @@ export const KeywordDensityChecker = () => {
       wordPositions[word].push(index + 1);
     });
 
-    // Get exclusion list
+    // Build sanitized exclusion list:
+    // 1. Split on commas or whitespace
+    // 2. Trim each token
+    // 3. Lowercase for case-insensitive matching
+    // 4. Filter empty tokens
+    // 5. Use a Set to deduplicate
+    const sanitizedCustomExclusions = customExclusions
+      .trim()
+      .toLowerCase()
+      // Split by commas or any whitespace characters
+      .split(/[\s,]+/)
+      .map(token => token.trim())
+      .filter(Boolean);
+
     const exclusions = new Set([
       ...(excludeCommon ? commonWords : []),
-      ...customExclusions.toLowerCase().split(/[,\s]+/).filter(word => word.trim())
+      ...sanitizedCustomExclusions
     ]);
 
     // Calculate keyword data
@@ -96,6 +119,7 @@ export const KeywordDensityChecker = () => {
       totalWords,
       uniqueWords: keywords.length
     };
+    // WORD_PATTERN intentionally excluded from deps as it's a stable constant.
   }, [text, minWordLength, excludeCommon, customExclusions, commonWords]);
 
   const copyResults = async () => {

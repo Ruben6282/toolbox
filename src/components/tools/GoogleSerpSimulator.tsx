@@ -34,17 +34,16 @@ export const GoogleSerpSimulator = () => {
       return;
     }
 
-    // Sanitize and truncate user inputs
-    const safeQuery = sanitizeText(truncateText(query));
-    const safeLocation = location ? sanitizeText(truncateText(location)) : 'your area';
+    // Sanitize and truncate user inputs, then cap to 100 chars
+    const safeQuery = sanitizeText(truncateText(query)).slice(0, 100);
+    const safeLocation = location ? sanitizeText(truncateText(location)).slice(0, 100) : 'your area';
     const urlSlug = safeQuery.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
     setIsLoading(true);
-    
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Generate mock SERP results
       const mockResults: SerpResult[] = [
         {
@@ -115,6 +114,7 @@ export const GoogleSerpSimulator = () => {
       setResults(mockResults);
       notify.success("SERP results generated!");
     } catch (error) {
+      console.error(error);
       notify.error("Failed to generate SERP results. Please try again.");
     } finally {
       setIsLoading(false);
@@ -277,6 +277,7 @@ export const GoogleSerpSimulator = () => {
                           src={result.image}
                           alt={result.title}
                           className="w-full lg:w-32 h-24 object-cover rounded border"
+                          loading="lazy"
                         />
                       </div>
                     )}
