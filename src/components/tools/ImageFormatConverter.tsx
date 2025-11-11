@@ -1,3 +1,16 @@
+/**
+ * ImageFormatConverter - Enterprise-grade image format conversion tool
+ * 
+ * Security Features:
+ * - File Size Limit: 10MB MAX_FILE_SIZE_MB prevents memory exhaustion
+ * - Magic Byte Validation: sniffMime() verifies PNG/JPEG/WEBP signatures
+ * - Dimension Guardrails: MAX_IMAGE_DIMENSION (4096px) with auto-downscaling
+ * - Canvas Safety: try/catch around drawImage() and toDataURL()
+ * - GIF/BMP Warnings: Alerts users about canvas format limitations
+ * - Object URL Approach: Blob URLs instead of Base64 for memory efficiency
+ * - Accessibility: aria-live announcements for screen readers
+ */
+
 import { useState, useRef, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,9 +29,50 @@ import {
   RotateCcw,
   ImageIcon,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
-import { ALLOWED_IMAGE_TYPES, validateImageFile, sanitizeFilename } from "@/lib/security";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, sanitizeFilename, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
+
+const MAX_FILE_SIZE_MB = 10;
+
+/**
+ * Detect image format via magic bytes (file signature)
+ * Prevents MIME spoofing attacks
+ */
+async function sniffMime(file: File): Promise<string | null> {
+  const buffer = await file.slice(0, 16).arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+    return "image/png";
+  }
+  
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+    return "image/jpeg";
+  }
+  
+  // WebP: RIFF....WEBP
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+    return "image/webp";
+  }
+  
+  // GIF: GIF87a or GIF89a
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+    return "image/gif";
+  }
+  
+  // BMP: BM
+  if (bytes[0] === 0x42 && bytes[1] === 0x4D) {
+    return "image/bmp";
+  }
+  
+  return null;
+}
 
 export const ImageFormatConverter = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -29,6 +83,7 @@ export const ImageFormatConverter = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { createImageUrl } = useObjectUrls();
 
   const formats = [
     { label: "PNG", value: "png", description: "Lossless compression, supports transparency" },
@@ -38,33 +93,65 @@ export const ImageFormatConverter = () => {
     { label: "BMP", value: "bmp", description: "Uncompressed bitmap format" },
   ];
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setError(null);
     setConvertedImage(null);
 
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      notify.error(validationError);
+    // File size check
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      notify.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit`);
       return;
     }
-    // We keep base64 for conversion but sanitize filename metadata
+
+    // MIME type allowlist check
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      notify.error("Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed.");
+      return;
+    }
+
+    // Magic bytes verification
+    const sniffed = await sniffMime(file);
+    if (!sniffed || !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
+      notify.error("File signature mismatch. File may be corrupted or spoofed.");
+      return;
+    }
+
     const safeName = sanitizeFilename(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setSelectedImage(e.target?.result as string);
-      setOriginalFormat(safeName.split(".").pop()?.toLowerCase() || "unknown");
-      notify.success("Image uploaded successfully!");
-    };
-    reader.onerror = () => notify.error("Failed to read image file");
-    reader.readAsDataURL(file);
+    const format = safeName.split(".").pop()?.toLowerCase() || "unknown";
+    setOriginalFormat(format);
+
+    // Object URL approach for memory efficiency
+    try {
+      const imageUrl = await createImageUrl(file, {
+        downscaleLarge: true,
+        maxDimension: MAX_IMAGE_DIMENSION,
+      });
+
+      if (imageUrl) {
+        setSelectedImage(imageUrl);
+        notify.success("Image uploaded successfully!");
+      } else {
+        notify.error("Failed to load image. File may be corrupted.");
+      }
+    } catch (err) {
+      notify.error("Failed to process image file");
+      console.error("Image upload error:", err);
+    }
   };
 
   const convertImage = () => {
     if (!selectedImage || !canvasRef.current) return;
     setLoading(true);
     setError(null);
+
+    // GIF/BMP format warnings (canvas limitations)
+    if (targetFormat === "gif" || targetFormat === "bmp") {
+      notify.warning(
+        `Converting to ${targetFormat.toUpperCase()}: Canvas may not preserve all format features. Output quality may vary.`
+      );
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -77,22 +164,61 @@ export const ImageFormatConverter = () => {
 
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
       try {
-        const mimeType = `image/${targetFormat}`;
-        const qualityValue = targetFormat === "jpeg" ? quality / 100 : undefined;
-        const dataUrl = canvas.toDataURL(mimeType, qualityValue);
-        setConvertedImage(dataUrl);
-        notify.success(`Image converted to ${targetFormat.toUpperCase()}!`);
-      } catch {
-        setError("Conversion failed. Try another format.");
-        notify.error("Conversion failed. Try another format.");
+        // Dimension guardrail: downscale if exceeds MAX_IMAGE_DIMENSION
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+          const scale = Math.min(MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height);
+          width = Math.floor(width * scale);
+          height = Math.floor(height * scale);
+          notify.warning(`Image downscaled to ${width}×${height}px for processing`);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Canvas safety: wrap drawImage in try/catch
+        try {
+          ctx.drawImage(img, 0, 0, width, height);
+        } catch (err) {
+          setError("Failed to draw image on canvas. Image may be corrupted.");
+          notify.error("Failed to draw image. Image may be corrupted.");
+          console.error("drawImage error:", err);
+          setLoading(false);
+          return;
+        }
+
+        // Canvas safety: wrap toDataURL in try/catch
+        try {
+          const mimeType = `image/${targetFormat}`;
+          const qualityValue = targetFormat === "jpeg" || targetFormat === "webp" 
+            ? quality / 100 
+            : undefined;
+          const dataUrl = canvas.toDataURL(mimeType, qualityValue);
+          setConvertedImage(dataUrl);
+          notify.success(`Image converted to ${targetFormat.toUpperCase()}!`);
+        } catch (err) {
+          setError("Conversion failed. Try another format.");
+          notify.error("Conversion failed. Try another format.");
+          console.error("toDataURL error:", err);
+        }
+      } catch (err) {
+        setError("Unexpected error during conversion.");
+        notify.error("Unexpected error during conversion.");
+        console.error("Conversion error:", err);
       }
+
       setLoading(false);
     };
+
+    img.onerror = () => {
+      setError("Failed to load image. File may be corrupted.");
+      notify.error("Failed to load image. File may be corrupted.");
+      setLoading(false);
+    };
+
     img.src = selectedImage;
   };
 
@@ -178,8 +304,8 @@ export const ImageFormatConverter = () => {
             </div>
           </div>
 
-          {/* JPEG Quality Slider */}
-          {targetFormat === "jpeg" && (
+          {/* Quality Slider (JPEG/WebP) */}
+          {(targetFormat === "jpeg" || targetFormat === "webp") && (
             <div className="space-y-2">
               <Label>Quality: {quality}%</Label>
               <input
@@ -189,6 +315,7 @@ export const ImageFormatConverter = () => {
                 value={quality}
                 onChange={(e) => setQuality(parseInt(e.target.value))}
                 className="w-full"
+                aria-label={`Image quality slider, current value ${quality} percent`}
               />
               <p className="text-xs text-muted-foreground">
                 Higher quality → larger file size
@@ -245,11 +372,15 @@ export const ImageFormatConverter = () => {
             <CardTitle>Original Image</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg bg-muted p-3 flex justify-center">
+            <div 
+              className="border rounded-lg bg-muted p-3 flex justify-center"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {selectedImage ? (
                 <img
                   src={selectedImage}
-                  alt="Original" /* Base64 data URL from validated image file */
+                  alt="Original uploaded image" /* Blob URL from validated image file */
                   className="max-w-full h-auto rounded-md"
                 />
               ) : (
@@ -266,11 +397,15 @@ export const ImageFormatConverter = () => {
             <CardTitle>Converted Image</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-lg bg-muted p-3 flex justify-center">
+            <div 
+              className="border rounded-lg bg-muted p-3 flex justify-center"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {convertedImage ? (
                 <img
                   src={convertedImage}
-                  alt="Converted" /* Canvas-generated sanitized output */
+                  alt={`Converted image in ${targetFormat} format`} /* Canvas-generated sanitized output */
                   className="max-w-full h-auto rounded-md"
                 />
               ) : (
@@ -312,7 +447,7 @@ export const ImageFormatConverter = () => {
                 <p className="text-sm text-muted-foreground">File Size</p>
               </div>
 
-              {targetFormat === "jpeg" && (
+              {(targetFormat === "jpeg" || targetFormat === "webp") && (
                 <div>
                   <div className="text-2xl font-bold text-orange-600">
                     {quality}%

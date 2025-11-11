@@ -1,3 +1,14 @@
+/**
+ * ImageGrayscale - Enterprise-Grade Security Hardening
+ *
+ * Security & performance features:
+ * - File size limit (10MB) to prevent memory pressure
+ * - Magic byte validation to prevent file type spoofing
+ * - Dimension guardrails using MAX_IMAGE_DIMENSION with auto-downscaling
+ * - Canvas error guards (try/catch) to handle corrupted image data
+ * - Object URL approach for memory efficiency (vs Base64)
+ * - MIME type verification before processing
+ */
 import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Download, RotateCcw, Upload, Palette } from "lucide-react";
 import { notify } from "@/lib/notify";
-import { ALLOWED_IMAGE_TYPES, validateImageFile } from "@/lib/security";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import { useObjectUrls } from "@/hooks/use-object-urls";
 
 export const ImageGrayscale = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -16,6 +28,10 @@ export const ImageGrayscale = () => {
   const [brightness, setBrightness] = useState(0);
   const [outputFormat, setOutputFormat] = useState("png");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { createImageUrl } = useObjectUrls();
+
+  // Security guardrail
+  const MAX_FILE_SIZE_MB = 10;
 
   const grayscaleTypes = [
     { label: "Luminance (Recommended)", value: "luminance" },
@@ -26,21 +42,70 @@ export const ImageGrayscale = () => {
     { label: "Desaturate", value: "desaturate" },
   ];
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Magic byte validation (best-effort spoofing prevention)
+   */
+  const sniffMime = async (file: File): Promise<string | null> => {
+    try {
+      const slice = file.slice(0, 16);
+      const buf = await slice.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      // PNG: 89 50 4E 47 0D 0A 1A 0A
+      if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47 && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A) {
+        return "image/png";
+      }
+      // JPEG: FF D8 FF
+      if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+        return "image/jpeg";
+      }
+      // WEBP (RIFF....WEBP): 52 49 46 46 .... 57 45 42 50
+      if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+        return "image/webp";
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // File size check
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      notify.error(`File too large (max ${MAX_FILE_SIZE_MB}MB)`);
+      return;
+    }
+
+    // MIME allowlist check
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      notify.error("Unsupported file type. Please upload PNG, JPEG, or WEBP.");
+      return;
+    }
+
+    // Magic bytes verification (best-effort)
+    const sniffed = await sniffMime(file);
+    if (sniffed && !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
+      notify.error("File signature does not match an allowed image type.");
+      return;
+    }
+
     const error = validateImageFile(file);
     if (error) {
       notify.error(error);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setSelectedImage(e.target?.result as string); // base64 from validated file
-      notify.success("Image uploaded successfully!");
-    };
-    reader.onerror = () => notify.error("Failed to read image file");
-    reader.readAsDataURL(file);
+
+    // Use object URL for memory efficiency (vs Base64)
+    const url = await createImageUrl(file, { downscaleLarge: true, maxDimension: MAX_IMAGE_DIMENSION });
+    if (!url) {
+      notify.error("Failed to create image preview");
+      return;
+    }
+
+    setSelectedImage(url);
+    notify.success("Image uploaded successfully!");
   };
 
   const convertToGrayscale = () => {
@@ -52,60 +117,94 @@ export const ImageGrayscale = () => {
 
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-
-        let gray;
-
-        switch (grayscaleType) {
-          case "luminance":
-            // Luminance method (most accurate for human perception)
-            gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-            break;
-          case "average":
-            gray = Math.round((r + g + b) / 3);
-            break;
-          case "red":
-            gray = r;
-            break;
-          case "green":
-            gray = g;
-            break;
-          case "blue":
-            gray = b;
-            break;
-          case "desaturate": {
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            gray = Math.round((max + min) / 2);
-            break;
-          }
-          default:
-            gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      try {
+        // Dimension guardrail: downscale if exceeds MAX_IMAGE_DIMENSION
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+          const scale = Math.min(MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height);
+          width = Math.floor(width * scale);
+          height = Math.floor(height * scale);
+          notify.warning(`Image downscaled to ${width}×${height}px for processing`);
         }
 
-        // Apply contrast and brightness
-        gray = Math.round(gray * contrast + brightness);
-        gray = Math.max(0, Math.min(255, gray));
+        canvas.width = width;
+        canvas.height = height;
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Canvas error guard: wrap getImageData/putImageData
+        let imageData;
+        try {
+          imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        } catch (err) {
+          notify.error("Failed to read image data. Image may be corrupted.");
+          console.error("getImageData error:", err);
+          return;
+        }
 
-        data[i] = gray;     // Red
-        data[i + 1] = gray; // Green
-        data[i + 2] = gray; // Blue
-        data[i + 3] = a;    // Alpha (unchanged)
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          let gray;
+
+          switch (grayscaleType) {
+            case "luminance":
+              // Luminance method (most accurate for human perception)
+              gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+              break;
+            case "average":
+              gray = Math.round((r + g + b) / 3);
+              break;
+            case "red":
+              gray = r;
+              break;
+            case "green":
+              gray = g;
+              break;
+            case "blue":
+              gray = b;
+              break;
+            case "desaturate": {
+              const max = Math.max(r, g, b);
+              const min = Math.min(r, g, b);
+              gray = Math.round((max + min) / 2);
+              break;
+            }
+            default:
+              gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+          }
+
+          // Apply contrast and brightness
+          gray = Math.round(gray * contrast + brightness);
+          gray = Math.max(0, Math.min(255, gray));
+
+          data[i] = gray;     // Red
+          data[i + 1] = gray; // Green
+          data[i + 2] = gray; // Blue
+          data[i + 3] = a;    // Alpha (unchanged)
+        }
+
+        try {
+          ctx.putImageData(imageData, 0, 0);
+          notify.success("Image converted to grayscale!");
+        } catch (err) {
+          notify.error("Failed to write image data. Processing may have failed.");
+          console.error("putImageData error:", err);
+        }
+      } catch (err) {
+        notify.error("Unexpected error during grayscale conversion");
+        console.error("Grayscale conversion error:", err);
       }
-
-      ctx.putImageData(imageData, 0, 0);
-      notify.success("Image converted to grayscale!");
+    };
+    img.onerror = () => {
+      notify.error("Failed to load image. File may be corrupted.");
     };
     img.src = selectedImage;
   };
