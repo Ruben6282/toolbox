@@ -313,3 +313,60 @@ export function sanitizeNumber(value: string | number, min?: number, max?: numbe
   
   return num;
 }
+
+
+/**
+ * Sniff actual MIME type from file header (magic bytes)
+ * Prevents spoofed uploads with misleading extensions or MIME types
+ * @param file - File object to inspect
+ * @returns { valid: boolean; detected: string | null }
+ */
+export async function sniffMime(file: File): Promise<{ valid: boolean; detected: string | null }> {
+  const buffer = await file.slice(0, 16).arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // Helper to match sequences
+  const match = (...patterns: number[][]) => {
+    return patterns.some((pattern) =>
+      pattern.every((b, i) => bytes[i] === b)
+    );
+  };
+
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { valid: true, detected: "image/jpeg" };
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (match([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return { valid: true, detected: "image/png" };
+  }
+
+  // GIF87a / GIF89a
+  if (
+    match(
+      [0x47, 0x49, 0x46, 0x38, 0x37, 0x61],
+      [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]
+    )
+  ) {
+    return { valid: true, detected: "image/gif" };
+  }
+
+  // WebP: "RIFF" + "WEBP" within first 12 bytes
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return { valid: true, detected: "image/webp" };
+  }
+
+  // Unknown / unsupported file type
+  return { valid: false, detected: null };
+}
+

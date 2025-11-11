@@ -16,9 +16,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, RotateCcw, Plus, Trash2, Image as ImageIcon, Type } from "lucide-react";
+import {
+  Download,
+  RotateCcw,
+  Plus,
+  Trash2,
+  Image as ImageIcon,
+  Type,
+} from "lucide-react";
 import { notify } from "@/lib/notify";
-import { ALLOWED_IMAGE_TYPES, validateImageFile, stripHtml, truncateText, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import {
+  ALLOWED_IMAGE_TYPES,
+  validateImageFile,
+  stripHtml,
+  truncateText,
+  MAX_IMAGE_DIMENSION,
+  sniffMime,
+} from "@/lib/security";
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
 interface TextBox {
@@ -34,7 +48,16 @@ interface TextBox {
   fontFamily: string;
 }
 
-const FONT_FAMILIES = ["Impact", "Arial", "Comic Sans MS", "Verdana", "Courier New", "Georgia", "Times New Roman"];
+const FONT_FAMILIES = [
+  "Impact",
+  "Arial",
+  "Comic Sans MS",
+  "Verdana",
+  "Courier New",
+  "Georgia",
+  "Times New Roman",
+];
+
 const DEFAULT_TEXT_STYLE = {
   fontSize: 48,
   color: "#ffffff",
@@ -52,11 +75,19 @@ export const MemeGenerator = () => {
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
-  const { createImageUrl } = useObjectUrls();
+  const { createImageUrl, revoke } = useObjectUrls();
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [isDrawing, setIsDrawing] = useState(false);
+  const liveRegionRef = useRef<HTMLDivElement | null>(null);
+
+  /** Announce messages for screen readers */
+  const announce = (message: string) => {
+    if (liveRegionRef.current) liveRegionRef.current.textContent = message;
+  };
 
   /** Draw text with wrapping */
   const drawText = (ctx: CanvasRenderingContext2D, box: TextBox, maxWidth: number) => {
@@ -100,7 +131,6 @@ export const MemeGenerator = () => {
 
     img.onload = () => {
       try {
-        // Responsive width
         const containerWidth = containerRef.current?.clientWidth || 800;
         const scale = Math.min(containerWidth / img.width, 1);
         const width = Math.floor(img.width * scale);
@@ -123,19 +153,21 @@ export const MemeGenerator = () => {
           ctx.lineWidth = box.strokeWidth;
           ctx.strokeStyle = box.stroke;
           ctx.fillStyle = box.color;
-          drawText(ctx, box, width * 0.9); // wrap text to 90% of canvas width
+          drawText(ctx, box, width * 0.9);
           ctx.restore();
         });
-        setIsDrawing(false);
       } catch (error) {
         console.error("Error drawing meme:", error);
         notify.error("Failed to render meme");
+        announce("Failed to render meme");
+      } finally {
         setIsDrawing(false);
       }
     };
 
     img.onerror = () => {
       notify.error("Failed to load image");
+      announce("Failed to load image");
       setIsDrawing(false);
     };
 
@@ -149,7 +181,7 @@ export const MemeGenerator = () => {
     }
   }, [uploadedImage, textBoxes, drawMeme]);
 
-  /** Pointer handlers (same as before) */
+  /** Pointer Handlers */
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -178,7 +210,6 @@ export const MemeGenerator = () => {
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!activeTextId || !dragOffset) return;
-
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -208,6 +239,7 @@ export const MemeGenerator = () => {
   const addTextBox = () => {
     if (!uploadedImage) {
       notify.error("Please upload an image first");
+      announce("Please upload an image first");
       return;
     }
     const newId = crypto.randomUUID();
@@ -221,45 +253,56 @@ export const MemeGenerator = () => {
     setTextBoxes((prev) => [...prev, newBox]);
     setActiveTextId(newId);
     notify.success("Text added! Drag to position");
-    if (window.innerWidth < 640) {
-      setTimeout(() => {
-        const input = document.getElementById(`meme-text-input-${newId}`);
-        input?.scrollIntoView({ behavior: "smooth", block: "center" });
-        input?.focus();
-      }, 300);
-    }
+    announce("Text added");
   };
 
   const deleteTextBox = (id: string) => {
     setTextBoxes((prev) => prev.filter((t) => t.id !== id));
     if (activeTextId === id) setActiveTextId(null);
     notify.success("Text removed");
+    announce("Text removed");
   };
 
   const updateTextBox = (id: string, changes: Partial<TextBox>) => {
     setTextBoxes((prev) => prev.map((t) => (t.id === id ? { ...t, ...changes } : t)));
   };
 
-  /** Upload Image */
+  /** Upload Image (with Magic Byte Validation) */
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const error = validateImageFile(file);
     if (error) {
       notify.error(error);
+      announce(error);
       return;
     }
-    const url = await createImageUrl(file, { downscaleLarge: true, maxDimension: MAX_IMAGE_DIMENSION });
+
+    const signature = await sniffMime(file);
+    if (!signature.valid) {
+      console.error("Invalid file signature:", signature.detected);
+      notify.error("Invalid or corrupted image file.");
+      announce("Invalid or corrupted image file");
+      return;
+    }
+
+    const url = await createImageUrl(file, {
+      downscaleLarge: true,
+      maxDimension: MAX_IMAGE_DIMENSION,
+    });
     if (!url) return;
+
     setUploadedImage(url);
     setTextBoxes([]);
     notify.success("Image uploaded successfully!");
+    announce("Image uploaded successfully");
   };
 
   /** Download Meme (High Resolution) */
   const downloadMeme = () => {
     if (!uploadedImage) {
       notify.error("Please upload an image first");
+      announce("Please upload an image first");
       return;
     }
 
@@ -278,56 +321,80 @@ export const MemeGenerator = () => {
       img.crossOrigin = "anonymous";
 
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
+        try {
+          ctx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height);
 
-        textBoxes.forEach((box) => {
-          ctx.save();
-          ctx.translate(box.x * scale, box.y * scale);
-          ctx.rotate((box.rotation * Math.PI) / 180);
-          ctx.font = `bold ${box.fontSize * scale}px ${box.fontFamily}, Impact, Arial, sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.lineWidth = box.strokeWidth * scale;
-          ctx.strokeStyle = box.stroke;
-          ctx.fillStyle = box.color;
-          drawText(ctx, box, exportCanvas.width * 0.9);
-          ctx.restore();
-        });
+          textBoxes.forEach((box) => {
+            ctx.save();
+            ctx.translate(box.x * scale, box.y * scale);
+            ctx.rotate((box.rotation * Math.PI) / 180);
+            ctx.font = `bold ${box.fontSize * scale}px ${box.fontFamily}, Impact, Arial, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineWidth = box.strokeWidth * scale;
+            ctx.strokeStyle = box.stroke;
+            ctx.fillStyle = box.color;
+            drawText(ctx, box, exportCanvas.width * 0.9);
+            ctx.restore();
+          });
 
-        exportCanvas.toBlob((blob) => {
-          if (!blob) {
-            notify.error("Failed to create image");
-            return;
+          try {
+            exportCanvas.toBlob((blob) => {
+              if (!blob) {
+                notify.error("Failed to create image");
+                announce("Failed to create image");
+                return;
+              }
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.download = `meme-${Date.now()}.png`;
+              link.href = url;
+              link.click();
+              URL.revokeObjectURL(url);
+              notify.success("Meme downloaded successfully!");
+              announce("Meme downloaded successfully");
+            }, "image/png");
+          } catch (err) {
+            console.error("toBlob error:", err);
+            notify.error("Export failed due to browser issue.");
+            announce("Export failed due to browser issue");
           }
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.download = `meme-${Date.now()}.png`;
-          link.href = url;
-          link.click();
-          URL.revokeObjectURL(url);
-          notify.success("Meme downloaded successfully!");
-        }, "image/png");
+        } catch (err) {
+          console.error("Canvas draw error:", err);
+          notify.error("Failed to render meme for download.");
+          announce("Failed to render meme for download");
+        }
       };
 
-      img.onerror = () => notify.error("Failed to load image for download");
+      img.onerror = () => {
+        notify.error("Failed to load image for download");
+        announce("Failed to load image for download");
+      };
+
       img.src = uploadedImage;
     } catch (error) {
       console.error("Download error:", error);
       notify.error("Failed to download meme");
+      announce("Failed to download meme");
     }
   };
 
-  /** Reset */
+  /** Reset (with URL cleanup) */
   const resetMeme = () => {
+    if (uploadedImage) revoke(uploadedImage);
     setUploadedImage(null);
     setTextBoxes([]);
     setActiveTextId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     notify.success("Meme reset successfully!");
+    announce("Meme reset successfully");
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Live region for screen readers */}
+      <div ref={liveRegionRef} aria-live="polite" aria-atomic="true" className="sr-only" />
+
       {/* Upload */}
       <Card>
         <CardHeader>
@@ -338,7 +405,9 @@ export const MemeGenerator = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="image-upload" className="text-sm font-medium">Upload Your Image</Label>
+            <Label htmlFor="image-upload" className="text-sm font-medium">
+              Upload Your Image
+            </Label>
             <Input
               id="image-upload"
               ref={fileInputRef}
@@ -347,7 +416,9 @@ export const MemeGenerator = () => {
               onChange={handleImageUpload}
               aria-label="Upload image for meme"
             />
-            <p className="text-xs text-muted-foreground">Supports JPG, PNG, GIF (max 10MB)</p>
+            <p className="text-xs text-muted-foreground">
+              Supports JPG, PNG, GIF (max 10MB)
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -355,146 +426,181 @@ export const MemeGenerator = () => {
       {/* Text Editor & Preview */}
       {uploadedImage && (
         <div ref={containerRef} className="space-y-6">
-          {/* Text Editor */}
-          {uploadedImage && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <span className="flex items-center gap-2">
-                    <Type className="w-5 h-5" />
-                    Text Layers
-                  </span>
-                  <Button 
-                    onClick={addTextBox} 
-                    size="sm" 
-                    variant="outline"
-                    className="w-full sm:w-auto"
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="flex items-center gap-2">
+                  <Type className="w-5 h-5" />
+                  Text Layers
+                </span>
+                <Button
+                  onClick={addTextBox}
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Text
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {textBoxes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No text added yet. Click "Add Text" to get started!
+                </p>
+              ) : (
+                textBoxes.map((box) => (
+                  <div
+                    key={box.id}
+                    className="p-3 sm:p-4 border rounded-lg space-y-3 bg-muted/30"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Text
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {textBoxes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No text added yet. Click "Add Text" to get started!
-                  </p>
-                ) : (
-                  textBoxes.map((box) => (
-                    <div key={box.id} className="p-3 sm:p-4 border rounded-lg space-y-3 bg-muted/30">
-                      <div className="flex gap-2 items-start">
-                        <Input
-                          id={`meme-text-input-${box.id}`}
-                          value={box.text}
-                          onChange={(e) => updateTextBox(box.id, { text: truncateText(stripHtml(e.target.value), 100) })}
-                          placeholder="Enter text"
-                          className="flex-1 h-10 sm:h-9 text-base sm:text-sm"
-                          maxLength={100}
-                          onTouchStart={e => e.stopPropagation()}
+                    <div className="flex gap-2 items-start">
+                      <Input
+                        id={`meme-text-input-${box.id}`}
+                        value={box.text}
+                        onChange={(e) =>
+                          updateTextBox(box.id, {
+                            text: truncateText(stripHtml(e.target.value), 100),
+                          })
+                        }
+                        placeholder="Enter text"
+                        className="flex-1 h-10 sm:h-9 text-base sm:text-sm"
+                        maxLength={100}
+                        onTouchStart={(e) => e.stopPropagation()}
+                      />
+                      <Button
+                        onClick={() => deleteTextBox(box.id)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 sm:h-9 sm:w-9 flex-shrink-0"
+                        aria-label="Delete text"
+                      >
+                        <Trash2 className="w-5 h-5 sm:w-4 sm:h-4 text-destructive" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm sm:text-xs font-medium">
+                            Font Size
+                          </Label>
+                          <span className="text-sm sm:text-xs text-muted-foreground font-mono">
+                            {box.fontSize}px
+                          </span>
+                        </div>
+                        <Slider
+                          min={20}
+                          max={120}
+                          step={2}
+                          value={[box.fontSize]}
+                          onValueChange={(v) =>
+                            updateTextBox(box.id, { fontSize: v[0] })
+                          }
+                          className="cursor-pointer touch-none"
                         />
-                        <Button
-                          onClick={() => deleteTextBox(box.id)}
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10 sm:h-9 sm:w-9 flex-shrink-0"
-                          aria-label="Delete text"
-                        >
-                          <Trash2 className="w-5 h-5 sm:w-4 sm:h-4 text-destructive" />
-                        </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm sm:text-xs font-medium">Font Size</Label>
-                            <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.fontSize}px</span>
-                          </div>
-                          <Slider
-                            min={20}
-                            max={120}
-                            step={2}
-                            value={[box.fontSize]}
-                            onValueChange={(v) => updateTextBox(box.id, { fontSize: v[0] })}
-                            className="cursor-pointer touch-none"
-                          />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm sm:text-xs font-medium">
+                            Stroke Width
+                          </Label>
+                          <span className="text-sm sm:text-xs text-muted-foreground font-mono">
+                            {box.strokeWidth}px
+                          </span>
                         </div>
+                        <Slider
+                          min={0}
+                          max={10}
+                          step={1}
+                          value={[box.strokeWidth]}
+                          onValueChange={(v) =>
+                            updateTextBox(box.id, { strokeWidth: v[0] })
+                          }
+                          className="cursor-pointer touch-none"
+                        />
+                      </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm sm:text-xs font-medium">Stroke Width</Label>
-                            <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.strokeWidth}px</span>
-                          </div>
-                          <Slider
-                            min={0}
-                            max={10}
-                            step={1}
-                            value={[box.strokeWidth]}
-                            onValueChange={(v) => updateTextBox(box.id, { strokeWidth: v[0] })}
-                            className="cursor-pointer touch-none"
-                          />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm sm:text-xs font-medium">
+                            Rotation
+                          </Label>
+                          <span className="text-sm sm:text-xs text-muted-foreground font-mono">
+                            {box.rotation}°
+                          </span>
                         </div>
+                        <Slider
+                          min={-180}
+                          max={180}
+                          step={5}
+                          value={[box.rotation]}
+                          onValueChange={(v) =>
+                            updateTextBox(box.id, { rotation: v[0] })
+                          }
+                          className="cursor-pointer touch-none"
+                        />
+                      </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm sm:text-xs font-medium">Rotation</Label>
-                            <span className="text-sm sm:text-xs text-muted-foreground font-mono">{box.rotation}°</span>
-                          </div>
-                          <Slider
-                            min={-180}
-                            max={180}
-                            step={5}
-                            value={[box.rotation]}
-                            onValueChange={(v) => updateTextBox(box.id, { rotation: v[0] })}
-                            className="cursor-pointer touch-none"
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm sm:text-xs font-medium">
+                          Font Family
+                        </Label>
+                        <Select
+                          value={box.fontFamily}
+                          onValueChange={(v) =>
+                            updateTextBox(box.id, { fontFamily: v })
+                          }
+                        >
+                          <SelectTrigger className="h-10 sm:h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FONT_FAMILIES.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-sm sm:text-xs font-medium">Font Family</Label>
-                          <Select
-                            value={box.fontFamily}
-                            onValueChange={(v) => updateTextBox(box.id, { fontFamily: v })}
-                          >
-                            <SelectTrigger className="h-10 sm:h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {FONT_FAMILIES.map((f) => (
-                                <SelectItem key={f} value={f}>
-                                  {f}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm sm:text-xs font-medium">
+                          Text Color
+                        </Label>
+                        <Input
+                          type="color"
+                          value={box.color}
+                          onChange={(e) =>
+                            updateTextBox(box.id, { color: e.target.value })
+                          }
+                          className="h-12 sm:h-10 cursor-pointer"
+                        />
+                      </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-sm sm:text-xs font-medium">Text Color</Label>
-                          <Input
-                            type="color"
-                            value={box.color}
-                            onChange={(e) => updateTextBox(box.id, { color: e.target.value })}
-                            className="h-12 sm:h-10 cursor-pointer"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm sm:text-xs font-medium">Stroke Color</Label>
-                          <Input
-                            type="color"
-                            value={box.stroke}
-                            onChange={(e) => updateTextBox(box.id, { stroke: e.target.value })}
-                            className="h-12 sm:h-10 cursor-pointer"
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm sm:text-xs font-medium">
+                          Stroke Color
+                        </Label>
+                        <Input
+                          type="color"
+                          value={box.stroke}
+                          onChange={(e) =>
+                            updateTextBox(box.id, { stroke: e.target.value })
+                          }
+                          className="h-12 sm:h-10 cursor-pointer"
+                        />
                       </div>
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           {/* Canvas Preview */}
           <Card>
             <CardHeader>
@@ -525,11 +631,18 @@ export const MemeGenerator = () => {
                 </p>
               )}
               <div className="flex flex-col sm:flex-row gap-3 px-2 sm:px-0">
-                <Button onClick={downloadMeme} className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold">
+                <Button
+                  onClick={downloadMeme}
+                  className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold"
+                >
                   <Download className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />
                   Download Meme
                 </Button>
-                <Button onClick={resetMeme} variant="outline" className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold">
+                <Button
+                  onClick={resetMeme}
+                  variant="outline"
+                  className="flex-1 h-12 sm:h-10 text-base sm:text-sm font-semibold"
+                >
                   <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />
                   Start Over
                 </Button>
