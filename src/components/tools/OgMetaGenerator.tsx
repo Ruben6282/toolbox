@@ -16,15 +16,34 @@ import { sanitizeUrl, truncateText, encodeMetaTag, sanitizeNumber, SEO_LIMITS } 
  */
 const MAX_INPUT_LENGTH = 2000;
 
+// Allowed OG types
+const ALLOWED_OG_TYPES = ['website', 'article', 'book', 'profile', 'video.movie', 'video.episode', 'video.tv_show', 'video.other', 'music.song', 'music.album', 'music.playlist'] as const;
+type OGType = typeof ALLOWED_OG_TYPES[number];
+
+// Allowed locales
+const ALLOWED_LOCALES = ['en_US', 'en_GB', 'es_ES', 'fr_FR', 'de_DE', 'it_IT', 'pt_BR', 'ja_JP', 'zh_CN'] as const;
+type Locale = typeof ALLOWED_LOCALES[number];
+
+// Coerce enum values
+const coerceOGType = (val: string): OGType => {
+  if (ALLOWED_OG_TYPES.includes(val as OGType)) return val as OGType;
+  return 'website';
+};
+
+const coerceLocale = (val: string): Locale => {
+  if (ALLOWED_LOCALES.includes(val as Locale)) return val as Locale;
+  return 'en_US';
+};
+
 export const OgMetaGenerator = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     image: "",
     url: "",
-    type: "website",
+    type: "website" as OGType,
     siteName: "",
-    locale: "en_US",
+    locale: "en_US" as Locale,
     imageWidth: "1200",
     imageHeight: "630",
     imageAlt: ""
@@ -41,7 +60,12 @@ export const OgMetaGenerator = () => {
       return;
     }
     
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Coerce enum values
+    let safeValue: string | OGType | Locale = value;
+    if (field === 'type') safeValue = coerceOGType(value);
+    if (field === 'locale') safeValue = coerceLocale(value);
+    
+    setFormData(prev => ({ ...prev, [field]: safeValue }));
   };
 
   const generateOgMeta = () => {
@@ -129,9 +153,22 @@ export const OgMetaGenerator = () => {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generateOgMeta());
-  notify.success("OG Meta tags copied!");
-    } catch (err) {
-      console.error('Failed to copy: ', err);
+      notify.success("OG Meta tags copied!");
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement("textarea");
+      textarea.value = generateOgMeta();
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+        notify.success("OG Meta tags copied!");
+      } catch {
+        notify.error("Failed to copy");
+      }
+      document.body.removeChild(textarea);
     }
   };
 

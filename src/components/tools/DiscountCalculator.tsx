@@ -254,6 +254,17 @@ export const DiscountCalculator = () => {
   const [discountValue, setDiscountValue] = useState("");
   const [taxRate, setTaxRate] = useState("");
 
+  // Client-side input sanitizers to complement server-side validation
+  const sanitizeDecimalInput = (v: string, maxLen = 16) => {
+    const stripped = v.replace(/[^0-9.]/g, "");
+    const parts = stripped.split(".");
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
+    return normalized.slice(0, maxLen);
+  };
+
+  const coerceDiscountType = (v: string): "percentage" | "amount" =>
+    v === "percentage" || v === "amount" ? v : "percentage";
+
   // Locale-aware currency formatter (default locale, USD)
   // Note: Currency is hardcoded to USD for consistency. For multi-currency support,
   // add a currency selector and pass the selected currency here.
@@ -310,7 +321,8 @@ export const DiscountCalculator = () => {
               type="number"
               placeholder="0.00"
               value={originalPrice}
-              onChange={(e) => setOriginalPrice(e.target.value)}
+              onChange={(e) => setOriginalPrice(sanitizeDecimalInput(e.target.value, 16))}
+              inputMode="decimal"
               min="0"
               step="0.01"
               aria-invalid={calc.errorField === "price" ? "true" : "false"}
@@ -331,7 +343,7 @@ export const DiscountCalculator = () => {
               <Select
                 value={discountType}
                 onValueChange={(val) =>
-                  setDiscountType(val as "percentage" | "amount")
+                  setDiscountType(coerceDiscountType(val))
                 }
               >
                 <SelectTrigger>
@@ -355,7 +367,8 @@ export const DiscountCalculator = () => {
                 type="number"
                 placeholder={discountType === "percentage" ? "0" : "0.00"}
                 value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
+                onChange={(e) => setDiscountValue(sanitizeDecimalInput(e.target.value, 12))}
+                inputMode="decimal"
                 min="0"
                 max={discountType === "percentage" ? "100" : undefined}
                 step={discountType === "percentage" ? "0.1" : "0.01"}
@@ -378,7 +391,8 @@ export const DiscountCalculator = () => {
               type="number"
               placeholder="0"
               value={taxRate}
-              onChange={(e) => setTaxRate(e.target.value)}
+              onChange={(e) => setTaxRate(sanitizeDecimalInput(e.target.value, 8))}
+              inputMode="decimal"
               min="0"
               max="100"
               step="0.1"

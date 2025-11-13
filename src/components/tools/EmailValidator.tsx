@@ -11,6 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle } from "lucide-react";
 
+const MAX_EMAIL_LENGTH = 320; // RFC 5321 standard (64 local + @ + 255 domain)
+
+// Sanitize email input by stripping control chars and enforcing length
+const sanitizeEmail = (text: string): string => {
+  const cleaned = text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    return code >= 32 && code !== 127; // Printable ASCII only
+  }).join('');
+  return cleaned.slice(0, MAX_EMAIL_LENGTH);
+};
+
 export const EmailValidator = () => {
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<{
@@ -95,8 +106,9 @@ export const EmailValidator = () => {
             type="email"
             placeholder="example@domain.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(sanitizeEmail(e.target.value))}
             onKeyDown={(e) => e.key === "Enter" && validateEmail()}
+            maxLength={MAX_EMAIL_LENGTH}
           />
         </div>
 

@@ -10,6 +10,26 @@ import { sanitizeNumber } from "@/lib/security";
 
 const loremWords = ["lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore", "magna", "aliqua"];
 
+// Allowed type values
+const ALLOWED_TYPES = ["paragraphs", "sentences", "words"] as const;
+type LoremType = typeof ALLOWED_TYPES[number];
+
+// Coerce type to allowed values
+const coerceType = (val: string): LoremType => {
+  if (ALLOWED_TYPES.includes(val as LoremType)) return val as LoremType;
+  return "paragraphs";
+};
+
+// Secure random integer
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
 export const LoremIpsum = () => {
   const [count, setCount] = useState(3);
   const [type, setType] = useState("paragraphs");
@@ -21,28 +41,28 @@ export const LoremIpsum = () => {
     if (type === "words") {
       const words = [];
       for (let i = 0; i < count; i++) {
-        words.push(loremWords[Math.floor(Math.random() * loremWords.length)]);
+        words.push(loremWords[secureRandom(loremWords.length)]);
       }
       result = words.join(" ");
     } else if (type === "sentences") {
       for (let i = 0; i < count; i++) {
-        const sentenceLength = 10 + Math.floor(Math.random() * 10);
+        const sentenceLength = 10 + secureRandom(10);
         const words = [];
         for (let j = 0; j < sentenceLength; j++) {
-          words.push(loremWords[Math.floor(Math.random() * loremWords.length)]);
+          words.push(loremWords[secureRandom(loremWords.length)]);
         }
         words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1);
         result += words.join(" ") + ". ";
       }
     } else {
       for (let i = 0; i < count; i++) {
-        const sentences = 3 + Math.floor(Math.random() * 3);
+        const sentences = 3 + secureRandom(3);
         let paragraph = "";
         for (let j = 0; j < sentences; j++) {
-          const sentenceLength = 10 + Math.floor(Math.random() * 10);
+          const sentenceLength = 10 + secureRandom(10);
           const words = [];
           for (let k = 0; k < sentenceLength; k++) {
-            words.push(loremWords[Math.floor(Math.random() * loremWords.length)]);
+            words.push(loremWords[secureRandom(loremWords.length)]);
           }
           words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1);
           paragraph += words.join(" ") + ". ";
@@ -103,16 +123,20 @@ export const LoremIpsum = () => {
             <div className="space-y-2">
               <Label>Amount</Label>
               <Input
-                type="number"
-                min="1"
-                max="100"
+                type="text"
+                inputMode="numeric"
+                min={1}
+                max={100}
                 value={count}
-                onChange={(e) => setCount(sanitizeNumber(parseInt(e.target.value), 1, 100))}
+                onChange={(e) => {
+                  const val = sanitizeNumber(parseInt(e.target.value), 1, 100);
+                  if (val !== null) setCount(val);
+                }}
               />
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={type} onValueChange={setType}>
+              <Select value={type} onValueChange={(val) => setType(coerceType(val))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

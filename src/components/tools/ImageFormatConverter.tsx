@@ -36,6 +36,18 @@ import { ALLOWED_IMAGE_TYPES, validateImageFile, sanitizeFilename, MAX_IMAGE_DIM
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
 const MAX_FILE_SIZE_MB = 10;
+const ALLOWED_FORMATS = ["png", "jpeg", "webp", "gif", "bmp"] as const;
+type ImageFormat = typeof ALLOWED_FORMATS[number];
+const MIN_QUALITY = 1;
+const MAX_QUALITY = 100;
+
+const coerceFormat = (value: string): ImageFormat => {
+  return ALLOWED_FORMATS.includes(value as ImageFormat) ? (value as ImageFormat) : "png";
+};
+
+const clampQuality = (value: number): number => {
+  return Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, Math.floor(value)));
+};
 
 /**
  * Detect image format via magic bytes (file signature)
@@ -77,7 +89,7 @@ async function sniffMime(file: File): Promise<string | null> {
 export const ImageFormatConverter = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [originalFormat, setOriginalFormat] = useState("");
-  const [targetFormat, setTargetFormat] = useState("png");
+  const [targetFormat, setTargetFormat] = useState<ImageFormat>("png");
   const [quality, setQuality] = useState(90);
   const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -289,7 +301,7 @@ export const ImageFormatConverter = () => {
             </div>
             <div className="space-y-2">
               <Label>Convert To</Label>
-              <Select value={targetFormat} onValueChange={setTargetFormat}>
+              <Select value={targetFormat} onValueChange={(value) => setTargetFormat(coerceFormat(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select format" />
                 </SelectTrigger>
@@ -310,10 +322,10 @@ export const ImageFormatConverter = () => {
               <Label>Quality: {quality}%</Label>
               <input
                 type="range"
-                min="10"
-                max="100"
+                min={MIN_QUALITY}
+                max={MAX_QUALITY}
                 value={quality}
-                onChange={(e) => setQuality(parseInt(e.target.value))}
+                onChange={(e) => setQuality(clampQuality(parseInt(e.target.value) || 90))}
                 className="w-full"
                 aria-label={`Image quality slider, current value ${quality} percent`}
               />

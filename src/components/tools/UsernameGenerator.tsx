@@ -8,9 +8,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MIN_COUNT = 1;
+const MAX_COUNT = 50;
+const MIN_LENGTH = 3;
+const MAX_LENGTH = 30;
+
+// Secure random
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
+type Style = "mixed" | "adjective-noun" | "tech" | "nature";
+const ALLOWED_STYLES: Style[] = ["mixed", "adjective-noun", "tech", "nature"];
+const coerceStyle = (val: string): Style => (ALLOWED_STYLES.includes(val as Style) ? (val as Style) : "mixed");
+
 export const UsernameGenerator = () => {
   const [usernameCount, setUsernameCount] = useState(5);
-  const [style, setStyle] = useState("mixed");
+  const [style, setStyle] = useState<Style>("mixed");
   const [includeNumbers, setIncludeNumbers] = useState(true);
   const [includeSpecialChars, setIncludeSpecialChars] = useState(false);
   const [minLength, setMinLength] = useState(6);
@@ -51,28 +70,28 @@ export const UsernameGenerator = () => {
     
     switch (style) {
       case "adjective-noun": {
-        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const adj = adjectives[secureRandom(adjectives.length)];
+        const noun = nouns[secureRandom(nouns.length)];
         username = adj + noun;
         break;
       }
       case "tech": {
-        const tech1 = techWords[Math.floor(Math.random() * techWords.length)];
-        const tech2 = techWords[Math.floor(Math.random() * techWords.length)];
+        const tech1 = techWords[secureRandom(techWords.length)];
+        const tech2 = techWords[secureRandom(techWords.length)];
         username = tech1 + tech2;
         break;
       }
       case "nature": {
-        const nature1 = natureWords[Math.floor(Math.random() * natureWords.length)];
-        const nature2 = natureWords[Math.floor(Math.random() * natureWords.length)];
+        const nature1 = natureWords[secureRandom(natureWords.length)];
+        const nature2 = natureWords[secureRandom(natureWords.length)];
         username = nature1 + nature2;
         break;
       }
       case "mixed":
       default: {
         const allWords = [...adjectives, ...nouns, ...techWords, ...natureWords];
-        const word1 = allWords[Math.floor(Math.random() * allWords.length)];
-        const word2 = allWords[Math.floor(Math.random() * allWords.length)];
+        const word1 = allWords[secureRandom(allWords.length)];
+        const word2 = allWords[secureRandom(allWords.length)];
         username = word1 + word2;
         break;
       }
@@ -80,41 +99,46 @@ export const UsernameGenerator = () => {
 
     // Add numbers if enabled
     if (includeNumbers) {
-      const numCount = Math.floor(Math.random() * 3) + 1; // 1-3 numbers
+      const numCount = secureRandom(3) + 1; // 1-3 numbers
       for (let i = 0; i < numCount; i++) {
-        username += numbers[Math.floor(Math.random() * numbers.length)];
+        username += numbers[secureRandom(numbers.length)];
       }
     }
 
     // Add special characters if enabled
     if (includeSpecialChars) {
-      const specialCount = Math.floor(Math.random() * 2) + 1; // 1-2 special chars
+      const specialCount = secureRandom(2) + 1; // 1-2 special chars
       for (let i = 0; i < specialCount; i++) {
-        username += specialChars[Math.floor(Math.random() * specialChars.length)];
+        username += specialChars[secureRandom(specialChars.length)];
       }
     }
+
+    // Clamp length constraints
+    const clampedMin = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, minLength));
+    const clampedMax = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, maxLength));
 
     // Ensure length constraints
-    if (username.length < minLength) {
-      const needed = minLength - username.length;
+    if (username.length < clampedMin) {
+      const needed = clampedMin - username.length;
       for (let i = 0; i < needed; i++) {
-        username += numbers[Math.floor(Math.random() * numbers.length)];
+        username += numbers[secureRandom(numbers.length)];
       }
     }
 
-    if (username.length > maxLength) {
-      username = username.substring(0, maxLength);
+    if (username.length > clampedMax) {
+      username = username.substring(0, clampedMax);
     }
 
     return username;
   };
 
   const generateUsernames = () => {
+    const clampedCount = Math.max(MIN_COUNT, Math.min(MAX_COUNT, usernameCount));
     const usernames: string[] = [];
-    const maxAttempts = usernameCount * 3; // Prevent infinite loops
+    const maxAttempts = clampedCount * 3; // Prevent infinite loops
     let attempts = 0;
 
-    while (usernames.length < usernameCount && attempts < maxAttempts) {
+    while (usernames.length < clampedCount && attempts < maxAttempts) {
       const username = generateUsername();
       if (!usernames.includes(username)) {
         usernames.push(username);
@@ -209,7 +233,7 @@ export const UsernameGenerator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="style-select">Style</Label>
-              <Select value={style} onValueChange={setStyle}>
+              <Select value={style} onValueChange={(val) => setStyle(coerceStyle(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select style" />
                 </SelectTrigger>

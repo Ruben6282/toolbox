@@ -6,6 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Hash, TrendingUp, Users, MessageSquare } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+
+// Sanitize text input
+const sanitizeInput = (text: string): string => {
+  return text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+};
 
 interface HashtagData {
   hashtag: string;
@@ -70,10 +79,28 @@ export const HashtagCounter = () => {
   const copyHashtags = async () => {
     const hashtags = hashtagAnalysis.hashtags.map(h => h.hashtag).join(' ');
     try {
-      await navigator.clipboard.writeText(hashtags);
-  notify.success("Hashtags copied to clipboard!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(hashtags);
+        notify.success("Hashtags copied to clipboard!");
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = hashtags;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          notify.success("Hashtags copied to clipboard!");
+        } else {
+          notify.error("Failed to copy");
+        }
+      }
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error('Failed to copy:', err);
+      notify.error("Failed to copy to clipboard");
     }
   };
 
@@ -83,10 +110,28 @@ export const HashtagCounter = () => {
       .join('\n');
     
     try {
-      await navigator.clipboard.writeText(results);
-  notify.success("Results copied to clipboard!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(results);
+        notify.success("Results copied to clipboard!");
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = results;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          notify.success("Results copied to clipboard!");
+        } else {
+          notify.error("Failed to copy");
+        }
+      }
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error('Failed to copy:', err);
+      notify.error("Failed to copy to clipboard");
     }
   };
 
@@ -134,8 +179,17 @@ export const HashtagCounter = () => {
               id="text-input"
               placeholder="Enter your text with hashtags here... #example #hashtag #socialmedia"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                const cleaned = sanitizeInput(e.target.value);
+                if (!validateTextLength(cleaned)) {
+                  notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+                  setText(truncateText(cleaned));
+                } else {
+                  setText(cleaned);
+                }
+              }}
               rows={6}
+              maxLength={MAX_TEXT_LENGTH}
             />
           </div>
 

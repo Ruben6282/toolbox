@@ -5,6 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw } from "lucide-react";
 
+// Max safe integer for calculations to prevent overflow
+const MAX_NUMBER = 1e9;
+const MIN_NUMBER = 1;
+
+// Sanitize: strip non-digit chars, clamp to safe range
+const sanitizeInteger = (val: string): string => {
+  const cleaned = val.replace(/[^0-9]/g, "");
+  if (cleaned === "") return "";
+  const num = parseInt(cleaned, 10);
+  if (isNaN(num)) return "";
+  const clamped = Math.max(MIN_NUMBER, Math.min(MAX_NUMBER, num));
+  return clamped.toString();
+};
+
 export const LcmGcdCalculator = () => {
   const [number1, setNumber1] = useState("");
   const [number2, setNumber2] = useState("");
@@ -85,11 +99,13 @@ export const LcmGcdCalculator = () => {
               <Label htmlFor="number1">First Number</Label>
               <Input
                 id="number1"
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="Enter first number"
                 value={number1}
-                onChange={(e) => setNumber1(e.target.value)}
-                min="1"
+                onChange={(e) => setNumber1(sanitizeInteger(e.target.value))}
+                min={MIN_NUMBER}
+                max={MAX_NUMBER}
               />
             </div>
 
@@ -97,11 +113,13 @@ export const LcmGcdCalculator = () => {
               <Label htmlFor="number2">Second Number</Label>
               <Input
                 id="number2"
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="Enter second number"
                 value={number2}
-                onChange={(e) => setNumber2(e.target.value)}
-                min="1"
+                onChange={(e) => setNumber2(sanitizeInteger(e.target.value))}
+                min={MIN_NUMBER}
+                max={MAX_NUMBER}
               />
             </div>
           </div>
@@ -111,9 +129,14 @@ export const LcmGcdCalculator = () => {
             <Input
               id="additional-numbers"
               type="text"
+              inputMode="numeric"
               placeholder="e.g., 12, 18, 24"
               value={additionalNumbers}
-              onChange={(e) => setAdditionalNumbers(e.target.value)}
+              onChange={(e) => {
+                // Allow digits, commas, and spaces
+                const val = e.target.value.replace(/[^0-9, ]/g, "");
+                setAdditionalNumbers(val);
+              }}
             />
             <p className="text-xs text-muted-foreground">
               Enter additional numbers separated by commas for multiple number calculations

@@ -21,12 +21,33 @@ import { notify } from "@/lib/notify";
 import { ALLOWED_IMAGE_TYPES, validateImageFile, MAX_IMAGE_DIMENSION } from "@/lib/security";
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
+const ALLOWED_GRAYSCALE_TYPES = ["luminance", "average", "red", "green", "blue", "desaturate"] as const;
+const ALLOWED_OUTPUT_FORMATS = ["png", "jpeg", "webp"] as const;
+type GrayscaleType = typeof ALLOWED_GRAYSCALE_TYPES[number];
+type OutputFormat = typeof ALLOWED_OUTPUT_FORMATS[number];
+
+const coerceGrayscaleType = (value: string): GrayscaleType => {
+  return ALLOWED_GRAYSCALE_TYPES.includes(value as GrayscaleType) ? (value as GrayscaleType) : "luminance";
+};
+
+const coerceOutputFormat = (value: string): OutputFormat => {
+  return ALLOWED_OUTPUT_FORMATS.includes(value as OutputFormat) ? (value as OutputFormat) : "png";
+};
+
+const clampContrast = (value: number): number => {
+  return Math.max(0, Math.min(3, value));
+};
+
+const clampBrightness = (value: number): number => {
+  return Math.max(-100, Math.min(100, value));
+};
+
 export const ImageGrayscale = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [grayscaleType, setGrayscaleType] = useState("luminance");
+  const [grayscaleType, setGrayscaleType] = useState<GrayscaleType>("luminance");
   const [contrast, setContrast] = useState(1);
   const [brightness, setBrightness] = useState(0);
-  const [outputFormat, setOutputFormat] = useState("png");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("png");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { createImageUrl } = useObjectUrls();
 
@@ -264,7 +285,7 @@ export const ImageGrayscale = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="grayscale-type">Grayscale Method</Label>
-              <Select value={grayscaleType} onValueChange={setGrayscaleType}>
+              <Select value={grayscaleType} onValueChange={(value) => setGrayscaleType(coerceGrayscaleType(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
@@ -280,7 +301,7 @@ export const ImageGrayscale = () => {
 
             <div className="space-y-2">
               <Label htmlFor="output-format">Output Format</Label>
-              <Select value={outputFormat} onValueChange={setOutputFormat}>
+              <Select value={outputFormat} onValueChange={(value) => setOutputFormat(coerceOutputFormat(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select format" />
                 </SelectTrigger>

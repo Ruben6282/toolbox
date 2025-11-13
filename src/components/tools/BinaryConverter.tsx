@@ -11,6 +11,26 @@ export const BinaryConverter = () => {
   const [hex, setHex] = useState("");
   const [octal, setOctal] = useState("");
 
+  // Guardrail to avoid extremely large inputs that could freeze the UI
+  const MAX_INPUT_LEN = 100_000;
+
+  const handleBinaryChange = (val: string) => {
+    const cleaned = val.replace(/[^01]/g, "").slice(0, MAX_INPUT_LEN);
+    setBinary(cleaned);
+  };
+  const handleDecimalChange = (val: string) => {
+    const cleaned = val.replace(/[^0-9]/g, "").slice(0, MAX_INPUT_LEN);
+    setDecimal(cleaned);
+  };
+  const handleHexChange = (val: string) => {
+    const cleaned = val.replace(/[^0-9a-fA-F]/g, "").slice(0, MAX_INPUT_LEN).toUpperCase();
+    setHex(cleaned);
+  };
+  const handleOctalChange = (val: string) => {
+    const cleaned = val.replace(/[^0-7]/g, "").slice(0, MAX_INPUT_LEN);
+    setOctal(cleaned);
+  };
+
   const formatNumber = (num: number) => {
     return num.toLocaleString('en-US');
   };
@@ -110,7 +130,7 @@ export const BinaryConverter = () => {
           <Input
             placeholder="Enter binary number... (e.g., 1010)"
             value={binary}
-            onChange={(e) => setBinary(e.target.value)}
+            onChange={(e) => handleBinaryChange(e.target.value)}
             className="font-mono"
           />
           <div className="flex gap-2">
@@ -133,7 +153,7 @@ export const BinaryConverter = () => {
           <Input
             placeholder="Enter decimal number... (e.g., 10)"
             value={decimal}
-            onChange={(e) => setDecimal(e.target.value)}
+            onChange={(e) => handleDecimalChange(e.target.value)}
           />
           <div className="flex gap-2">
             <Button onClick={() => fromDecimal(decimal)} className="flex-1">Convert</Button>
@@ -155,7 +175,7 @@ export const BinaryConverter = () => {
           <Input
             placeholder="Enter octal number... (e.g., 12)"
             value={octal}
-            onChange={(e) => setOctal(e.target.value)}
+            onChange={(e) => handleOctalChange(e.target.value)}
             className="font-mono"
           />
           <div className="flex gap-2">
@@ -178,7 +198,7 @@ export const BinaryConverter = () => {
           <Input
             placeholder="Enter hexadecimal number... (e.g., A)"
             value={hex}
-            onChange={(e) => setHex(e.target.value.toUpperCase())}
+            onChange={(e) => handleHexChange(e.target.value)}
             className="font-mono"
           />
           <div className="flex gap-2">

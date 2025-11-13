@@ -18,11 +18,30 @@ import { Upload } from "lucide-react";
 import { ALLOWED_IMAGE_TYPES, validateImageFile, MAX_IMAGE_DIMENSION } from "@/lib/security";
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
+const MIN_DIMENSION = 1;
+const MAX_DIMENSION_INPUT = 10000;
+const MIN_QUALITY = 0.1;
+const MAX_QUALITY_VALUE = 1.0;
+const ALLOWED_FORMATS = ["image/png", "image/jpeg", "image/webp"] as const;
+type ImageFormat = typeof ALLOWED_FORMATS[number];
+
+const coerceFormat = (value: string): ImageFormat => {
+  return ALLOWED_FORMATS.includes(value as ImageFormat) ? (value as ImageFormat) : "image/png";
+};
+
+const clampDimension = (value: number): number => {
+  return Math.max(MIN_DIMENSION, Math.min(MAX_DIMENSION_INPUT, Math.floor(value)));
+};
+
+const clampQuality = (value: number): number => {
+  return Math.max(MIN_QUALITY, Math.min(MAX_QUALITY_VALUE, value));
+};
+
 export const ImageResizer = () => {
   const [width, setWidth] = useState<number>(800);
   const [height, setHeight] = useState<number>(600);
   const [aspectRatioLocked, setAspectRatioLocked] = useState<boolean>(true);
-  const [format, setFormat] = useState<"image/png" | "image/jpeg" | "image/webp">("image/png");
+  const [format, setFormat] = useState<ImageFormat>("image/png");
   const [quality, setQuality] = useState<number>(0.92); // applies to jpeg/webp
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
   const [originalPreview, setOriginalPreview] = useState<string>("");
@@ -102,21 +121,21 @@ export const ImageResizer = () => {
 
   // Maintain aspect ratio
   const handleWidthChange = (value: string) => {
-    const newWidth = Number(value);
+    const newWidth = clampDimension(Number(value) || 1);
     if (!originalImage) return setWidth(newWidth);
     if (aspectRatioLocked) {
       const ratio = originalImage.height / originalImage.width;
-      setHeight(Math.round(newWidth * ratio));
+      setHeight(clampDimension(Math.round(newWidth * ratio)));
     }
     setWidth(newWidth);
   };
 
   const handleHeightChange = (value: string) => {
-    const newHeight = Number(value);
+    const newHeight = clampDimension(Number(value) || 1);
     if (!originalImage) return setHeight(newHeight);
     if (aspectRatioLocked) {
       const ratio = originalImage.width / originalImage.height;
-      setWidth(Math.round(newHeight * ratio));
+      setWidth(clampDimension(Math.round(newHeight * ratio)));
     }
     setHeight(newHeight);
   };
@@ -220,7 +239,7 @@ export const ImageResizer = () => {
                 <select
                   className="border rounded-md h-10 px-3"
                   value={format}
-                  onChange={(e) => setFormat(e.target.value as "image/png" | "image/jpeg" | "image/webp")}
+                  onChange={(e) => setFormat(coerceFormat(e.target.value))}
                 >
                   <option value="image/png">PNG</option>
                   <option value="image/jpeg">JPEG</option>
@@ -233,11 +252,11 @@ export const ImageResizer = () => {
                   <Label>Quality ({Math.round(quality * 100)}%)</Label>
                   <input
                     type="range"
-                    min={0.1}
-                    max={1}
+                    min={MIN_QUALITY}
+                    max={MAX_QUALITY_VALUE}
                     step={0.01}
                     value={quality}
-                    onChange={(e) => setQuality(parseFloat(e.target.value))}
+                    onChange={(e) => setQuality(clampQuality(parseFloat(e.target.value) || 0.92))}
                   />
                 </div>
               )}

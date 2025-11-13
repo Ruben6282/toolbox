@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,6 +6,20 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Music, FileAudio } from "lucide-react";
 import { notify } from "@/lib/notify";
+
+// Security constants
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max audio file
+const MAX_DURATION = 3600; // 1 hour max duration
+
+// Audio file magic bytes for validation
+const AUDIO_MAGIC_BYTES = {
+  mp3: [0xFF, 0xFB], // MP3 frame sync
+  mp3_id3: [0x49, 0x44, 0x33], // ID3 tag
+  wav: [0x52, 0x49, 0x46, 0x46], // RIFF
+  ogg: [0x4F, 0x67, 0x67, 0x53], // OggS
+  flac: [0x66, 0x4C, 0x61, 0x43], // fLaC
+  m4a: [0x00, 0x00, 0x00], // ftyp at offset 4
+};
 
 // WAV encoding helper
 function encodeWAV(audioBuffer: AudioBuffer) {
@@ -61,40 +75,100 @@ export const Mp3ToWavConverter = () => {
   const [convertedFile, setConvertedFile] = useState<Blob | null>(null);
   const [audioInfo, setAudioInfo] = useState<{ duration: number; size: number; format: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Check if file is audio by MIME type or file extension (for iOS compatibility)
-      const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.wma'];
-      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-      const isAudioFile = file.type.startsWith("audio/") || audioExtensions.includes(fileExtension);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      const ctx = audioContextRef.current;
+      const audio = audioElementRef.current;
       
-      if (isAudioFile) {
-        setSelectedFile(file);
-        setConvertedFile(null);
-        setAudioInfo(null);
-
-        // Get audio info
-        const audio = new Audio();
-        audio.onloadedmetadata = () => {
-          setAudioInfo({
-            duration: audio.duration,
-            size: file.size,
-            format: file.type || 'audio/' + fileExtension.substring(1),
-          });
-        };
-        audio.src = URL.createObjectURL(file);
-  notify.success("Audio file selected!");
-      } else {
-  notify.error("Please select an audio file (MP3, WAV, etc.)");
+      if (ctx) {
+        ctx.close();
       }
+      if (audio) {
+        audio.src = '';
+      }
+    };
+  }, []);
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // File size validation
+    if (file.size > MAX_FILE_SIZE) {
+      notify.error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      return;
     }
+
+    // Check if file is audio by MIME type or file extension (for iOS compatibility)
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.aac', '.flac', '.wma'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    const isAudioFile = file.type.startsWith("audio/") || audioExtensions.includes(fileExtension);
+    
+    if (!isAudioFile) {
+      notify.error("Please select an audio file (MP3, WAV, etc.)");
+      return;
+    }
+
+    // Magic byte validation
+    try {
+      const buffer = await file.slice(0, 12).arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      
+      const isValidAudio = 
+        (bytes[0] === 0xFF && bytes[1] === 0xFB) || // MP3
+        (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // ID3
+        (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) || // RIFF/WAV
+        (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) || // Ogg
+        (bytes[0] === 0x66 && bytes[1] === 0x4C && bytes[2] === 0x61 && bytes[3] === 0x43) || // FLAC
+        (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70); // M4A/MP4
+
+      if (!isValidAudio) {
+        notify.error("Invalid audio file format detected");
+        return;
+      }
+    } catch {
+      notify.error("Failed to validate audio file");
+      return;
+    }
+
+    setSelectedFile(file);
+    setConvertedFile(null);
+    setAudioInfo(null);
+
+    // Get audio info
+    const audio = new Audio();
+    audioElementRef.current = audio;
+    
+    audio.onloadedmetadata = () => {
+      if (audio.duration > MAX_DURATION) {
+        notify.error(`Audio too long. Maximum duration is ${MAX_DURATION / 60} minutes`);
+        setSelectedFile(null);
+        return;
+      }
+      
+      setAudioInfo({
+        duration: audio.duration,
+        size: file.size,
+        format: file.type || 'audio/' + fileExtension.substring(1),
+      });
+    };
+    
+    audio.onerror = () => {
+      notify.error("Failed to load audio file");
+      setSelectedFile(null);
+    };
+    
+    audio.src = URL.createObjectURL(file);
+    notify.success("Audio file selected!");
   };
 
   const convertToWav = async () => {
     if (!selectedFile) {
-  notify.error("Please select a file first!");
+      notify.error("Please select a file first!");
       return;
     }
 
@@ -110,6 +184,8 @@ export const Mp3ToWavConverter = () => {
 
       // Decode audio data
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
       setConversionProgress(70);
 
@@ -117,11 +193,21 @@ export const Mp3ToWavConverter = () => {
       const wavBlob = encodeWAV(audioBuffer);
       setConversionProgress(100);
 
+      // Cleanup
+      await audioContext.close();
+      audioContextRef.current = null;
+
       setConvertedFile(wavBlob);
-  notify.success("File converted successfully!");
+      notify.success("File converted successfully!");
     } catch (error) {
       console.error(error);
-  notify.error("Conversion failed. Please try again.");
+      notify.error("Conversion failed. Please try again.");
+      
+      // Cleanup on error
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
     } finally {
       setIsConverting(false);
     }
@@ -146,7 +232,20 @@ export const Mp3ToWavConverter = () => {
     setConvertedFile(null);
     setAudioInfo(null);
     setConversionProgress(0);
+    
     if (fileInputRef.current) fileInputRef.current.value = "";
+    
+    // Cleanup audio element
+    if (audioElementRef.current) {
+      audioElementRef.current.src = '';
+      audioElementRef.current = null;
+    }
+    
+    // Cleanup audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
   };
 
   const formatFileSize = (bytes: number) => {

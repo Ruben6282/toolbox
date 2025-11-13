@@ -16,6 +16,24 @@ export const CalorieCalculator = () => {
   const [goal, setGoal] = useState("maintain");
   const [unitSystem, setUnitSystem] = useState("metric");
 
+  // Guardrails and sanitizers
+  const MIN_AGE = 1;
+  const MAX_AGE = 120;
+  const METRIC = { MIN_W: 1, MAX_W: 500, MIN_H: 30, MAX_H: 300 };
+  const IMPERIAL = { MIN_W: 2, MAX_W: 1100, MIN_H: 12, MAX_H: 120 };
+  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+  const sanitizeIntInput = (v: string, maxLen = 3) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
+  const sanitizeDecimalInput = (v: string, maxLen = 8) => {
+    const cleaned = v.replace(/[^0-9.]/g, "");
+    const parts = cleaned.split(".");
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : cleaned;
+    return normalized.slice(0, maxLen);
+  };
+  const coerceUnit = (v: string) => (v === "metric" || v === "imperial" ? v : "metric");
+  const coerceGender = (v: string) => (v === "male" || v === "female" ? v : "male");
+  const coerceActivity = (v: string) => (v in activityLevels ? v : "moderate");
+  const coerceGoal = (v: string) => (v in goals ? v : "maintain");
+
   const ageNum = parseFloat(age) || 0;
   const weightNum = parseFloat(weight) || 0;
   const heightNum = parseFloat(height) || 0;
@@ -39,7 +57,17 @@ export const CalorieCalculator = () => {
   };
 
   const calculateBMR = () => {
-    if (ageNum <= 0 || weightNum <= 0 || heightNum <= 0) return 0;
+    if (ageNum < MIN_AGE || ageNum > MAX_AGE) return 0;
+    if (weightNum <= 0 || heightNum <= 0) return 0;
+
+    // Validate unit-specific ranges defensively
+    if (unitSystem === "metric") {
+      if (weightNum < METRIC.MIN_W || weightNum > METRIC.MAX_W) return 0;
+      if (heightNum < METRIC.MIN_H || heightNum > METRIC.MAX_H) return 0;
+    } else {
+      if (weightNum < IMPERIAL.MIN_W || weightNum > IMPERIAL.MAX_W) return 0;
+      if (heightNum < IMPERIAL.MIN_H || heightNum > IMPERIAL.MAX_H) return 0;
+    }
 
     let bmr: number;
     
@@ -115,7 +143,7 @@ export const CalorieCalculator = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="unit-system">Unit System</Label>
-            <Select value={unitSystem} onValueChange={setUnitSystem}>
+            <Select value={unitSystem} onValueChange={(v) => setUnitSystem(coerceUnit(v))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select unit system" />
               </SelectTrigger>
@@ -134,15 +162,16 @@ export const CalorieCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={age}
-                onChange={(e) => setAge(e.target.value)}
-                min="1"
-                max="120"
+                onChange={(e) => setAge(sanitizeIntInput(e.target.value))}
+                inputMode="numeric"
+                min={MIN_AGE}
+                max={MAX_AGE}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
-              <Select value={gender} onValueChange={setGender}>
+              <Select value={gender} onValueChange={(v) => setGender(coerceGender(v))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
@@ -162,9 +191,11 @@ export const CalorieCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                min="0"
-                step="0.1"
+                onChange={(e) => setWeight(sanitizeDecimalInput(e.target.value))}
+                inputMode="decimal"
+                min={unitSystem === "metric" ? METRIC.MIN_W : IMPERIAL.MIN_W}
+                max={unitSystem === "metric" ? METRIC.MAX_W : IMPERIAL.MAX_W}
+                step={0.1}
               />
             </div>
 
@@ -177,16 +208,18 @@ export const CalorieCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                min="0"
-                step="0.1"
+                onChange={(e) => setHeight(sanitizeDecimalInput(e.target.value))}
+                inputMode="decimal"
+                min={unitSystem === "metric" ? METRIC.MIN_H : IMPERIAL.MIN_H}
+                max={unitSystem === "metric" ? METRIC.MAX_H : IMPERIAL.MAX_H}
+                step={0.1}
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="activity-level">Activity Level</Label>
-            <Select value={activityLevel} onValueChange={setActivityLevel}>
+            <Select value={activityLevel} onValueChange={(v) => setActivityLevel(coerceActivity(v))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select activity level" />
               </SelectTrigger>
@@ -202,7 +235,7 @@ export const CalorieCalculator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="goal">Weight Goal</Label>
-            <Select value={goal} onValueChange={setGoal}>
+            <Select value={goal} onValueChange={(v) => setGoal(coerceGoal(v))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select weight goal" />
               </SelectTrigger>

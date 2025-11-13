@@ -80,6 +80,27 @@ const ALLOWED_LOCALES = [
   'th_TH', 'vi_VN', 'id_ID', 'ms_MY', 'uk_UA'
 ] as const;
 
+// Type aliases for enum values
+type OGType = typeof ALLOWED_OG_TYPES[number];
+type TwitterCard = typeof ALLOWED_TWITTER_CARDS[number];
+type Locale = typeof ALLOWED_LOCALES[number];
+
+// Coercion functions for enum safety
+const coerceOGType = (val: string): OGType => {
+  if (ALLOWED_OG_TYPES.includes(val as OGType)) return val as OGType;
+  return 'website';
+};
+
+const coerceTwitterCard = (val: string): TwitterCard => {
+  if (ALLOWED_TWITTER_CARDS.includes(val as TwitterCard)) return val as TwitterCard;
+  return 'summary_large_image';
+};
+
+const coerceLocale = (val: string): Locale => {
+  if (ALLOWED_LOCALES.includes(val as Locale)) return val as Locale;
+  return 'en_US';
+};
+
 // Field validation errors interface
 interface ValidationErrors {
   [key: string]: string | null;
@@ -316,7 +337,13 @@ export const MetaTagGenerator = () => {
       return;
     }
 
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Coerce enum values to prevent tampering
+    let safeValue = value;
+    if (field === 'ogType') safeValue = coerceOGType(value);
+    if (field === 'twitterCard') safeValue = coerceTwitterCard(value);
+    if (field === 'ogLocale') safeValue = coerceLocale(value);
+
+    setFormData(prev => ({ ...prev, [field]: safeValue }));
     
     // Clear error for this field when user starts typing
     setValidationErrors(prev => {

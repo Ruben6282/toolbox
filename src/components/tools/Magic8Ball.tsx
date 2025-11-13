@@ -5,6 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, HelpCircle } from "lucide-react";
 
+// Max question length
+const MAX_QUESTION_LENGTH = 500;
+
+// Strip control characters except tab/newline/CR
+const sanitizeInput = (val: string) =>
+  val
+    .split("")
+    .filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("")
+    .substring(0, MAX_QUESTION_LENGTH);
+
+// Secure random integer
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
 export const Magic8Ball = () => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
@@ -47,7 +71,7 @@ export const Magic8Ball = () => {
     setIsShaking(true);
     
     setTimeout(() => {
-      const randomIndex = Math.floor(Math.random() * answers.length);
+      const randomIndex = secureRandom(answers.length);
       setAnswer(answers[randomIndex]);
       setIsShaking(false);
     }, 2000);
@@ -97,8 +121,9 @@ export const Magic8Ball = () => {
               id="question"
               placeholder="What would you like to know?"
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => setQuestion(sanitizeInput(e.target.value))}
               onKeyPress={(e) => e.key === 'Enter' && askQuestion()}
+              maxLength={MAX_QUESTION_LENGTH}
             />
           </div>
 

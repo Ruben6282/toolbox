@@ -6,6 +6,32 @@ import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 import { RefreshCw } from "lucide-react";
 
+const MAX_NUMBER = 1e12; // 1 trillion
+const MIN_NUMBER = -1e12;
+const MAX_COUNT = 10000;
+
+// Sanitize: strip non-numeric chars (keep minus sign and digits)
+const sanitizeInteger = (val: string): string => {
+  // Allow minus at start, then digits only
+  const cleaned = val.replace(/[^0-9-]/g, "");
+  // Ensure only one minus at the start
+  if (cleaned.startsWith("-")) {
+    return "-" + cleaned.substring(1).replace(/-/g, "");
+  }
+  return cleaned.replace(/-/g, "");
+};
+
+// Secure random integer in range [min, max]
+const secureRandomInRange = (min: number, max: number): number => {
+  const range = max - min + 1;
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return min + (arr[0] % range);
+  }
+  return Math.floor(Math.random() * range) + min;
+};
+
 export const RandomNumber = () => {
   const [min, setMin] = useState("1");
   const [max, setMax] = useState("100");
@@ -22,21 +48,37 @@ export const RandomNumber = () => {
     const countNum = parseInt(count);
 
     if (isNaN(minNum) || isNaN(maxNum) || isNaN(countNum)) {
-  notify.error("Please enter valid numbers!");
+      notify.error("Please enter valid numbers!");
+      return;
+    }
+
+    // Range validation
+    if (minNum < MIN_NUMBER || minNum > MAX_NUMBER) {
+      notify.error(`Min must be between ${MIN_NUMBER.toLocaleString()} and ${MAX_NUMBER.toLocaleString()}`);
+      return;
+    }
+
+    if (maxNum < MIN_NUMBER || maxNum > MAX_NUMBER) {
+      notify.error(`Max must be between ${MIN_NUMBER.toLocaleString()} and ${MAX_NUMBER.toLocaleString()}`);
       return;
     }
 
     if (minNum >= maxNum) {
-  notify.error("Min must be less than Max!");
+      notify.error("Min must be less than Max!");
+      return;
+    }
+
+    if (countNum < 1 || countNum > MAX_COUNT) {
+      notify.error(`Count must be between 1 and ${MAX_COUNT.toLocaleString()}`);
       return;
     }
 
     const generated = [];
     for (let i = 0; i < countNum; i++) {
-      generated.push(Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum);
+      generated.push(secureRandomInRange(minNum, maxNum));
     }
     setNumbers(generated);
-  notify.success("Random numbers generated!");
+    notify.success("Random numbers generated!");
   };
 
   return (
@@ -50,25 +92,28 @@ export const RandomNumber = () => {
             <div className="space-y-2">
               <Label>Minimum</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={min}
-                onChange={(e) => setMin(e.target.value)}
+                onChange={(e) => setMin(sanitizeInteger(e.target.value))}
               />
             </div>
             <div className="space-y-2">
               <Label>Maximum</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={max}
-                onChange={(e) => setMax(e.target.value)}
+                onChange={(e) => setMax(sanitizeInteger(e.target.value))}
               />
             </div>
             <div className="space-y-2">
               <Label>Count</Label>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={count}
-                onChange={(e) => setCount(e.target.value)}
+                onChange={(e) => setCount(sanitizeInteger(e.target.value).replace(/-/g, ""))}
               />
             </div>
           </div>

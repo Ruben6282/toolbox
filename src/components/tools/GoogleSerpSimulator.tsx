@@ -9,6 +9,24 @@ import { Search, ExternalLink, RotateCcw, Star, MapPin, Clock } from "lucide-rea
 import { notify } from "@/lib/notify";
 import { sanitizeText, truncateText } from "@/lib/security";
 
+const MAX_QUERY_LENGTH = 200;
+const MAX_LOCATION_LENGTH = 100;
+const ALLOWED_DEVICES = ["desktop", "mobile", "tablet"] as const;
+type Device = typeof ALLOWED_DEVICES[number];
+
+const coerceDevice = (value: string): Device => {
+  return ALLOWED_DEVICES.includes(value as Device) ? (value as Device) : "desktop";
+};
+
+// Sanitize text inputs
+const sanitizeInput = (text: string, maxLen: number): string => {
+  const cleaned = text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+  return cleaned.slice(0, maxLen);
+};
+
 interface SerpResult {
   title: string;
   url: string;
@@ -24,7 +42,7 @@ interface SerpResult {
 export const GoogleSerpSimulator = () => {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
-  const [device, setDevice] = useState("desktop");
+  const [device, setDevice] = useState<Device>("desktop");
   const [results, setResults] = useState<SerpResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -162,7 +180,8 @@ export const GoogleSerpSimulator = () => {
               id="search-query"
               placeholder="Enter your search query..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => setQuery(sanitizeInput(e.target.value, MAX_QUERY_LENGTH))}
+              maxLength={MAX_QUERY_LENGTH}
             />
           </div>
 
@@ -173,13 +192,14 @@ export const GoogleSerpSimulator = () => {
                 id="location"
                 placeholder="City, State or Country"
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) => setLocation(sanitizeInput(e.target.value, MAX_LOCATION_LENGTH))}
+                maxLength={MAX_LOCATION_LENGTH}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="device" className="text-xs sm:text-sm">Device Type</Label>
-              <Select value={device} onValueChange={setDevice}>
+              <Select value={device} onValueChange={(value) => setDevice(coerceDevice(value))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -10,6 +10,13 @@ export const DecimalToBinaryConverter = () => {
   const [decimal, setDecimal] = useState("");
   const [binary, setBinary] = useState("");
 
+  // Security caps
+  const MAX_DECIMAL = 4294967295; // 32-bit max
+  const MAX_BINARY_LENGTH = 32;
+
+  const sanitizeIntInput = (v: string, maxLen = 10) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
+  const sanitizeBinaryInput = (v: string, maxLen = MAX_BINARY_LENGTH) => v.replace(/[^01]/g, "").slice(0, maxLen);
+
   const formatNumber = (num: number) => {
     return num.toLocaleString('en-US');
   };
@@ -53,14 +60,15 @@ export const DecimalToBinaryConverter = () => {
   };
 
   const handleDecimalChange = (value: string) => {
-    setDecimal(value);
-    if (value.trim() === "") {
+    const cleaned = sanitizeIntInput(value, 10);
+    setDecimal(cleaned);
+    if (cleaned.trim() === "") {
       setBinary("");
       return;
     }
 
-    const num = parseInt(value);
-    if (isNaN(num) || num < 0) {
+    const num = parseInt(cleaned);
+    if (isNaN(num) || num < 0 || num > MAX_DECIMAL) {
       setBinary("");
     } else {
       const result = convertDecimalToBinary(num);
@@ -73,13 +81,14 @@ export const DecimalToBinaryConverter = () => {
   };
 
   const handleBinaryChange = (value: string) => {
-    setBinary(value);
-    if (value.trim() === "") {
+    const cleaned = sanitizeBinaryInput(value, MAX_BINARY_LENGTH);
+    setBinary(cleaned);
+    if (cleaned.trim() === "") {
       setDecimal("");
       return;
     }
 
-    const result = convertBinaryToDecimal(value);
+    const result = convertBinaryToDecimal(cleaned);
     if (result.error) {
       setDecimal("");
     } else {
@@ -171,9 +180,13 @@ export const DecimalToBinaryConverter = () => {
             <div className="flex gap-2">
               <Input
                 id="decimal"
+                type="number"
                 placeholder="Enter decimal number (e.g., 10)"
                 value={decimal}
                 onChange={(e) => handleDecimalChange(e.target.value)}
+                inputMode="numeric"
+                min="0"
+                max={String(MAX_DECIMAL)}
                 className={!decimalValidation.isValid ? "border-red-500" : ""}
               />
               <Button
@@ -200,6 +213,8 @@ export const DecimalToBinaryConverter = () => {
                 placeholder="Enter binary number (e.g., 1010)"
                 value={binary}
                 onChange={(e) => handleBinaryChange(e.target.value)}
+                inputMode="numeric"
+                maxLength={MAX_BINARY_LENGTH}
                 className={!binaryValidation.isValid ? "border-red-500" : ""}
               />
               <Button

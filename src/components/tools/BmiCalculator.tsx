@@ -60,6 +60,17 @@ export const BmiCalculator = () => {
   const [category, setCategory] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Prevent UI freeze and odd number formats (e.g., scientific notation)
+  const MAX_INPUT_LEN = 8; // generous for both unit systems
+
+  const sanitizeNumericInput = (val: string) => {
+    // Allow only digits and one decimal dot; strip other characters including e/E/+-
+    const cleaned = val.replace(/[^0-9.]/g, "");
+    const parts = cleaned.split(".");
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : cleaned;
+    return normalized.slice(0, MAX_INPUT_LEN);
+  };
+
   // BMI formatter (locale-aware, 1 decimal)
   const bmiFormatter = useMemo(() => {
     return new Intl.NumberFormat(undefined, {
@@ -258,7 +269,10 @@ export const BmiCalculator = () => {
               inputMode="decimal"
               placeholder={unit === "metric" ? "e.g., 70" : "e.g., 154"}
               value={weight}
-              onChange={(e) => setWeight(e.target.value)}
+              onChange={(e) => setWeight(sanitizeNumericInput(e.target.value))}
+              min={unit === "metric" ? MIN_WEIGHT_KG : MIN_WEIGHT_LB}
+              max={unit === "metric" ? MAX_WEIGHT_KG : MAX_WEIGHT_LB}
+              step={0.1}
               aria-label="Body weight"
               aria-invalid={hasError ? "true" : "false"}
               aria-describedby={hasError ? "bmi-error" : undefined}
@@ -281,7 +295,10 @@ export const BmiCalculator = () => {
               inputMode="decimal"
               placeholder={unit === "metric" ? "e.g., 175" : "e.g., 69"}
               value={height}
-              onChange={(e) => setHeight(e.target.value)}
+              onChange={(e) => setHeight(sanitizeNumericInput(e.target.value))}
+              min={unit === "metric" ? MIN_HEIGHT_CM : MIN_HEIGHT_IN}
+              max={unit === "metric" ? MAX_HEIGHT_CM : MAX_HEIGHT_IN}
+              step={0.1}
               aria-label="Body height"
               aria-invalid={hasError ? "true" : "false"}
               aria-describedby={hasError ? "bmi-error" : undefined}

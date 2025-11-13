@@ -56,7 +56,15 @@ const FONT_FAMILIES = [
   "Courier New",
   "Georgia",
   "Times New Roman",
-];
+] as const;
+
+type FontFamily = typeof FONT_FAMILIES[number];
+
+// Coerce font family to allowed values
+const coerceFontFamily = (val: string): FontFamily => {
+  if (FONT_FAMILIES.includes(val as FontFamily)) return val as FontFamily;
+  return "Impact";
+};
 
 const DEFAULT_TEXT_STYLE = {
   fontSize: 48,
@@ -64,7 +72,7 @@ const DEFAULT_TEXT_STYLE = {
   stroke: "#000000",
   strokeWidth: 3,
   rotation: 0,
-  fontFamily: "Impact",
+  fontFamily: "Impact" as FontFamily,
 };
 
 export const MemeGenerator = () => {
@@ -551,7 +559,7 @@ export const MemeGenerator = () => {
                         <Select
                           value={box.fontFamily}
                           onValueChange={(v) =>
-                            updateTextBox(box.id, { fontFamily: v })
+                            updateTextBox(box.id, { fontFamily: coerceFontFamily(v) })
                           }
                         >
                           <SelectTrigger className="h-10 sm:h-9">

@@ -25,8 +25,9 @@ export const StopwatchTimer = () => {
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      const id = intervalRef.current;
+      if (id) {
+        clearInterval(id);
       }
     };
   }, [isRunning]);

@@ -10,6 +10,13 @@ export const DecimalToHexConverter = () => {
   const [decimal, setDecimal] = useState("");
   const [hex, setHex] = useState("");
 
+  // Security caps
+  const MAX_DECIMAL = 4294967295; // 32-bit max (0xFFFFFFFF)
+  const MAX_HEX_LENGTH = 8; // 8 hex digits = 32 bits
+
+  const sanitizeIntInput = (v: string, maxLen = 10) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
+  const sanitizeHexInput = (v: string, maxLen = MAX_HEX_LENGTH) => v.replace(/[^0-9A-Fa-f]/g, "").slice(0, maxLen);
+
   const convertDecimalToHex = (decimalNum: number) => {
     if (decimalNum < 0) {
       return { result: "", error: "Negative numbers not supported" };
@@ -49,14 +56,15 @@ export const DecimalToHexConverter = () => {
   };
 
   const handleDecimalChange = (value: string) => {
-    setDecimal(value);
-    if (value.trim() === "") {
+    const cleaned = sanitizeIntInput(value, 10);
+    setDecimal(cleaned);
+    if (cleaned.trim() === "") {
       setHex("");
       return;
     }
 
-    const num = parseInt(value);
-    if (isNaN(num) || num < 0) {
+    const num = parseInt(cleaned);
+    if (isNaN(num) || num < 0 || num > MAX_DECIMAL) {
       setHex("");
     } else {
       const result = convertDecimalToHex(num);
@@ -69,13 +77,14 @@ export const DecimalToHexConverter = () => {
   };
 
   const handleHexChange = (value: string) => {
-    setHex(value.toUpperCase());
-    if (value.trim() === "") {
+    const cleaned = sanitizeHexInput(value, MAX_HEX_LENGTH).toUpperCase();
+    setHex(cleaned);
+    if (cleaned.trim() === "") {
       setDecimal("");
       return;
     }
 
-    const result = convertHexToDecimal(value);
+    const result = convertHexToDecimal(cleaned);
     if (result.error) {
       setDecimal("");
     } else {
@@ -167,9 +176,13 @@ export const DecimalToHexConverter = () => {
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="decimal"
+                type="number"
                 placeholder="Enter decimal number (e.g., 255)"
                 value={decimal}
                 onChange={(e) => handleDecimalChange(e.target.value)}
+                inputMode="numeric"
+                min="0"
+                max={String(MAX_DECIMAL)}
                 className={!decimalValidation.isValid ? "border-red-500" : ""}
               />
               <Button
@@ -197,6 +210,7 @@ export const DecimalToHexConverter = () => {
                 placeholder="Enter hex number (e.g., FF)"
                 value={hex}
                 onChange={(e) => handleHexChange(e.target.value)}
+                maxLength={MAX_HEX_LENGTH}
                 className={!hexValidation.isValid ? "border-red-500" : ""}
               />
               <Button

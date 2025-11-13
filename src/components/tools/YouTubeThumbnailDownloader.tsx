@@ -7,6 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Download, ExternalLink, RotateCcw, Play, Image, AlertCircle } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_URL_LENGTH = 2048;
+
+// Sanitize URL input
+const sanitizeUrlInput = (val: string): string => {
+  let out = "";
+  for (const ch of val) {
+    const code = ch.charCodeAt(0);
+    if (code >= 32 || code === 9 || code === 10 || code === 13) out += ch;
+  }
+  return out.slice(0, MAX_URL_LENGTH);
+};
+
 interface ThumbnailInfo {
   url: string;
   quality: string;
@@ -22,6 +34,7 @@ export const YouTubeThumbnailDownloader = () => {
   const [videoTitle, setVideoTitle] = useState("");
 
   const extractVideoId = (url: string): string | null => {
+    const sanitized = sanitizeUrlInput(url);
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
       /youtube\.com\/v\/([^&\n?#]+)/,
@@ -29,9 +42,13 @@ export const YouTubeThumbnailDownloader = () => {
     ];
 
     for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[1];
+      const match = sanitized.match(pattern);
+      if (match && match[1]) {
+        // Validate video ID (alphanumeric, underscore, hyphen, 11 chars)
+        const id = match[1];
+        if (/^[A-Za-z0-9_-]{11}$/.test(id)) {
+          return id;
+        }
       }
     }
     return null;
@@ -177,7 +194,8 @@ export const YouTubeThumbnailDownloader = () => {
               id="video-url"
               placeholder="https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID"
               value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
+              onChange={(e) => setVideoUrl(sanitizeUrlInput(e.target.value))}
+              maxLength={MAX_URL_LENGTH}
             />
             <p className="text-sm text-muted-foreground">
               Supports various YouTube URL formats

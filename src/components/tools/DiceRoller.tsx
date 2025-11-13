@@ -11,13 +11,28 @@ export const DiceRoller = () => {
   const [results, setResults] = useState<number[]>([]);
   const [total, setTotal] = useState(0);
 
+  const ALLOWED_DICE = ["4", "6", "8", "10", "12", "20", "100"];
+  const ALLOWED_COUNTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+  
+  const coerceDiceType = (v: string) => (ALLOWED_DICE.includes(v) ? v : "6");
+  const coerceNumDice = (v: string) => (ALLOWED_COUNTS.includes(v) ? v : "1");
+
   const rollDice = () => {
-    const sides = parseInt(diceType);
-    const count = parseInt(numDice);
+    const sides = parseInt(coerceDiceType(diceType));
+    const count = parseInt(coerceNumDice(numDice));
     const rolls: number[] = [];
     
     for (let i = 0; i < count; i++) {
-      rolls.push(Math.floor(Math.random() * sides) + 1);
+      // Use crypto.getRandomValues for stronger randomness when available
+      let roll: number;
+      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const arr = new Uint32Array(1);
+        crypto.getRandomValues(arr);
+        roll = (arr[0] % sides) + 1;
+      } else {
+        roll = Math.floor(Math.random() * sides) + 1;
+      }
+      rolls.push(roll);
     }
     
     setResults(rolls);
@@ -34,7 +49,7 @@ export const DiceRoller = () => {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="diceType">Dice Type</Label>
-            <Select value={diceType} onValueChange={setDiceType}>
+            <Select value={diceType} onValueChange={(v) => setDiceType(coerceDiceType(v))}>
               <SelectTrigger id="diceType">
                 <SelectValue />
               </SelectTrigger>
@@ -52,7 +67,7 @@ export const DiceRoller = () => {
 
           <div>
             <Label htmlFor="numDice">Number of Dice</Label>
-            <Select value={numDice} onValueChange={setNumDice}>
+            <Select value={numDice} onValueChange={(v) => setNumDice(coerceNumDice(v))}>
               <SelectTrigger id="numDice">
                 <SelectValue />
               </SelectTrigger>

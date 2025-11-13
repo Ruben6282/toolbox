@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Download, RotateCcw, Play, Pause, Scissors, Volume2 } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { MAX_FILE_SIZE } from "@/lib/security";
 
 export const AudioCutter = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -21,6 +22,11 @@ export const AudioCutter = () => {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentUrlRef = useRef<string>("");
+
+  // Guardrails to prevent resource exhaustion
+  const MAX_AUDIO_DURATION_SEC = 3600; // 60 minutes max source file duration
+  const MAX_CLIP_DURATION_SEC = 600;   // 10 minutes max clip to export
 
   // Format time as mm:ss
   const formatTime = (seconds: number) => {
@@ -36,18 +42,37 @@ export const AudioCutter = () => {
 
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => {
-      setDuration(audio.duration);
-      setEndTime(audio.duration);
+      const dur = audio.duration;
+      if (!isFinite(dur) || isNaN(dur)) {
+        notify.error("Failed to read audio duration.");
+        return;
+      }
+      if (dur > MAX_AUDIO_DURATION_SEC) {
+        notify.error("Audio is too long. Please choose a file under 60 minutes.");
+        audio.pause();
+        setIsPlaying(false);
+        setSelectedFile(null);
+        setAudioUrl("");
+        if (currentUrlRef.current) {
+          URL.revokeObjectURL(currentUrlRef.current);
+          currentUrlRef.current = "";
+        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      setDuration(dur);
+      setEndTime(dur);
     };
 
-    audio.addEventListener("timeupdate", updateTime);
-    audio.addEventListener("loadedmetadata", updateDuration);
-    audio.addEventListener("ended", () => setIsPlaying(false));
+  const onEnded = () => setIsPlaying(false);
+  audio.addEventListener("timeupdate", updateTime);
+  audio.addEventListener("loadedmetadata", updateDuration);
+  audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
-      audio.removeEventListener("ended", () => setIsPlaying(false));
+      audio.removeEventListener("ended", onEnded);
     };
   }, [audioUrl]);
 
@@ -66,7 +91,18 @@ export const AudioCutter = () => {
       return;
     }
 
+    if (file.size > MAX_FILE_SIZE) {
+      notify.error(`File is too large. Maximum allowed size is ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
+      return;
+    }
+
+    // Revoke previous URL if any
+    if (currentUrlRef.current) {
+      URL.revokeObjectURL(currentUrlRef.current);
+      currentUrlRef.current = "";
+    }
     const url = URL.createObjectURL(file);
+    currentUrlRef.current = url;
     setSelectedFile(file);
     setAudioUrl(url);
     setCutAudioBlob(null);
@@ -108,6 +144,8 @@ export const AudioCutter = () => {
   const cutAudio = async () => {
   if (!selectedFile) return notify.error("No audio loaded.");
   if (startTime >= endTime) return notify.error("Invalid start/end times.");
+  if (startTime < 0 || endTime > duration) return notify.error("Cut times are out of range.");
+  if ((endTime - startTime) > MAX_CLIP_DURATION_SEC) return notify.error("Clip too long. Max 10 minutes.");
 
     setIsCutting(true);
     setCutProgress(10);
@@ -143,6 +181,7 @@ export const AudioCutter = () => {
 
       setCutProgress(100);
       notify.success("Audio cut successfully!");
+      await audioCtx.close();
     } catch (err) {
       console.error(err);
       notify.error("Failed to cut audio.");
@@ -205,6 +244,10 @@ export const AudioCutter = () => {
 
   const clearAll = () => {
     setSelectedFile(null);
+    if (currentUrlRef.current) {
+      URL.revokeObjectURL(currentUrlRef.current);
+      currentUrlRef.current = "";
+    }
     setAudioUrl("");
     setDuration(0);
     setCurrentTime(0);
@@ -215,12 +258,23 @@ export const AudioCutter = () => {
     setCutProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }    const audio = audioRef.current;
+    }
+    const audio = audioRef.current;
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
     }
   };
+
+  // Revoke object URL on unmount as a safety net
+  useEffect(() => {
+    return () => {
+      if (currentUrlRef.current) {
+        URL.revokeObjectURL(currentUrlRef.current);
+        currentUrlRef.current = "";
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6">

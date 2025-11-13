@@ -5,6 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mic, MicOff, Play, Pause, Square, Download, RotateCcw } from "lucide-react";
 
+type AudioQuality = "high" | "medium" | "low";
+const ALLOWED_QUALITIES: AudioQuality[] = ["high", "medium", "low"];
+const coerceQuality = (val: string): AudioQuality => (ALLOWED_QUALITIES.includes(val as AudioQuality) ? (val as AudioQuality) : "high");
+
 export const VoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -12,7 +16,7 @@ export const VoiceRecorder = () => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(false);
-  const [audioQuality, setAudioQuality] = useState("high");
+  const [audioQuality, setAudioQuality] = useState<AudioQuality>("high");
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -33,14 +37,15 @@ export const VoiceRecorder = () => {
     }
 
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      const timer = timerRef.current;
+      const stream = streamRef.current;
+      const url = audioUrl;
+      
+      if (timer) clearInterval(timer);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (url) URL.revokeObjectURL(url);
     };
-  }, []);
+  }, [audioUrl]);
 
   const startRecording = async () => {
     try {
@@ -180,7 +185,7 @@ export const VoiceRecorder = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="audio-quality">Audio Quality</Label>
-            <Select value={audioQuality} onValueChange={setAudioQuality}>
+            <Select value={audioQuality} onValueChange={(val) => setAudioQuality(coerceQuality(val))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select audio quality" />
               </SelectTrigger>

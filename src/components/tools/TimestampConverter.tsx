@@ -5,6 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 
+const MIN_TIMESTAMP = -62135596800000; // 0001-01-01 in ms
+const MAX_TIMESTAMP = 253402300799999; // 9999-12-31 in ms
+
+// Sanitize numeric input (digits only)
+const sanitizeDigits = (val: string): string => {
+  return val.replace(/[^\d]/g, "").slice(0, 20);
+};
+
 export const TimestampConverter = () => {
   // Helper to format a Date for an <input type="datetime-local"> using LOCAL time (no timezone)
   const formatLocalDateTimeForInput = (d: Date) => {
@@ -22,11 +30,14 @@ export const TimestampConverter = () => {
 
   const timestampToDate = () => {
     try {
-      const raw = Number(String(timestamp).trim());
+      const sanitized = sanitizeDigits(timestamp);
+      const raw = Number(sanitized);
       if (!Number.isFinite(raw)) throw new Error("Invalid timestamp");
       // Auto-detect seconds vs milliseconds: assume seconds if value looks like a 10-digit unix epoch
       const tsMs = raw < 1e12 ? raw * 1000 : raw;
-      const date = new Date(tsMs);
+      // Clamp to valid range
+      const clamped = Math.max(MIN_TIMESTAMP, Math.min(MAX_TIMESTAMP, tsMs));
+      const date = new Date(clamped);
       if (isNaN(date.getTime())) throw new Error("Invalid timestamp");
       setDateTime(formatLocalDateTimeForInput(date));
   notify.success("Converted to date!");
@@ -69,8 +80,9 @@ export const TimestampConverter = () => {
             <Label>Timestamp (milliseconds or seconds)</Label>
             <Input
               type="text"
+              inputMode="numeric"
               value={timestamp}
-              onChange={(e) => setTimestamp(e.target.value)}
+              onChange={(e) => setTimestamp(sanitizeDigits(e.target.value))}
               placeholder="1234567890000"
             />
           </div>

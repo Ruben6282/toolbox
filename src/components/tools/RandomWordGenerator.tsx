@@ -36,9 +36,29 @@ const WORD_CATEGORIES = {
   ]
 };
 
+// Allowed categories
+const ALLOWED_CATEGORIES = ["mixed", "adjectives", "nouns", "verbs", "animals", "colors"] as const;
+type Category = typeof ALLOWED_CATEGORIES[number];
+
+// Coerce category
+const coerceCategory = (val: string): Category => {
+  if (ALLOWED_CATEGORIES.includes(val as Category)) return val as Category;
+  return "mixed";
+};
+
+// Secure random integer
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
 export const RandomWordGenerator = () => {
   const [wordCount, setWordCount] = useState(5);
-  const [category, setCategory] = useState("mixed");
+  const [category, setCategory] = useState<Category>("mixed");
   const [generatedWords, setGeneratedWords] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -51,13 +71,13 @@ export const RandomWordGenerator = () => {
       if (category === "mixed") {
         const allWords = Object.values(WORD_CATEGORIES).flat();
         for (let i = 0; i < wordCount; i++) {
-          const randomIndex = Math.floor(Math.random() * allWords.length);
+          const randomIndex = secureRandom(allWords.length);
           words.push(allWords[randomIndex]);
         }
       } else {
         const categoryWords = WORD_CATEGORIES[category as keyof typeof WORD_CATEGORIES];
         for (let i = 0; i < wordCount; i++) {
-          const randomIndex = Math.floor(Math.random() * categoryWords.length);
+          const randomIndex = secureRandom(categoryWords.length);
           words.push(categoryWords[randomIndex]);
         }
       }
@@ -131,7 +151,7 @@ export const RandomWordGenerator = () => {
             
             <div className="space-y-2">
               <Label htmlFor="category-select">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(val) => setCategory(coerceCategory(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>

@@ -6,16 +6,39 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCcw, Fuel } from "lucide-react";
 
+const ALLOWED_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR"] as const;
+const ALLOWED_UNITS = ["metric", "imperial"] as const;
+type Currency = typeof ALLOWED_CURRENCIES[number];
+type UnitSystem = typeof ALLOWED_UNITS[number];
+
+const MAX_DISTANCE = 1000000; // 1M km/mi
+const MAX_EFFICIENCY = 1000; // L/100km or MPG
+const MAX_PRICE = 1000; // per unit
+
+// Sanitize decimal input
+const sanitizeDecimalInput = (value: string): string => {
+  return value.replace(/[^\d.]/g, '').slice(0, 10);
+};
+
+const coerceCurrency = (value: string): Currency => {
+  return ALLOWED_CURRENCIES.includes(value as Currency) ? (value as Currency) : "USD";
+};
+
+const coerceUnitSystem = (value: string): UnitSystem => {
+  return ALLOWED_UNITS.includes(value as UnitSystem) ? (value as UnitSystem) : "metric";
+};
+
 export const FuelCostCalculator = () => {
   const [distance, setDistance] = useState("");
   const [fuelEfficiency, setFuelEfficiency] = useState("");
   const [fuelPrice, setFuelPrice] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [unitSystem, setUnitSystem] = useState("metric");
+  const [currency, setCurrency] = useState<Currency>("USD");
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
 
-  const dist = parseFloat(distance) || 0;
-  const efficiency = parseFloat(fuelEfficiency) || 0;
-  const price = parseFloat(fuelPrice) || 0;
+  // Clamp parsed values to safe ranges
+  const dist = Math.max(0, Math.min(MAX_DISTANCE, parseFloat(distance) || 0));
+  const efficiency = Math.max(0, Math.min(MAX_EFFICIENCY, parseFloat(fuelEfficiency) || 0));
+  const price = Math.max(0, Math.min(MAX_PRICE, parseFloat(fuelPrice) || 0));
 
   const calculateFuelCost = () => {
     if (dist <= 0 || efficiency <= 0 || price <= 0) {
@@ -75,7 +98,7 @@ export const FuelCostCalculator = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="unit-system">Unit System</Label>
-            <Select value={unitSystem} onValueChange={setUnitSystem}>
+            <Select value={unitSystem} onValueChange={(value) => setUnitSystem(coerceUnitSystem(value))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select unit system" />
               </SelectTrigger>
@@ -94,10 +117,12 @@ export const FuelCostCalculator = () => {
               <Input
                 id="distance"
                 type="number"
+                inputMode="decimal"
                 placeholder="0"
                 value={distance}
-                onChange={(e) => setDistance(e.target.value)}
+                onChange={(e) => setDistance(sanitizeDecimalInput(e.target.value))}
                 min="0"
+                max={MAX_DISTANCE}
                 step="0.1"
               />
             </div>
@@ -109,10 +134,12 @@ export const FuelCostCalculator = () => {
               <Input
                 id="fuel-efficiency"
                 type="number"
+                inputMode="decimal"
                 placeholder="0"
                 value={fuelEfficiency}
-                onChange={(e) => setFuelEfficiency(e.target.value)}
+                onChange={(e) => setFuelEfficiency(sanitizeDecimalInput(e.target.value))}
                 min="0"
+                max={MAX_EFFICIENCY}
                 step="0.1"
               />
             </div>
@@ -124,17 +151,19 @@ export const FuelCostCalculator = () => {
               <Input
                 id="fuel-price"
                 type="number"
+                inputMode="decimal"
                 placeholder="0"
                 value={fuelPrice}
-                onChange={(e) => setFuelPrice(e.target.value)}
+                onChange={(e) => setFuelPrice(sanitizeDecimalInput(e.target.value))}
                 min="0"
+                max={MAX_PRICE}
                 step="0.01"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
+              <Select value={currency} onValueChange={(value) => setCurrency(coerceCurrency(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>

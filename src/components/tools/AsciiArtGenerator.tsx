@@ -61,13 +61,17 @@ const FONT_NAMES = Object.keys(REGISTERED_FONTS);
 export const AsciiArtGenerator = () => {
   const [inputText, setInputText] = useState("");
   const [font, setFont] = useState("Standard");
+  // Tool-specific guardrails to prevent excessive CPU/memory use
+  const ASCII_MAX_CHARS = 20_000; // much stricter than global MAX_TEXT_LENGTH
+  const MAX_CANVAS_DIMENSION = 4096; // cap exported image size
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     
-    if (!validateTextLength(newText)) {
-      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
-      setInputText(truncateText(newText));
+    // Enforce per-tool stricter limit to avoid generating huge ASCII art
+    if (!validateTextLength(newText, ASCII_MAX_CHARS)) {
+      notify.error(`Text exceeds maximum length of ${ASCII_MAX_CHARS.toLocaleString()} characters`);
+      setInputText(truncateText(newText, ASCII_MAX_CHARS));
       return;
     }
     
@@ -140,32 +144,52 @@ export const AsciiArtGenerator = () => {
 
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
+    if (!context) {
+      notify.error("Your browser does not support canvas.");
+      return;
+    }
 
     const fontSize = 16;
-    const lineHeight = fontSize * 1.2;
+    const lineHeight = Math.ceil(fontSize * 1.2);
     const lines = asciiArt.split("\n");
 
-    // Temporarily set font for measuring text
+    // Measure width with monospace font, cap to prevent huge canvases (CSP/memory-friendly)
     context.font = `${fontSize}px monospace`;
-    canvas.width = Math.max(...lines.map((line) => context.measureText(line).width)) || 500;
-    canvas.height = lines.length * lineHeight;
+    const measuredWidth = Math.max(...lines.map((line) => context.measureText(line).width)) || 500;
+    const targetWidth = Math.min(Math.ceil(measuredWidth), MAX_CANVAS_DIMENSION);
+    const targetHeight = Math.min(lines.length * lineHeight, MAX_CANVAS_DIMENSION);
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
 
     // Draw background
     context.fillStyle = "#fff";
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw ASCII art text
+    // Draw ASCII art text, truncating lines if necessary to fit canvas
     context.fillStyle = "#000";
     context.font = `${fontSize}px monospace`;
     context.textBaseline = "top";
-    lines.forEach((line, i) => context.fillText(line, 0, i * lineHeight));
+    const maxLines = Math.floor(targetHeight / lineHeight);
+    const drawLines = lines.slice(0, maxLines);
+    drawLines.forEach((line, i) => context.fillText(line, 0, i * lineHeight));
+    if (lines.length > drawLines.length) {
+      // Indicate truncation
+      context.fillText("… (truncated)", 0, (drawLines.length - 1) * lineHeight);
+    }
 
-    // Download image
-    const url = canvas.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ascii-art.png";
-    a.click();
+    // Download image using toBlob to reduce memory pressure
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        notify.error("Failed to generate image");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ascii-art.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
   }, [asciiArt]);
 
   const clearAll = useCallback(() => setInputText(""), []);

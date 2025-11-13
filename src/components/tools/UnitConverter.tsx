@@ -4,6 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const MAX_INPUT_VALUE = 1e15;
+
+// Sanitize numeric input
+const sanitizeDecimal = (val: string): string => {
+  let out = "";
+  let dotSeen = false;
+  for (const ch of val.slice(0, 20)) {
+    if (ch >= "0" && ch <= "9") out += ch;
+    else if (ch === "." && !dotSeen) {
+      out += ch;
+      dotSeen = true;
+    } else if (ch === "-" && out === "") out += ch;
+  }
+  return out;
+};
+
+type Category = "length" | "weight" | "temperature";
+const ALLOWED_CATEGORIES: Category[] = ["length", "weight", "temperature"];
+const coerceCategory = (val: string): Category => (ALLOWED_CATEGORIES.includes(val as Category) ? (val as Category) : "length");
+
 const conversions = {
   length: {
     meter: 1,
@@ -31,15 +51,16 @@ const conversions = {
 };
 
 export const UnitConverter = () => {
-  const [category, setCategory] = useState("length");
+  const [category, setCategory] = useState<Category>("length");
   const [value, setValue] = useState("1");
   const [fromUnit, setFromUnit] = useState("meter");
   const [toUnit, setToUnit] = useState("kilometer");
   const [result, setResult] = useState<number | null>(null);
 
   const convert = (val: string, from: string, to: string, cat: string) => {
-    const numVal = parseFloat(val);
-    if (isNaN(numVal)) {
+    const sanitized = sanitizeDecimal(val);
+    const numVal = parseFloat(sanitized);
+    if (!isFinite(numVal) || isNaN(numVal) || Math.abs(numVal) > MAX_INPUT_VALUE) {
       setResult(null);
       return;
     }
@@ -68,11 +89,12 @@ export const UnitConverter = () => {
   };
 
   const handleCategoryChange = (newCat: string) => {
-    setCategory(newCat);
-    const units = Object.keys(conversions[newCat as keyof typeof conversions]);
+    const coerced = coerceCategory(newCat);
+    setCategory(coerced);
+    const units = Object.keys(conversions[coerced]);
     setFromUnit(units[0]);
     setToUnit(units[1]);
-    handleChange(undefined, units[0], units[1], newCat);
+    handleChange(undefined, units[0], units[1], coerced);
   };
 
   return (
@@ -99,11 +121,13 @@ export const UnitConverter = () => {
           <div className="space-y-2">
             <Label>Value</Label>
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={value}
               onChange={(e) => {
-                setValue(e.target.value);
-                handleChange(e.target.value);
+                const sanitized = sanitizeDecimal(e.target.value);
+                setValue(sanitized);
+                handleChange(sanitized);
               }}
             />
           </div>

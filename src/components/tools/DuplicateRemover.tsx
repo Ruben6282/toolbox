@@ -5,28 +5,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
 import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
+// Strip control characters except tab/newline/CR to prevent hidden duplicates
+const stripControlChars = (text: string): string => {
+  return text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    // Keep printable chars, tab (9), newline (10), carriage return (13)
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+};
+
 export const DuplicateRemover = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value;
+    const cleaned = stripControlChars(e.target.value);
     
-    if (!validateTextLength(newText)) {
+    if (!validateTextLength(cleaned)) {
       notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
-      setInput(truncateText(newText));
+      setInput(truncateText(cleaned));
       return;
     }
     
-    setInput(newText);
+    setInput(cleaned);
   };
 
   const removeDuplicates = () => {
     const lines = input.split("\n");
-    const uniqueLines = Array.from(new Set(lines));
-    setOutput(uniqueLines.join("\n"));
+    // Trim whitespace from each line before deduplication for more accurate results
+    const trimmedLines = lines.map(line => line.trim());
+    const uniqueLines = Array.from(new Set(trimmedLines));
+    const cleaned = uniqueLines.join("\n");
+    setOutput(truncateText(cleaned)); // Enforce output cap
     const removed = lines.length - uniqueLines.length;
-  notify.success(`Removed ${removed} duplicate line${removed !== 1 ? "s" : ""}!`);
+    notify.success(`Removed ${removed} duplicate line${removed !== 1 ? "s" : ""}!`);
   };
 
   const copyToClipboard = async () => {

@@ -14,12 +14,31 @@ export const DateCalculator = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  // Guardrails
+  const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+  const MIN_DATE = new Date('1900-01-01T00:00');
+  const MAX_DATE = new Date('2100-12-31T23:59');
+  const clampDate = (d: Date) => {
+    if (d < MIN_DATE) return new Date(MIN_DATE);
+    if (d > MAX_DATE) return new Date(MAX_DATE);
+    return d;
+  };
+  const parseDateSafe = (val: string): Date | null => {
+    if (!val || !DATETIME_RE.test(val)) return null;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+    return clampDate(d);
+  };
+
   const [date1, setDate1] = useState(formatDateTime(new Date()));
   const [date2, setDate2] = useState(formatDateTime(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)));
 
   const calculateDifference = () => {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
+    const d1 = parseDateSafe(date1);
+    const d2 = parseDateSafe(date2);
+    if (!d1 || !d2) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, totalHours: 0, totalMinutes: 0, totalSeconds: 0, weeks: 0, months: 0, years: 0 };
+    }
     const diff = Math.abs(d2.getTime() - d1.getTime());
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -50,6 +69,8 @@ export const DateCalculator = () => {
             <Input
               type="datetime-local"
               value={date1}
+              min="1900-01-01T00:00"
+              max="2100-12-31T23:59"
               onChange={(e) => setDate1(e.target.value)}
             />
           </div>
@@ -58,6 +79,8 @@ export const DateCalculator = () => {
             <Input
               type="datetime-local"
               value={date2}
+              min="1900-01-01T00:00"
+              max="2100-12-31T23:59"
               onChange={(e) => setDate2(e.target.value)}
             />
           </div>

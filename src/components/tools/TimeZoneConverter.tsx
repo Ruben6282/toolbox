@@ -13,9 +13,13 @@ interface TimeZone {
   label: string;
 }
 
+type TimeZoneName = "UTC" | "America/New_York" | "America/Chicago" | "America/Denver" | "America/Los_Angeles" | "Europe/London" | "Europe/Paris" | "Europe/Berlin" | "Europe/Rome" | "Europe/Madrid" | "Asia/Tokyo" | "Asia/Shanghai" | "Asia/Kolkata" | "Asia/Dubai" | "Asia/Singapore" | "Australia/Sydney" | "Australia/Melbourne" | "Pacific/Auckland" | "America/Sao_Paulo" | "Africa/Cairo";
+const ALLOWED_TIMEZONES: TimeZoneName[] = ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Madrid", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Asia/Dubai", "Asia/Singapore", "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland", "America/Sao_Paulo", "Africa/Cairo"];
+const coerceTimeZone = (val: string): TimeZoneName => (ALLOWED_TIMEZONES.includes(val as TimeZoneName) ? (val as TimeZoneName) : "UTC");
+
 export const TimeZoneConverter = () => {
-  const [fromTimeZone, setFromTimeZone] = useState("UTC");
-  const [toTimeZone, setToTimeZone] = useState("America/New_York");
+  const [fromTimeZone, setFromTimeZone] = useState<TimeZoneName>("UTC");
+  const [toTimeZone, setToTimeZone] = useState<TimeZoneName>("America/New_York");
   const [inputDate, setInputDate] = useState("");
   const [inputTime, setInputTime] = useState("");
   const [convertedTime, setConvertedTime] = useState<string | null>(null);
@@ -150,7 +154,7 @@ export const TimeZoneConverter = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="from-timezone" className="text-xs sm:text-sm">From Time Zone</Label>
-              <Select value={fromTimeZone} onValueChange={setFromTimeZone}>
+              <Select value={fromTimeZone} onValueChange={(val) => setFromTimeZone(coerceTimeZone(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select time zone" />
                 </SelectTrigger>
@@ -166,7 +170,7 @@ export const TimeZoneConverter = () => {
 
             <div className="space-y-2">
               <Label htmlFor="to-timezone" className="text-xs sm:text-sm">To Time Zone</Label>
-              <Select value={toTimeZone} onValueChange={setToTimeZone}>
+              <Select value={toTimeZone} onValueChange={(val) => setToTimeZone(coerceTimeZone(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select time zone" />
                 </SelectTrigger>

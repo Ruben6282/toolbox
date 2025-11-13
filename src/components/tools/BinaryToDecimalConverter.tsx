@@ -54,13 +54,15 @@ export const BinaryToDecimalConverter = () => {
   };
 
   const handleBinaryChange = (value: string) => {
-    setBinary(value);
-    if (value.trim() === "") {
+    // Sanitize to 0/1 only and cap length to 32 bits to avoid resource issues
+    const cleaned = value.replace(/[^01]/g, "").slice(0, 32);
+    setBinary(cleaned);
+    if (cleaned.trim() === "") {
       setDecimal("");
       return;
     }
 
-    const result = convertBinaryToDecimal(value);
+    const result = convertBinaryToDecimal(cleaned);
     if (result.error) {
       setDecimal("");
     } else {
@@ -69,13 +71,15 @@ export const BinaryToDecimalConverter = () => {
   };
 
   const handleDecimalChange = (value: string) => {
-    setDecimal(value);
-    if (value.trim() === "") {
+    // Keep digits only and cap to 10 digits (max 4,294,967,295)
+    const cleaned = value.replace(/[^0-9]/g, "").slice(0, 10);
+    setDecimal(cleaned);
+    if (cleaned.trim() === "") {
       setBinary("");
       return;
     }
 
-    const num = parseInt(value);
+    const num = parseInt(cleaned);
     if (isNaN(num) || num < 0) {
       setBinary("");
     } else {

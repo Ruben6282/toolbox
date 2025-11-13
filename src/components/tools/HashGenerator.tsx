@@ -4,6 +4,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+
+// Strip control chars from input
+const sanitizeInput = (text: string): string => {
+  return text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+};
 
 export const HashGenerator = () => {
   const [input, setInput] = useState("");
@@ -51,9 +60,31 @@ export const HashGenerator = () => {
     return Math.abs(hash).toString(16).padStart(32, "0");
   };
 
-  const copyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-  notify.success(`${type} hash copied!`);
+  const copyToClipboard = async (text: string, type: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success(`${type} hash copied!`);
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          notify.success(`${type} hash copied!`);
+        } else {
+          notify.error("Failed to copy");
+        }
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      notify.error("Failed to copy to clipboard");
+    }
   };
 
   return (
@@ -66,8 +97,17 @@ export const HashGenerator = () => {
           <Textarea
             placeholder="Enter text to hash..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const cleaned = sanitizeInput(e.target.value);
+              if (!validateTextLength(cleaned)) {
+                notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+                setInput(truncateText(cleaned));
+              } else {
+                setInput(cleaned);
+              }
+            }}
             className="min-h-[150px]"
+            maxLength={MAX_TEXT_LENGTH}
           />
         </CardContent>
       </Card>

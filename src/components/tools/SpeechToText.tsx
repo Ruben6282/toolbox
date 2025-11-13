@@ -42,11 +42,15 @@ type WebkitWindow = Window & {
   SpeechRecognition?: SpeechRecognitionConstructor;
 };
 
+type LanguageCode = "en-US" | "en-GB" | "es-ES" | "es-MX" | "fr-FR" | "de-DE" | "it-IT" | "pt-BR" | "ru-RU" | "ja-JP" | "ko-KR" | "zh-CN";
+const ALLOWED_LANGUAGES: LanguageCode[] = ["en-US", "en-GB", "es-ES", "es-MX", "fr-FR", "de-DE", "it-IT", "pt-BR", "ru-RU", "ja-JP", "ko-KR", "zh-CN"];
+const coerceLanguage = (val: string): LanguageCode => (ALLOWED_LANGUAGES.includes(val as LanguageCode) ? (val as LanguageCode) : "en-US");
+
 export const SpeechToText = () => {
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const [language, setLanguage] = useState("en-US");
+  const [language, setLanguage] = useState<LanguageCode>("en-US");
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
@@ -219,7 +223,7 @@ export const SpeechToText = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="language-select">Language</Label>
-            <Select value={language} onValueChange={setLanguage}>
+            <Select value={language} onValueChange={(val) => setLanguage(coerceLanguage(val))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>

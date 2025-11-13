@@ -6,32 +6,75 @@ import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 import { Copy, RefreshCw } from "lucide-react";
 
+const MIN_COUNT = 1;
+const MAX_COUNT = 100;
+
 export const UuidGenerator = () => {
   const [count, setCount] = useState(1);
   const [uuids, setUuids] = useState<string[]>([]);
 
   const generateUuid = () => {
+    // Use crypto.randomUUID if available, otherwise crypto.getRandomValues
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
+      const r = (typeof crypto !== "undefined" && crypto.getRandomValues) 
+        ? crypto.getRandomValues(new Uint8Array(1))[0] % 16 
+        : Math.random() * 16 | 0;
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
   };
 
   const generate = () => {
-    const newUuids = Array.from({ length: count }, () => generateUuid());
+    const clampedCount = Math.max(MIN_COUNT, Math.min(MAX_COUNT, count));
+    const newUuids = Array.from({ length: clampedCount }, () => generateUuid());
     setUuids(newUuids);
-  notify.success(`Generated ${count} UUID${count > 1 ? 's' : ''}!`);
+  notify.success(`Generated ${clampedCount} UUID${clampedCount > 1 ? 's' : ''}!`);
   };
 
-  const copyToClipboard = (uuid: string) => {
-    navigator.clipboard.writeText(uuid);
-  notify.success("UUID copied!");
+  const copyToClipboard = async (uuid: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(uuid);
+        notify.success("UUID copied!");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = uuid;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        notify.success("UUID copied!");
+      }
+    } catch (err) {
+      notify.error("Failed to copy!");
+    }
   };
 
-  const copyAll = () => {
-    navigator.clipboard.writeText(uuids.join("\n"));
-  notify.success("All UUIDs copied!");
+  const copyAll = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(uuids.join("\n"));
+        notify.success("All UUIDs copied!");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = uuids.join("\n");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        notify.success("All UUIDs copied!");
+      }
+    } catch (err) {
+      notify.error("Failed to copy!");
+    }
   };
 
   return (
@@ -45,10 +88,14 @@ export const UuidGenerator = () => {
             <Label>Number of UUIDs</Label>
             <Input
               type="number"
-              min="1"
-              max="100"
+              inputMode="numeric"
+              min={MIN_COUNT}
+              max={MAX_COUNT}
               value={count}
-              onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || MIN_COUNT;
+                setCount(Math.max(MIN_COUNT, Math.min(MAX_COUNT, val)));
+              }}
             />
           </div>
           <Button onClick={generate} className="w-full gap-2">

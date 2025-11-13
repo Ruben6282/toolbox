@@ -89,9 +89,13 @@ export const CanonicalUrlGenerator = () => {
       return;
     }
 
-    // Add the sanitized URL
+    // Add the sanitized URL if not duplicate
     const sanitized = sanitizeUrl(trimmedUrl, true);
     if (sanitized) {
+      if (urls.includes(sanitized)) {
+        notify.error("This URL is already in the list");
+        return;
+      }
       setUrls([...urls, sanitized]);
       setCurrentUrl("");
       notify.success("URL added successfully");
@@ -266,7 +270,12 @@ export const CanonicalUrlGenerator = () => {
       notify.error(`Input too long (max ${SECURITY_LIMITS.MAX_URL_LENGTH} characters)`);
       return;
     }
-    setter(value);
+    // Strip control characters to avoid hidden payloads; keep it user-visible and reversible
+    const cleaned = Array.from(value).filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code >= 0x20 && code !== 0x7f; // keep printable ASCII and extended; drop control chars
+    }).join("");
+    setter(cleaned);
   };
 
   return (

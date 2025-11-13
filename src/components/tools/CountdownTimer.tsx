@@ -16,11 +16,23 @@ export const CountdownTimer = () => {
   const [totalDuration, setTotalDuration] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const HOURS_MAX = 23;
+  const MINSEC_MAX = 59;
+
+  const sanitizeIntRange = (value: string, min: number, max: number) => {
+    const n = parseInt(value.replace(/[^0-9-]/g, ""), 10);
+    if (isNaN(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  };
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      intervalRef.current = window.setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             setIsRunning(false);
@@ -35,14 +47,16 @@ export const CountdownTimer = () => {
         });
       }, 1000);
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
   }, [isRunning, timeLeft, soundEnabled]);
@@ -74,6 +88,17 @@ export const CountdownTimer = () => {
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
+
+    // Clean up and close context shortly after
+    setTimeout(() => {
+      try {
+        oscillator.disconnect();
+        gainNode.disconnect();
+        void audioContext.close();
+      } catch {
+        // ignore
+      }
+    }, 700);
   };
 
   const startTimer = () => {
@@ -143,9 +168,10 @@ export const CountdownTimer = () => {
                 id="hours"
                 type="number"
                 min="0"
-                max="23"
+                max={String(HOURS_MAX)}
+                inputMode="numeric"
                 value={hours}
-                onChange={(e) => setHours(parseInt(e.target.value) || 0)}
+                onChange={(e) => setHours(sanitizeIntRange(e.target.value, 0, HOURS_MAX))}
                 disabled={isRunning}
               />
             </div>
@@ -155,9 +181,10 @@ export const CountdownTimer = () => {
                 id="minutes"
                 type="number"
                 min="0"
-                max="59"
+                max={String(MINSEC_MAX)}
+                inputMode="numeric"
                 value={minutes}
-                onChange={(e) => setMinutes(parseInt(e.target.value) || 0)}
+                onChange={(e) => setMinutes(sanitizeIntRange(e.target.value, 0, MINSEC_MAX))}
                 disabled={isRunning}
               />
             </div>
@@ -167,9 +194,10 @@ export const CountdownTimer = () => {
                 id="seconds"
                 type="number"
                 min="0"
-                max="59"
+                max={String(MINSEC_MAX)}
+                inputMode="numeric"
                 value={seconds}
-                onChange={(e) => setSeconds(parseInt(e.target.value) || 0)}
+                onChange={(e) => setSeconds(sanitizeIntRange(e.target.value, 0, MINSEC_MAX))}
                 disabled={isRunning}
               />
             </div>

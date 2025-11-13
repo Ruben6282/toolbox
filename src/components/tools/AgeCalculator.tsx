@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { notify } from "@/lib/notify";
 
 export const AgeCalculator = () => {
   const [birthDate, setBirthDate] = useState("");
@@ -16,6 +17,11 @@ export const AgeCalculator = () => {
     totalDays: number;
   } | null>(null);
 
+  // Security/validation constraints
+  const MAX_YEARS = 130; // Reasonable human age limit to avoid absurd inputs
+  const MIN_LOCAL_DATETIME = "1900-01-01T00:00"; // prevent extremely old dates that may cause library edge cases
+  const dtLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/; // strict datetime-local format
+
   // Format a Date for a datetime-local input (YYYY-MM-DDTHH:mm) in local time
   const formatDateTimeLocal = (date: Date) => {
     const y = date.getFullYear();
@@ -27,11 +33,30 @@ export const AgeCalculator = () => {
   };
 
   const calculate = () => {
-    if (!birthDate) return;
+    if (!birthDate) {
+      notify.error("Please enter your birth date and time.");
+      return;
+    }
+    // Basic format validation to reduce parsing ambiguity
+    if (!dtLocalPattern.test(birthDate)) {
+      notify.error("Invalid date format. Please use the date/time picker.");
+      return;
+    }
     const birth = new Date(birthDate);
     const now = new Date();
 
-    if (isNaN(birth.getTime()) || birth > now) return;
+    if (isNaN(birth.getTime())) {
+      notify.error("Invalid date. Please pick a valid value.");
+      return;
+    }
+    if (birth > now) {
+      notify.error("Birth date cannot be in the future.");
+      return;
+    }
+    if (birth < new Date(MIN_LOCAL_DATETIME)) {
+      notify.error("Please enter a date after Jan 1, 1900.");
+      return;
+    }
 
     // Use date-fns to compute precise calendar years, months, days considering time of day
     let years = differenceInYears(now, birth);
@@ -64,6 +89,11 @@ export const AgeCalculator = () => {
 
     const totalDays = differenceInDays(now, birth);
 
+    if (years > MAX_YEARS) {
+      notify.error(`Result exceeds ${MAX_YEARS} years. Please verify your input.`);
+      return;
+    }
+
     setResult({ years, months, days, hours, minutes, totalDays });
   };
 
@@ -81,6 +111,7 @@ export const AgeCalculator = () => {
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
               max={formatDateTimeLocal(new Date())}
+              min={MIN_LOCAL_DATETIME}
             />
           </div>
           <Button onClick={calculate} className="w-full">Calculate Age</Button>

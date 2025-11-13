@@ -7,6 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Moon, Clock, Sunrise, Bed, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MIN_FALL_ASLEEP_TIME = 0;
+const MAX_FALL_ASLEEP_TIME = 60;
+const TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+// Validate and clamp time input
+const sanitizeTime = (value: string): string => {
+  if (!value || !TIME_REGEX.test(value)) return "";
+  return value;
+};
+
 interface SleepTime {
   time: string;
   cycles: number;
@@ -105,14 +115,16 @@ export const SleepCycleCalculator = () => {
       setFallAsleepTime("");
     } else {
       const parsed = parseInt(value, 10);
-      if (!isNaN(parsed)) {
-        setFallAsleepTime(parsed);
+      if (!isNaN(parsed) && isFinite(parsed)) {
+        // Clamp to range
+        const clamped = Math.max(MIN_FALL_ASLEEP_TIME, Math.min(MAX_FALL_ASLEEP_TIME, parsed));
+        setFallAsleepTime(clamped);
       }
     }
   };
 
   const handleFallAsleepBlur = () => {
-    if (fallAsleepTime === "" || fallAsleepTime < 0) {
+    if (fallAsleepTime === "" || fallAsleepTime < MIN_FALL_ASLEEP_TIME) {
       setFallAsleepTime(15);
     }
   };
@@ -150,7 +162,7 @@ export const SleepCycleCalculator = () => {
                   id="bedtime"
                   type="time"
                   value={bedtime}
-                  onChange={(e) => setBedtime(e.target.value)}
+                  onChange={(e) => setBedtime(sanitizeTime(e.target.value))}
                 />
                 <Button 
                   onClick={() => setCurrentTime('bedtime')} 
@@ -169,7 +181,7 @@ export const SleepCycleCalculator = () => {
                   id="wakeup"
                   type="time"
                   value={wakeupTime}
-                  onChange={(e) => setWakeupTime(e.target.value)}
+                  onChange={(e) => setWakeupTime(sanitizeTime(e.target.value))}
                 />
                 <Button 
                   onClick={() => setCurrentTime('wakeup')} 
@@ -187,8 +199,9 @@ export const SleepCycleCalculator = () => {
             <Input
               id="fall-asleep"
               type="number"
-              min="0"
-              max="60"
+              inputMode="numeric"
+              min={MIN_FALL_ASLEEP_TIME}
+              max={MAX_FALL_ASLEEP_TIME}
               value={fallAsleepTime}
               onChange={(e) => handleFallAsleepChange(e.target.value)}
               onBlur={handleFallAsleepBlur}

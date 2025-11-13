@@ -6,6 +6,18 @@ import { Label } from "@/components/ui/label";
 import { RotateCcw, Copy } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_INPUT_LENGTH = 50; // Max length for Roman numeral or decimal
+
+// Sanitize Roman numeral: allow only I,V,X,L,C,D,M (case-insensitive)
+const sanitizeRoman = (val: string): string => {
+  return val.toUpperCase().replace(/[^IVXLCDM]/g, "").substring(0, MAX_INPUT_LENGTH);
+};
+
+// Sanitize decimal: allow only digits
+const sanitizeDecimal = (val: string): string => {
+  return val.replace(/[^0-9]/g, "").substring(0, MAX_INPUT_LENGTH);
+};
+
 export const RomanToNumber = () => {
   const [romanNumeral, setRomanNumeral] = useState("");
   const [result, setResult] = useState<number | string | null>(null);
@@ -174,7 +186,18 @@ export const RomanToNumber = () => {
               id="roman-input"
               placeholder="e.g., MMXXIV or 2024"
               value={romanNumeral}
-              onChange={(e) => setRomanNumeral(e.target.value)}
+              onChange={(e) => {
+                // Allow typing either Roman numerals or decimal numbers
+                const val = e.target.value;
+                if (/^[0-9]*$/.test(val)) {
+                  // Pure digits - sanitize as decimal
+                  setRomanNumeral(sanitizeDecimal(val));
+                } else {
+                  // Contains letters - sanitize as Roman
+                  setRomanNumeral(sanitizeRoman(val));
+                }
+              }}
+              maxLength={MAX_INPUT_LENGTH}
             />
           </div>
 

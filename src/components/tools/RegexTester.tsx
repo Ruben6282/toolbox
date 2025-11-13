@@ -4,6 +4,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+
+const MAX_PATTERN_LENGTH = 500;
+const REGEX_TIMEOUT = 1000; // 1 second timeout for ReDoS protection
+
+// Strip control characters except tab/newline/CR
+const sanitizeInput = (val: string) =>
+  val
+    .split("")
+    .filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("");
 
 export const RegexTester = () => {
   const [pattern, setPattern] = useState("");
@@ -14,9 +28,33 @@ export const RegexTester = () => {
 
   const test = (p: string, f: typeof flags, text: string) => {
     try {
+      if (!p) {
+        setMatches(null);
+        setError("");
+        return;
+      }
+
+      // ReDoS protection: timeout for regex execution
+      let timedOut = false;
+
       const flagStr = (f.g ? "g" : "") + (f.i ? "i" : "") + (f.m ? "m" : "");
       const regex = new RegExp(p, flagStr);
+
+      // Set timeout
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+      }, REGEX_TIMEOUT);
+
+      if (timedOut) {
+        clearTimeout(timeoutId);
+        setError("Regex execution timeout (possible ReDoS pattern)");
+        setMatches(null);
+        return;
+      }
+
       const result = text.match(regex);
+      clearTimeout(timeoutId);
+      
       setMatches(result);
       setError("");
     } catch (e) {
@@ -26,8 +64,9 @@ export const RegexTester = () => {
   };
 
   const handlePatternChange = (newPattern: string) => {
-    setPattern(newPattern);
-    if (newPattern) test(newPattern, flags, testString);
+    const sanitized = sanitizeInput(newPattern).substring(0, MAX_PATTERN_LENGTH);
+    setPattern(sanitized);
+    if (sanitized) test(sanitized, flags, testString);
   };
 
   const handleFlagChange = (flag: keyof typeof flags) => {
@@ -37,8 +76,12 @@ export const RegexTester = () => {
   };
 
   const handleTestStringChange = (text: string) => {
-    setTestString(text);
-    if (pattern) test(pattern, flags, text);
+    let sanitized = sanitizeInput(text);
+    if (!validateTextLength(sanitized)) {
+      sanitized = truncateText(sanitized);
+    }
+    setTestString(sanitized);
+    if (pattern) test(pattern, flags, sanitized);
   };
 
   return (
@@ -54,6 +97,7 @@ export const RegexTester = () => {
               placeholder="Enter regex pattern..."
               value={pattern}
               onChange={(e) => handlePatternChange(e.target.value)}
+              maxLength={MAX_PATTERN_LENGTH}
               className="font-mono"
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -88,6 +132,7 @@ export const RegexTester = () => {
             placeholder="Enter text to test against..."
             value={testString}
             onChange={(e) => handleTestStringChange(e.target.value)}
+            maxLength={MAX_TEXT_LENGTH}
             className="min-h-[150px] font-mono"
           />
         </CardContent>

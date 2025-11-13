@@ -3,6 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cookie, RotateCcw, Sparkles } from "lucide-react";
 
+// Use crypto.getRandomValues for stronger randomness
+const getSecureRandom = (): number => {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] / (0xffffffff + 1);
+  }
+  return Math.random();
+};
+
 export const FortuneCookie = () => {
   const [fortune, setFortune] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -334,7 +344,7 @@ export const FortuneCookie = () => {
     setIsGenerating(true);
     
     setTimeout(() => {
-      const randomIndex = Math.floor(Math.random() * fortunes.length);
+      const randomIndex = Math.floor(getSecureRandom() * fortunes.length);
       setFortune(fortunes[randomIndex]);
       setIsGenerating(false);
     }, 1000);

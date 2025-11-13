@@ -353,6 +353,16 @@ export const CompoundInterestCalculator = () => {
   const [additionalContributions, setAdditionalContributions] = useState("");
   const [contributionFrequency, setContributionFrequency] = useState<Frequency>("monthly");
 
+  // Input sanitizers and enum coercers to prevent malformed values and scientific notation UX
+  const sanitizeDecimalInput = (v: string, maxLen = 16) => {
+    const stripped = v.replace(/[^0-9.]/g, "");
+    const parts = stripped.split(".");
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
+    return normalized.slice(0, maxLen);
+  };
+  const coerceTimeUnit = (v: string): TimeUnit => (AllowedTimeUnits.includes(v as TimeUnit) ? (v as TimeUnit) : "years");
+  const coerceFrequency = (v: string): Frequency => (AllowedFrequencies.includes(v as Frequency) ? (v as Frequency) : "annually");
+
   // Locale-aware currency formatter (USD)
   const currencyFormatter = useMemo(
     () =>
@@ -412,7 +422,8 @@ export const CompoundInterestCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={principal}
-                onChange={(e) => setPrincipal(e.target.value)}
+                onChange={(e) => setPrincipal(sanitizeDecimalInput(e.target.value, 16))}
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 aria-invalid={calc.errorField === "principal" ? "true" : "false"}
@@ -429,7 +440,8 @@ export const CompoundInterestCalculator = () => {
                 type="number"
                 placeholder="0.00"
                 value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
+                onChange={(e) => setInterestRate(sanitizeDecimalInput(e.target.value, 8))}
+                inputMode="decimal"
                 min="0"
                 max={String(RATE_MAX)}
                 step="0.01"
@@ -447,7 +459,8 @@ export const CompoundInterestCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={time}
-                onChange={(e) => setTime(e.target.value)}
+                onChange={(e) => setTime(sanitizeDecimalInput(e.target.value, 10))}
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 aria-invalid={calc.errorField === "time" ? "true" : "false"}
@@ -459,7 +472,7 @@ export const CompoundInterestCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="time-unit">Time Unit</Label>
-              <Select value={timeUnit} onValueChange={(v) => setTimeUnit(v as TimeUnit)}>
+              <Select value={timeUnit} onValueChange={(v) => setTimeUnit(coerceTimeUnit(v))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select time unit" />
                 </SelectTrigger>
@@ -474,7 +487,7 @@ export const CompoundInterestCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="compounding">Compounding Frequency</Label>
-              <Select value={compoundingFrequency} onValueChange={(v) => setCompoundingFrequency(v as Frequency)}>
+              <Select value={compoundingFrequency} onValueChange={(v) => setCompoundingFrequency(coerceFrequency(v))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select frequency" />
                 </SelectTrigger>
@@ -496,7 +509,8 @@ export const CompoundInterestCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={additionalContributions}
-                onChange={(e) => setAdditionalContributions(e.target.value)}
+                onChange={(e) => setAdditionalContributions(sanitizeDecimalInput(e.target.value, 16))}
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 aria-invalid={calc.errorField === "additionalContributions" ? "true" : "false"}
@@ -508,7 +522,7 @@ export const CompoundInterestCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="contribution-freq">Contribution Frequency</Label>
-              <Select value={contributionFrequency} onValueChange={(v) => setContributionFrequency(v as Frequency)}>
+              <Select value={contributionFrequency} onValueChange={(v) => setContributionFrequency(coerceFrequency(v))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select frequency" />
                 </SelectTrigger>

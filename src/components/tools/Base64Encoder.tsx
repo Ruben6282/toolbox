@@ -3,10 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
 export const Base64Encoder = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (!validateTextLength(value)) {
+      notify.error(`Input exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setInput(truncateText(value));
+      return;
+    }
+    setInput(value);
+  };
 
   const encode = () => {
     try {
@@ -28,9 +39,27 @@ export const Base64Encoder = () => {
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(output);
-    notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    try {
+      if (!output) return;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(output);
+      } else {
+        // Fallback for older browsers
+        const ta = document.createElement("textarea");
+        ta.value = output;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      notify.success("Copied to clipboard!");
+    } catch {
+      notify.error("Failed to copy to clipboard");
+    }
   };
 
   return (
@@ -43,7 +72,7 @@ export const Base64Encoder = () => {
           <Textarea
             placeholder="Enter text to encode/decode..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleChange}
             className="min-h-[150px]"
           />
         </CardContent>

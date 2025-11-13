@@ -3,32 +3,71 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
 export const CssMinifier = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
 
+  const handleInputChange = (value: string) => {
+    // Strip control chars except tab/newline/CR
+    const cleaned = Array.from(value).filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || (code >= 0x20 && code !== 0x7f);
+    }).join("");
+    if (!validateTextLength(cleaned)) {
+      notify.error(`Input too long. Max ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      setInput(truncateText(cleaned));
+      return;
+    }
+    setInput(cleaned);
+  };
+
   const minify = () => {
-    if (!input.trim()) {
+    const src = input.trim();
+    if (!src) {
       notify.error("Please enter some CSS!");
       return;
     }
+    try {
+      const minified = src
+        .replace(/\/\*[\s\S]*?\*\//g, "") // Remove comments
+        .replace(/\s+/g, " ") // Replace multiple spaces with single space
+        .replace(/\s*([{}:;,])\s*/g, "$1") // Remove spaces around special characters
+        .replace(/;}/g, "}") // Remove last semicolon before closing brace
+        .trim();
 
-  const minified = input
-      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove comments
-      .replace(/\s+/g, " ") // Replace multiple spaces with single space
-      .replace(/\s*([{}:;,])\s*/g, "$1") // Remove spaces around special characters
-      .replace(/;}/g, "}") // Remove last semicolon before closing brace
-      .trim();
-
-    setOutput(minified);
-    const savings = ((1 - minified.length / input.length) * 100).toFixed(1);
-  notify.success(`CSS minified! ${savings}% reduction`);
+      setOutput(minified);
+      const savings = input.length > 0 ? ((1 - minified.length / input.length) * 100).toFixed(1) : "0.0";
+      notify.success(`CSS minified! ${savings}% reduction`);
+    } catch (e) {
+      console.error("CSS minify error", e);
+      notify.error("Failed to minify CSS");
+    }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(output);
-  notify.success("Copied to clipboard!");
+  const copyToClipboard = async () => {
+    if (!output) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(output);
+        notify.success("Copied to clipboard!");
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = output;
+        ta.style.position = "fixed";
+        ta.style.left = "-999999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (ok) notify.success("Copied to clipboard!"); else notify.error("Copy failed");
+      }
+    } catch (err) {
+      console.error("Copy failed", err);
+      notify.error("Failed to copy to clipboard");
+    }
   };
 
   return (
@@ -41,8 +80,9 @@ export const CssMinifier = () => {
           <Textarea
             placeholder="Enter CSS code..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             className="min-h-[200px] font-mono text-sm"
+            maxLength={MAX_TEXT_LENGTH}
           />
           <div className="mt-2 text-sm text-muted-foreground">
             Size: {input.length} characters

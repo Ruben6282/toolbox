@@ -39,6 +39,8 @@ import {
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
 const MAX_FILE_SIZE_MB = 10;
+// Limit total number of watermarks to prevent UI freeze and memory growth
+const MAX_WATERMARKS = 50;
 
 /**
  * Detect image format via magic bytes (file signature)
@@ -194,6 +196,11 @@ export const AddWatermark = () => {
 
   // ------------------- Toolbar Actions -------------------
   const addWatermark = (type: "text" | "image") => {
+    // Guard against excessive watermark count (resource exhaustion protection)
+    if (watermarks.length >= MAX_WATERMARKS) {
+      notify.error(`Maximum of ${MAX_WATERMARKS} watermarks reached.`);
+      return;
+    }
     const containerWidth = containerRef.current?.offsetWidth || 300;
     const containerHeight = containerRef.current?.offsetHeight || 300;
 
@@ -338,14 +345,27 @@ export const AddWatermark = () => {
     if (!ctx) return;
 
     const baseImg = new Image();
+    // Hint to browser to decode off the main thread when possible
+    baseImg.decoding = "async";
     baseImg.onload = async () => {
-      canvas.width = baseImg.width;
-      canvas.height = baseImg.height;
+      // Enforce maximum canvas dimensions (defense-in-depth)
+      let targetW = baseImg.width;
+      let targetH = baseImg.height;
+      if (targetW > MAX_IMAGE_DIMENSION || targetH > MAX_IMAGE_DIMENSION) {
+        const scale = Math.min(MAX_IMAGE_DIMENSION / targetW, MAX_IMAGE_DIMENSION / targetH);
+        targetW = Math.max(1, Math.floor(targetW * scale));
+        targetH = Math.max(1, Math.floor(targetH * scale));
+      }
+
+      canvas.width = targetW;
+      canvas.height = targetH;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
 
-      const scaleX = canvas.width / containerRef.current!.offsetWidth;
-      const scaleY = canvas.height / containerRef.current!.offsetHeight;
+      const containerW = containerRef.current?.offsetWidth || canvas.width;
+      const containerH = containerRef.current?.offsetHeight || canvas.height;
+      const scaleX = canvas.width / containerW;
+      const scaleY = canvas.height / containerH;
 
       for (const wm of watermarks) {
         ctx.save();
@@ -373,6 +393,7 @@ export const AddWatermark = () => {
         } else if (wm.type === "image" && wm.src) {
           await new Promise<void>((resolve) => {
             const img = new Image();
+            img.decoding = "async";
             img.onload = () => {
               const aspect = img.width / img.height;
               let drawWidth = wmEl.offsetWidth * scaleX;
@@ -389,17 +410,27 @@ export const AddWatermark = () => {
         ctx.restore();
       }
 
-      try {
-        const link = document.createElement("a");
-        link.download = "watermarked-image.png";
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-        notify.success("Watermarked image downloaded!");
-        console.log("Watermarked image download successful");
-      } catch (err) {
-        notify.error("Failed to download image");
-        console.error("Canvas download error:", err);
-      }
+      // Use toBlob + object URL to avoid large base64 strings and reduce memory spikes
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          notify.error("Failed to create image blob");
+          return;
+        }
+        try {
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.download = "watermarked-image.png";
+          link.href = blobUrl;
+          link.click();
+          // Revoke after the event loop tick to ensure the download has started
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+          notify.success("Watermarked image downloaded!");
+          console.log("Watermarked image download successful");
+        } catch (err) {
+          notify.error("Failed to download image");
+          console.error("Canvas download error:", err);
+        }
+      }, "image/png");
     };
     baseImg.onerror = () => notify.error("Failed to load image");
     baseImg.src = selectedImage;
@@ -710,6 +741,9 @@ export const AddWatermark = () => {
                                     variant="destructive"
                                     className="flex-1"
                                     onClick={() => {
+                                      // Revoke object URL for image watermarks to prevent memory leaks
+                                      const toDelete = watermarks.find((w) => w.id === activeId);
+                                      if (toDelete?.src) revoke(toDelete.src);
                                       setWatermarks((prev) => prev.filter((w) => w.id !== activeId));
                                       setActiveId(null);
                                       notify.success('Watermark deleted!');
@@ -788,6 +822,9 @@ export const AddWatermark = () => {
                             <Copy className="w-4 h-4 mr-1" /> Duplicate
                           </Button>
                           <Button variant="destructive" onClick={() => {
+                            // Revoke object URL for image watermarks to prevent memory leaks
+                            const toDelete = watermarks.find((w) => w.id === activeId);
+                            if (toDelete?.src) revoke(toDelete.src);
                             setWatermarks((prev) => prev.filter((w) => w.id !== activeId));
                             setActiveId(null);
                             notify.success('Watermark deleted!');
@@ -825,3 +862,4 @@ export const AddWatermark = () => {
     </div>
   )
 }
+

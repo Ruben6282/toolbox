@@ -8,10 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Copy, RotateCcw, Youtube } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_TOPIC_LENGTH = 200;
+
+type Category = "general" | "tech" | "gaming" | "education" | "entertainment" | "lifestyle" | "business" | "health" | "food" | "travel";
+type Style = "clickbait" | "professional" | "educational" | "casual" | "tutorial" | "review";
+
+const ALLOWED_CATEGORIES: Category[] = ["general", "tech", "gaming", "education", "entertainment", "lifestyle", "business", "health", "food", "travel"];
+const ALLOWED_STYLES: Style[] = ["clickbait", "professional", "educational", "casual", "tutorial", "review"];
+
+const coerceCategory = (val: string): Category => (ALLOWED_CATEGORIES.includes(val as Category) ? (val as Category) : "general");
+const coerceStyle = (val: string): Style => (ALLOWED_STYLES.includes(val as Style) ? (val as Style) : "clickbait");
+
 export const YouTubeTitleGenerator = () => {
   const [topic, setTopic] = useState("");
-  const [category, setCategory] = useState("general");
-  const [style, setStyle] = useState("clickbait");
+  const [category, setCategory] = useState<Category>("general");
+  const [style, setStyle] = useState<Style>("clickbait");
   const [generatedTitles, setGeneratedTitles] = useState<string[]>([]);
   const [generatedDescriptions, setGeneratedDescriptions] = useState<string[]>([]);
 
@@ -216,14 +227,15 @@ export const YouTubeTitleGenerator = () => {
               id="topic"
               placeholder="e.g., cooking pasta, learning guitar, productivity tips"
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
+              maxLength={MAX_TOPIC_LENGTH}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(val) => setCategory(coerceCategory(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -239,7 +251,7 @@ export const YouTubeTitleGenerator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="style">Title Style</Label>
-              <Select value={style} onValueChange={setStyle}>
+              <Select value={style} onValueChange={(val) => setStyle(coerceStyle(val))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select style" />
                 </SelectTrigger>

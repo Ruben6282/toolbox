@@ -8,6 +8,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, Shield, Eye, EyeOff } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MIN_LENGTH = 4;
+const MAX_LENGTH = 128;
+
+// Secure random integer
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
 export const SecurePasswordGenerator = () => {
   const [passwordLength, setPasswordLength] = useState(16);
   const [includeUppercase, setIncludeUppercase] = useState(true);
@@ -50,9 +63,12 @@ export const SecurePasswordGenerator = () => {
       return;
     }
 
+    // Clamp length
+    const length = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, passwordLength));
+
     let password = "";
-    for (let i = 0; i < passwordLength; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(secureRandom(charset.length));
     }
 
     setGeneratedPassword(password);

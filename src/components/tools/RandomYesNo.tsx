@@ -3,6 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 
+// Secure random boolean
+const secureRandomBoolean = (): boolean => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % 2 === 0;
+  }
+  return Math.random() < 0.5;
+};
+
 export const RandomYesNo = () => {
   const [result, setResult] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -11,7 +21,7 @@ export const RandomYesNo = () => {
     setIsGenerating(true);
     
     setTimeout(() => {
-      const outcome = Math.random() < 0.5 ? "Yes" : "No";
+      const outcome = secureRandomBoolean() ? "Yes" : "No";
       setResult(outcome);
       setIsGenerating(false);
     }, 300);

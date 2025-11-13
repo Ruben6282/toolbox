@@ -10,14 +10,19 @@ export const CharacterCounter = () => {
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
+    // Strip ASCII control characters except common whitespace (tab/newline/carriage-return)
+    const cleaned = Array.from(newText).filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || (code >= 0x20 && code !== 0x7f);
+    }).join("");
     
-    if (!validateTextLength(newText)) {
+    if (!validateTextLength(cleaned)) {
       notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
-      setText(truncateText(newText));
+      setText(truncateText(cleaned));
       return;
     }
     
-    setText(newText);
+    setText(cleaned);
   };
 
   const characterCount = text.length;

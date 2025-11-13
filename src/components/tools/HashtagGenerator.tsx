@@ -8,9 +8,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Copy, RotateCcw, Hash } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_TOPIC_LENGTH = 200;
+const MIN_HASHTAG_COUNT = 1;
+const MAX_HASHTAG_COUNT = 50;
+const ALLOWED_PLATFORMS = ["instagram", "twitter", "tiktok", "linkedin", "facebook", "pinterest"] as const;
+type Platform = typeof ALLOWED_PLATFORMS[number];
+
+const coercePlatform = (value: string): Platform => {
+  return ALLOWED_PLATFORMS.includes(value as Platform) ? (value as Platform) : "instagram";
+};
+
+const clampHashtagCount = (value: number): number => {
+  return Math.max(MIN_HASHTAG_COUNT, Math.min(MAX_HASHTAG_COUNT, Math.floor(value)));
+};
+
+// Sanitize topic input
+const sanitizeTopic = (text: string): string => {
+  const cleaned = text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+  return cleaned.slice(0, MAX_TOPIC_LENGTH);
+};
+
+// Use crypto.getRandomValues for shuffle
+const secureRandom = (): number => {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] / (0xffffffff + 1);
+  }
+  return Math.random();
+};
+
 export const HashtagGenerator = () => {
   const [topic, setTopic] = useState("");
-  const [platform, setPlatform] = useState("instagram");
+  const [platform, setPlatform] = useState<Platform>("instagram");
   const [hashtagCount, setHashtagCount] = useState(10);
   const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
 
@@ -95,9 +128,9 @@ export const HashtagGenerator = () => {
     // Add general hashtags
     allHashtags.push(...hashtagDatabase.general);
 
-    // Remove duplicates and shuffle
+    // Remove duplicates and shuffle with crypto randomness
     const uniqueHashtags = [...new Set(allHashtags)];
-    const shuffled = uniqueHashtags.sort(() => Math.random() - 0.5);
+    const shuffled = uniqueHashtags.sort(() => secureRandom() - 0.5);
 
     // Limit based on platform
     const platformMax = platforms.find(p => p.value === platform)?.maxHashtags || 30;
@@ -205,14 +238,15 @@ export const HashtagGenerator = () => {
               id="topic"
               placeholder="e.g., fitness, travel, food, business"
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => setTopic(sanitizeTopic(e.target.value))}
+              maxLength={MAX_TOPIC_LENGTH}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="platform">Social Media Platform</Label>
-              <Select value={platform} onValueChange={setPlatform}>
+              <Select value={platform} onValueChange={(value) => setPlatform(coercePlatform(value))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select platform" />
                 </SelectTrigger>
@@ -231,10 +265,11 @@ export const HashtagGenerator = () => {
               <Input
                 id="hashtag-count"
                 type="number"
-                min="1"
+                inputMode="numeric"
+                min={MIN_HASHTAG_COUNT}
                 max={getPlatformMax()}
                 value={hashtagCount}
-                onChange={(e) => setHashtagCount(parseInt(e.target.value) || 1)}
+                onChange={(e) => setHashtagCount(clampHashtagCount(parseInt(e.target.value) || 1))}
               />
               <p className="text-xs text-muted-foreground">
                 Max {getPlatformMax()} for {platforms.find(p => p.value === platform)?.label}

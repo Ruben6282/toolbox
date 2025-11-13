@@ -11,6 +11,18 @@ import {
 } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_URL_LENGTH = 2048;
+
+// Sanitize URL input (strip control chars except tab/newline/CR)
+const sanitizeUrlInput = (val: string): string => {
+  let out = "";
+  for (const ch of val) {
+    const code = ch.charCodeAt(0);
+    if (code >= 32 || code === 9 || code === 10 || code === 13) out += ch;
+  }
+  return out.slice(0, MAX_URL_LENGTH);
+};
+
 interface SafetyResult {
   url: string;
   isSafe: boolean;
@@ -174,7 +186,8 @@ export const UrlSafetyChecker = () => {
             id="url-input"
             placeholder="https://example.com or example.com"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => setUrl(sanitizeUrlInput(e.target.value))}
+            maxLength={MAX_URL_LENGTH}
           />
 
           <div className="flex flex-col sm:flex-row gap-2 w-full">

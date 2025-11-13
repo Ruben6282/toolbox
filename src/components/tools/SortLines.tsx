@@ -9,10 +9,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
+type SortOrder = "asc" | "desc";
+const coerceOrder = (val: string): SortOrder => (val === "desc" ? "desc" : "asc");
+
 export const SortLines = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
-  const [order, setOrder] = useState("asc");
+  const [order, setOrder] = useState<SortOrder>("asc");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
@@ -30,8 +33,9 @@ export const SortLines = () => {
     // Sanitize input before sorting
     const sanitized = sanitizeText(input);
     const lines = sanitized.split("\n");
+    const sortOrder = coerceOrder(order);
     const sorted = lines.sort((a, b) => {
-      if (order === "asc") {
+      if (sortOrder === "asc") {
         return a.localeCompare(b);
       } else {
         return b.localeCompare(a);
@@ -95,7 +99,7 @@ export const SortLines = () => {
           
           <div>
             <Label>Sort Order</Label>
-            <RadioGroup value={order} onValueChange={setOrder} className="flex gap-4 mt-2">
+            <RadioGroup value={order} onValueChange={(val) => setOrder(coerceOrder(val))} className="flex gap-4 mt-2">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="asc" id="asc" />
                 <Label htmlFor="asc">Ascending (A-Z)</Label>

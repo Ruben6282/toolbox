@@ -30,6 +30,19 @@ export const BusinessNameGenerator = () => {
   const [generatedNames, setGeneratedNames] = useState<GeneratedName[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Guardrails
+  const sanitizeKeyword = (val: string) => {
+    // Allow letters, numbers, spaces, hyphen and apostrophe; trim and limit length
+    const cleaned = val.replace(/[^-a-zA-Z0-9 ']/g, "").trim();
+    return cleaned.slice(0, 60);
+  };
+  const coerceIndustry = (v: string) => (
+    ["general","tech","healthcare","finance","retail","food","creative","consulting"].includes(v) ? v : "general"
+  );
+  const coerceStyle = (v: string) => (
+    ["all","compound","phrase","short","verb","creative","acronym"].includes(v) ? v : "all"
+  );
+
   // Enhanced industry-specific keywords with verbs, adjectives, and nouns
   const industries = {
     general: {
@@ -304,7 +317,7 @@ export const BusinessNameGenerator = () => {
             <Input
               placeholder="e.g. Cloud, Innovation, Swift..."
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => setKeyword(sanitizeKeyword(e.target.value))}
               className="text-base"
             />
             <p className="text-xs text-muted-foreground">
@@ -315,7 +328,7 @@ export const BusinessNameGenerator = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Industry</Label>
-              <Select value={industry} onValueChange={setIndustry}>
+              <Select value={industry} onValueChange={(v) => setIndustry(coerceIndustry(v))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -334,7 +347,7 @@ export const BusinessNameGenerator = () => {
 
             <div className="space-y-2">
               <Label>Name Style</Label>
-              <Select value={nameStyle} onValueChange={setNameStyle}>
+              <Select value={nameStyle} onValueChange={(v) => setNameStyle(coerceStyle(v))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

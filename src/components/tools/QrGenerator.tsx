@@ -6,6 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 
+// QR codes can hold up to ~3KB, but keep reasonable limit
+const MAX_QR_LENGTH = 2048;
+
+// Strip control characters except tab/newline/CR
+const sanitizeInput = (val: string) =>
+  val
+    .split("")
+    .filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("")
+    .substring(0, MAX_QR_LENGTH);
+
 export const QrGenerator = () => {
   const [text, setText] = useState("");
   const [qrUrl, setQrUrl] = useState("");
@@ -45,7 +59,8 @@ export const QrGenerator = () => {
             <Input
               placeholder="Enter text or URL..."
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => setText(sanitizeInput(e.target.value))}
+              maxLength={MAX_QR_LENGTH}
             />
           </div>
           <Button onClick={generate} className="w-full">Generate QR Code</Button>

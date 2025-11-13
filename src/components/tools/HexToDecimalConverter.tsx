@@ -6,6 +6,19 @@ import { Label } from "@/components/ui/label";
 import { RotateCcw, Copy, Calculator } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const MAX_HEX_LENGTH = 8; // Support up to 32-bit (FFFFFFFF)
+const MAX_DECIMAL = 4294967295; // 2^32 - 1
+
+// Sanitize hex input to only allow valid hex chars
+const sanitizeHexInput = (value: string): string => {
+  return value.replace(/[^0-9A-Fa-f]/g, '').slice(0, MAX_HEX_LENGTH).toUpperCase();
+};
+
+// Sanitize decimal input to only allow digits
+const sanitizeIntInput = (value: string): string => {
+  return value.replace(/[^\d]/g, '').slice(0, 10);
+};
+
 export const HexToDecimalConverter = () => {
   const [hex, setHex] = useState("");
   const [decimal, setDecimal] = useState("");
@@ -49,13 +62,14 @@ export const HexToDecimalConverter = () => {
   };
 
   const handleHexChange = (value: string) => {
-    setHex(value.toUpperCase());
-    if (value.trim() === "") {
+    const sanitized = sanitizeHexInput(value);
+    setHex(sanitized);
+    if (sanitized.trim() === "") {
       setDecimal("");
       return;
     }
 
-    const result = convertHexToDecimal(value);
+    const result = convertHexToDecimal(sanitized);
     if (result.error) {
       setDecimal("");
     } else {
@@ -64,14 +78,15 @@ export const HexToDecimalConverter = () => {
   };
 
   const handleDecimalChange = (value: string) => {
-    setDecimal(value);
-    if (value.trim() === "") {
+    const sanitized = sanitizeIntInput(value);
+    setDecimal(sanitized);
+    if (sanitized.trim() === "") {
       setHex("");
       return;
     }
 
-    const num = parseInt(value);
-    if (isNaN(num) || num < 0) {
+    const num = parseInt(sanitized);
+    if (isNaN(num) || num < 0 || num > MAX_DECIMAL) {
       setHex("");
     } else {
       const result = convertDecimalToHex(num);
@@ -171,6 +186,7 @@ export const HexToDecimalConverter = () => {
                 value={hex}
                 onChange={(e) => handleHexChange(e.target.value)}
                 className={!hexValidation.isValid ? "border-red-500" : ""}
+                maxLength={MAX_HEX_LENGTH}
               />
               <Button
                 onClick={() => copyToClipboard(hex, "Hexadecimal")}
@@ -194,10 +210,14 @@ export const HexToDecimalConverter = () => {
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="decimal"
+                type="number"
+                inputMode="numeric"
                 placeholder="Enter decimal number (e.g., 255)"
                 value={decimal}
                 onChange={(e) => handleDecimalChange(e.target.value)}
                 className={!decimalValidation.isValid ? "border-red-500" : ""}
+                min="0"
+                max={MAX_DECIMAL}
               />
               <Button
                 onClick={() => copyToClipboard(decimal, "Decimal")}

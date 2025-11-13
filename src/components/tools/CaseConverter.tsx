@@ -5,22 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
 import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
+type ConversionType = 'upper' | 'lower' | 'title' | 'sentence' | 'camel' | 'snake' | 'kebab';
+
 export const CaseConverter = () => {
   const [text, setText] = useState("");
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
+    // Strip ASCII control characters except common whitespace (tab/newline/carriage-return)
+    const cleaned = Array.from(newText).filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code === 9 || code === 10 || code === 13 || (code >= 0x20 && code !== 0x7f);
+    }).join("");
     
-    if (!validateTextLength(newText)) {
+    if (!validateTextLength(cleaned)) {
       notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
-      setText(truncateText(newText));
+      setText(truncateText(cleaned));
       return;
     }
     
-    setText(newText);
+    setText(cleaned);
   };
 
-  const handleConvert = (type: string) => {
+  const handleConvert = (type: ConversionType) => {
     let result = "";
     switch (type) {
       case "upper":
@@ -44,6 +51,8 @@ export const CaseConverter = () => {
       case "kebab":
         result = text.toLowerCase().replace(/\s+/g, "-");
         break;
+      default:
+        return; // no-op for unexpected type
     }
     setText(result);
     notify.success("Text converted!");

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
-import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from "@/lib/security";
 
 export const StringReverser = () => {
   const [input, setInput] = useState("");
@@ -22,7 +22,8 @@ export const StringReverser = () => {
   };
 
   const reverse = () => {
-    const reversed = input.split("").reverse().join("");
+    const sanitized = sanitizeText(input);
+    const reversed = sanitized.split("").reverse().join("");
     setOutput(reversed);
   notify.success("Text reversed!");
   };

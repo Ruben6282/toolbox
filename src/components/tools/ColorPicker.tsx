@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/lib/notify";
+import { ALLOWED_IMAGE_TYPES, validateImageFile, createSafeObjectUrl, sniffMime, enforceMaxDimensions } from "@/lib/security";
 
 export const ColorPicker = () => {
   const [color, setColor] = useState("#3b82f6");
@@ -20,15 +21,54 @@ export const ColorPicker = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const prevUrlRef = useRef<string | null>(null);
+
+  const revokePrevUrl = () => {
+    if (prevUrlRef.current) {
+      try { URL.revokeObjectURL(prevUrlRef.current); } catch (_e) { /* ignore */ }
+      prevUrlRef.current = null;
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      notify.error("Please select an image file");
+
+    // Basic validation (size/type)
+    const basicErr = validateImageFile(file);
+    if (basicErr) {
+      notify.error(basicErr);
       return;
     }
-    const url = URL.createObjectURL(file);
-    setImageUrl(url);
+
+    // Sniff magic bytes to prevent spoofing
+    try {
+      const { valid, detected } = await sniffMime(file);
+      if (!valid || !detected || !ALLOWED_IMAGE_TYPES.includes(detected)) {
+        notify.error("Unsupported or invalid image type");
+        return;
+      }
+    } catch {
+      notify.error("Failed to inspect image");
+      return;
+    }
+
+    // Create safe object URL and enforce max dimensions (downscale if huge)
+    const tempUrl = createSafeObjectUrl(file);
+    if (!tempUrl) {
+      notify.error("Failed to create preview for image");
+      return;
+    }
+    const scaledUrl = await enforceMaxDimensions(tempUrl);
+    if (scaledUrl !== tempUrl) {
+      // revoke original temp URL if we created a new scaled one
+      try { URL.revokeObjectURL(tempUrl); } catch (_e) { /* ignore */ }
+    }
+
+    // Revoke any previous URL before setting
+    revokePrevUrl();
+    prevUrlRef.current = scaledUrl;
+    setImageUrl(scaledUrl);
     setIsImageLoaded(false);
   };
 
@@ -134,7 +174,7 @@ export const ColorPicker = () => {
 
   // Support paste of image from clipboard
   useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
+    const onPaste = async (e: ClipboardEvent) => {
       if (e.clipboardData) {
         const items = e.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
@@ -142,8 +182,36 @@ export const ColorPicker = () => {
           if (item.type.startsWith("image/")) {
             const file = item.getAsFile();
             if (file) {
-              const url = URL.createObjectURL(file);
-              setImageUrl(url);
+              // Validate size/type and sniff content
+              const basicErr = validateImageFile(file);
+              if (basicErr) {
+                notify.error(basicErr);
+                break;
+              }
+              try {
+                const { valid, detected } = await sniffMime(file);
+                if (!valid || !detected || !ALLOWED_IMAGE_TYPES.includes(detected)) {
+                  notify.error("Unsupported or invalid image type");
+                  break;
+                }
+              } catch {
+                notify.error("Failed to inspect image");
+                break;
+              }
+
+              const tempUrl = createSafeObjectUrl(file);
+              if (!tempUrl) {
+                notify.error("Failed to create preview for image");
+                break;
+              }
+              const scaledUrl = await enforceMaxDimensions(tempUrl);
+              if (scaledUrl !== tempUrl) {
+                try { URL.revokeObjectURL(tempUrl); } catch (_e) { /* ignore */ }
+              }
+
+              revokePrevUrl();
+              prevUrlRef.current = scaledUrl;
+              setImageUrl(scaledUrl);
               setIsImageLoaded(false);
               notify.success("Image pasted from clipboard");
             }
@@ -153,7 +221,16 @@ export const ColorPicker = () => {
       }
     };
     window.addEventListener('paste', onPaste);
-    return () => window.removeEventListener('paste', onPaste);
+    return () => {
+      window.removeEventListener('paste', onPaste);
+    };
+  }, []);
+
+  // Revoke object URL on unmount to prevent leaks
+  useEffect(() => {
+    return () => {
+      revokePrevUrl();
+    };
   }, []);
 
   const hexToRgb = (hex: string) => {

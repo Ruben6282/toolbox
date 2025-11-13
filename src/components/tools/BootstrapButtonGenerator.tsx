@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, Square } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateTextLength, truncateText, MAX_TEXT_LENGTH, encodeMetaTag } from "@/lib/security";
 
 export const BootstrapButtonGenerator = () => {
   const [buttonText, setButtonText] = useState("Click me");
@@ -18,6 +19,19 @@ export const BootstrapButtonGenerator = () => {
   const [buttonActive, setButtonActive] = useState(false);
   const [buttonId, setButtonId] = useState("");
   const [buttonClass, setButtonClass] = useState("");
+
+  // Guardrails to prevent injection and oversized output
+  const MAX_FIELD_LEN = 200;
+  const sanitizeIdentifier = (s: string, max: number = 100) =>
+    s
+      .replace(/[^a-zA-Z0-9_-]/g, '-') // allow only safe CSS identifier chars
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, max);
+  const safeAttr = (s: string, max: number = MAX_FIELD_LEN) => encodeMetaTag(s.slice(0, max));
+  const coerceType = (t: string) =>
+    ["primary","secondary","success","danger","warning","info","light","dark","link"].includes(t) ? t : "primary";
+  const coerceSize = (s: string) => ["sm","md","lg"].includes(s) ? s : "md";
 
   const buttonTypes = [
     { label: "Primary", value: "primary", color: "bg-blue-500" },
@@ -39,15 +53,17 @@ export const BootstrapButtonGenerator = () => {
 
   const generateBootstrapClasses = () => {
     let classes = "btn";
-    
+    const safeType = coerceType(buttonType);
+    const safeSize = coerceSize(buttonSize);
+
     if (buttonOutline) {
-      classes += ` btn-outline-${buttonType}`;
+      classes += ` btn-outline-${safeType}`;
     } else {
-      classes += ` btn-${buttonType}`;
+      classes += ` btn-${safeType}`;
     }
     
-    if (buttonSize !== "md") {
-      classes += ` btn-${buttonSize}`;
+    if (safeSize !== "md") {
+      classes += ` btn-${safeSize}`;
     }
     
     if (buttonBlock) {
@@ -63,7 +79,8 @@ export const BootstrapButtonGenerator = () => {
     }
     
     if (buttonClass) {
-      classes += ` ${buttonClass}`;
+      const safeClass = sanitizeIdentifier(buttonClass, MAX_FIELD_LEN);
+      if (safeClass) classes += ` ${safeClass}`;
     }
     
     return classes;
@@ -71,17 +88,19 @@ export const BootstrapButtonGenerator = () => {
 
   const generateHTML = () => {
     const classes = generateBootstrapClasses();
-    const idAttr = buttonId ? ` id="${buttonId}"` : "";
+    const safeId = sanitizeIdentifier(buttonId, MAX_FIELD_LEN);
+    const idAttr = safeId ? ` id="${safeAttr(safeId)}"` : "";
     const disabledAttr = buttonDisabled ? " disabled" : "";
     const ariaPressed = buttonActive ? ' aria-pressed="true"' : "";
-    
-    return `<button class="${classes}"${idAttr}${disabledAttr}${ariaPressed}>${buttonText}</button>`;
+    const safeText = safeAttr(buttonText, MAX_FIELD_LEN);
+    return `<button class="${safeAttr(classes)}"${idAttr}${disabledAttr}${ariaPressed}>${safeText}</button>`;
   };
 
   const generateCSS = () => {
+    const safeClass = sanitizeIdentifier(buttonClass, MAX_FIELD_LEN);
     return `/* Bootstrap button styles are included in Bootstrap CSS */
 /* Custom styles can be added here */
-${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
+${safeClass ? `.${safeClass} { /* Your custom styles */ }` : ''}`;
   };
 
   const copyToClipboard = async (text: string) => {
@@ -183,7 +202,14 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
               id="button-text"
               placeholder="Click me"
               value={buttonText}
-              onChange={(e) => setButtonText(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!validateTextLength(v, MAX_FIELD_LEN)) {
+                  setButtonText(truncateText(v, MAX_FIELD_LEN));
+                } else {
+                  setButtonText(v);
+                }
+              }}
             />
           </div>
 
@@ -269,7 +295,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
                 id="button-id"
                 placeholder="my-button"
                 value={buttonId}
-                onChange={(e) => setButtonId(e.target.value)}
+                onChange={(e) => setButtonId(sanitizeIdentifier(e.target.value, MAX_FIELD_LEN))}
               />
             </div>
 
@@ -279,7 +305,7 @@ ${buttonClass ? `.${buttonClass} { /* Your custom styles */ }` : ''}`;
                 id="button-class"
                 placeholder="my-custom-class"
                 value={buttonClass}
-                onChange={(e) => setButtonClass(e.target.value)}
+                onChange={(e) => setButtonClass(sanitizeIdentifier(e.target.value, MAX_FIELD_LEN))}
               />
             </div>
           </div>

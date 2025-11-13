@@ -8,6 +8,36 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Users, Shuffle, Download } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const ALLOWED_GENDERS = ["random", "male", "female"] as const;
+const ALLOWED_COUNTRIES = ["us", "uk", "ca"] as const;
+const MIN_COUNT = 1;
+const MAX_COUNT = 50;
+
+type Gender = typeof ALLOWED_GENDERS[number];
+type Country = typeof ALLOWED_COUNTRIES[number];
+
+const coerceGender = (value: string): Gender => {
+  return ALLOWED_GENDERS.includes(value as Gender) ? (value as Gender) : "random";
+};
+
+const coerceCountry = (value: string): Country => {
+  return ALLOWED_COUNTRIES.includes(value as Country) ? (value as Country) : "us";
+};
+
+const clampCount = (value: number): number => {
+  return Math.max(MIN_COUNT, Math.min(MAX_COUNT, Math.floor(value)));
+};
+
+// Use crypto.getRandomValues for stronger randomness
+const getSecureRandom = (): number => {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] / (0xffffffff + 1);
+  }
+  return Math.random();
+};
+
 interface GeneratedName {
   firstName: string;
   lastName: string;
@@ -59,18 +89,18 @@ export const FakeNameGenerator = () => {
   };
 
   const generateRandomName = (): GeneratedName => {
-    const selectedGender = gender === "random" ? (Math.random() > 0.5 ? "male" : "female") : gender;
+    const selectedGender = gender === "random" ? (getSecureRandom() > 0.5 ? "male" : "female") : gender;
     const countryData = nameData[country as keyof typeof nameData];
     const genderData = countryData[selectedGender as keyof typeof countryData];
     
-    const firstName = genderData.first[Math.floor(Math.random() * genderData.first.length)];
-    const lastName = genderData.last[Math.floor(Math.random() * genderData.last.length)];
+    const firstName = genderData.first[Math.floor(getSecureRandom() * genderData.first.length)];
+    const lastName = genderData.last[Math.floor(getSecureRandom() * genderData.last.length)];
     
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${getEmailDomain()}`;
-    const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}`;
+    const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}${Math.floor(getSecureRandom() * 1000)}`;
     const phone = generatePhoneNumber();
     const address = generateAddress();
-    const age = Math.floor(Math.random() * 60) + 18;
+    const age = Math.floor(getSecureRandom() * 60) + 18;
     
     return {
       firstName,
@@ -86,39 +116,58 @@ export const FakeNameGenerator = () => {
 
   const getEmailDomain = () => {
     const domains = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com"];
-    return domains[Math.floor(Math.random() * domains.length)];
+    return domains[Math.floor(getSecureRandom() * domains.length)];
   };
 
   const generatePhoneNumber = () => {
-    const areaCode = Math.floor(Math.random() * 900) + 100;
-    const exchange = Math.floor(Math.random() * 900) + 100;
-    const number = Math.floor(Math.random() * 9000) + 1000;
+    const areaCode = Math.floor(getSecureRandom() * 900) + 100;
+    const exchange = Math.floor(getSecureRandom() * 900) + 100;
+    const number = Math.floor(getSecureRandom() * 9000) + 1000;
     return `(${areaCode}) ${exchange}-${number}`;
   };
 
   const generateAddress = () => {
     const streets = ["Main St", "Oak Ave", "Elm St", "Park Rd", "First St", "Second Ave", "Cedar Ln", "Maple Dr"];
-    const street = streets[Math.floor(Math.random() * streets.length)];
-    const number = Math.floor(Math.random() * 9999) + 1;
+    const street = streets[Math.floor(getSecureRandom() * streets.length)];
+    const number = Math.floor(getSecureRandom() * 9999) + 1;
     return `${number} ${street}`;
   };
 
   const generateNames = () => {
+    const validCount = clampCount(count);
     const names: GeneratedName[] = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < validCount; i++) {
       names.push(generateRandomName());
     }
     setGeneratedNames(names);
-  notify.success(`${count} names generated!`);
+    notify.success(`${validCount} names generated!`);
   };
 
   const copyName = async (name: GeneratedName) => {
     const text = `${name.firstName} ${name.lastName}\n${name.email}\n${name.username}\n${name.phone}\n${name.address}\nAge: ${name.age}`;
     try {
-      await navigator.clipboard.writeText(text);
-  notify.success("Name copied to clipboard!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("Name copied to clipboard!");
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          notify.success("Name copied to clipboard!");
+        } else {
+          notify.error("Failed to copy to clipboard");
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard");
     }
   };
 
@@ -128,10 +177,28 @@ export const FakeNameGenerator = () => {
     ).join('\n');
     
     try {
-      await navigator.clipboard.writeText(text);
-  notify.success("All names copied to clipboard!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        notify.success("All names copied to clipboard!");
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          notify.success("All names copied to clipboard!");
+        } else {
+          notify.error("Failed to copy to clipboard");
+        }
+      }
     } catch (err) {
       console.error('Failed to copy: ', err);
+      notify.error("Failed to copy to clipboard");
     }
   };
 
@@ -167,7 +234,7 @@ export const FakeNameGenerator = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
-              <Select value={gender} onValueChange={setGender}>
+              <Select value={gender} onValueChange={(value) => setGender(coerceGender(value))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -181,7 +248,7 @@ export const FakeNameGenerator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Select value={country} onValueChange={setCountry}>
+              <Select value={country} onValueChange={(value) => setCountry(coerceCountry(value))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -198,10 +265,10 @@ export const FakeNameGenerator = () => {
               <Input
                 id="count"
                 type="number"
-                min="1"
-                max="50"
+                min={MIN_COUNT}
+                max={MAX_COUNT}
                 value={count}
-                onChange={(e) => setCount(parseInt(e.target.value) || 5)}
+                onChange={(e) => setCount(clampCount(parseInt(e.target.value) || 5))}
               />
             </div>
           </div>

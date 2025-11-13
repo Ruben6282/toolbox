@@ -16,6 +16,11 @@ export const BorderRadiusGenerator = () => {
   const [unit, setUnit] = useState("px");
   const [previewSize, setPreviewSize] = useState(150);
 
+  // Guardrails
+  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+  const coerceUnit = (u: string) => (["px", "%", "em", "rem"].includes(u) ? u : "px");
+  const MAX_PREVIEW = 300;
+
   const units = [
     { label: "Pixels (px)", value: "px" },
     { label: "Percent (%)", value: "%" },
@@ -24,8 +29,9 @@ export const BorderRadiusGenerator = () => {
   ];
 
   const generateBorderRadius = () => {
-    const values = [topLeft, topRight, bottomRight, bottomLeft];
-    const borderRadius = values.map(value => `${value}${unit}`).join(' ');
+    const safeUnit = coerceUnit(unit);
+    const values = [topLeft, topRight, bottomRight, bottomLeft].map(v => clamp(v, 0, 100));
+    const borderRadius = values.map(value => `${value}${safeUnit}`).join(' ');
     return borderRadius;
   };
 
@@ -36,7 +42,7 @@ export const BorderRadiusGenerator = () => {
 
   const generateTailwind = () => {
     // Try to find a matching Tailwind class
-    const values = [topLeft, topRight, bottomRight, bottomLeft];
+    const values = [topLeft, topRight, bottomRight, bottomLeft].map(v => clamp(v, 0, 100));
     const allSame = values.every(val => val === values[0]);
     
     if (allSame) {
@@ -52,6 +58,7 @@ export const BorderRadiusGenerator = () => {
       if (value === 32) return "rounded-full";
     }
     
+    // Arbitrary value uses sanitized unit via generateBorderRadius
     return `rounded-[${generateBorderRadius()}]`;
   };
 
@@ -226,8 +233,8 @@ export const BorderRadiusGenerator = () => {
             <div
               className="bg-blue-500 flex items-center justify-center text-white font-medium"
               style={{
-                width: `${previewSize}px`,
-                height: `${previewSize}px`,
+                width: `${clamp(previewSize, 50, MAX_PREVIEW)}px`,
+                height: `${clamp(previewSize, 50, MAX_PREVIEW)}px`,
                 borderRadius: borderRadius
               }}
             >

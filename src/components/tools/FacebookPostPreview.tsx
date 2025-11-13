@@ -7,6 +7,31 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Copy, Download, RotateCcw, Upload, Facebook, Heart, MessageCircle, Share, ThumbsUp } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { validateImageFile, createSafeObjectUrl, sanitizeHtml, MAX_TEXT_LENGTH } from "@/lib/security";
+import { useEffect } from "react";
+
+const MAX_PAGE_NAME = 100;
+const MAX_POST_TEXT = 5000; // Facebook post limit ~63,206 chars; use conservative cap
+const MAX_URL_LENGTH = 2048;
+const MAX_TITLE = 200;
+const MAX_DESCRIPTION = 500;
+
+const ALLOWED_POST_TYPES = ["text", "image", "link"] as const;
+type PostType = typeof ALLOWED_POST_TYPES[number];
+
+// Sanitize text inputs by stripping control chars and enforcing length
+const sanitizeText = (text: string, maxLen: number): string => {
+  const cleaned = text.split('').filter(char => {
+    const code = char.charCodeAt(0);
+    // Keep printable + tab + newline + CR
+    return code >= 32 || code === 9 || code === 10 || code === 13;
+  }).join('');
+  return cleaned.slice(0, maxLen);
+};
+
+const coercePostType = (value: string): PostType => {
+  return ALLOWED_POST_TYPES.includes(value as PostType) ? (value as PostType) : "text";
+};
 
 export const FacebookPostPreview = () => {
   const [postData, setPostData] = useState({
@@ -23,30 +48,49 @@ export const FacebookPostPreview = () => {
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+      }
+    };
+  }, [previewImage]);
+
   const handleInputChange = (field: string, value: string) => {
-    setPostData(prev => ({ ...prev, [field]: value }));
+    let sanitized = value;
+    
+    // Apply field-specific sanitization
+    if (field === 'pageName') sanitized = sanitizeText(value, MAX_PAGE_NAME);
+    else if (field === 'postText') sanitized = sanitizeText(value, MAX_POST_TEXT);
+    else if (field === 'linkUrl' || field === 'linkImage') sanitized = sanitizeText(value, MAX_URL_LENGTH);
+    else if (field === 'linkTitle') sanitized = sanitizeText(value, MAX_TITLE);
+    else if (field === 'linkDescription') sanitized = sanitizeText(value, MAX_DESCRIPTION);
+    
+    setPostData(prev => ({ ...prev, [field]: sanitized }));
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      notify.error("Please select an image file.");
+    // Validate file with magic byte sniffing
+    const error = await validateImageFile(file);
+    if (error) {
+      notify.error(error);
+      event.target.value = ''; // Clear input
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setPreviewImage(result);
-      setPostData(prev => ({ ...prev, imageUrl: result }));
-      notify.success(`Image uploaded${file.name ? `: ${file.name}` : ''}`);
-    };
-    reader.onerror = () => {
-      notify.error("Failed to load image.");
-    };
-    reader.readAsDataURL(file);
+    // Revoke old URL before creating new one
+    if (previewImage) {
+      URL.revokeObjectURL(previewImage);
+    }
+
+    const safeUrl = createSafeObjectUrl(file);
+    setPreviewImage(safeUrl);
+    setPostData(prev => ({ ...prev, imageUrl: safeUrl }));
+    notify.success(`Image uploaded: ${file.name}`);
   };
 
   const generatePostHTML = () => {
@@ -68,10 +112,11 @@ export const FacebookPostPreview = () => {
     html += `    </div>\n`;
     html += `  </div>\n`;
     
-    // Content
+    // Content (escape HTML to prevent XSS)
     if (postText) {
+      const escaped = sanitizeHtml(postText);
       html += `  <div style="padding: 12px 16px; color: #1c1e21; font-size: 15px; line-height: 1.33;">\n`;
-      html += `    ${postText.replace(/\n/g, '<br>')}\n`;
+      html += `    ${escaped.replace(/\n/g, '<br>')}\n`;
       html += `  </div>\n`;
     }
     
@@ -98,12 +143,12 @@ export const FacebookPostPreview = () => {
         html += `      </div>\n`;
       }
       html += `      <div style="flex: 1; padding: 12px;">\n`;
-      html += `        <div style="color: #65676b; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">${hostname}</div>\n`;
+      html += `        <div style="color: #65676b; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">${sanitizeHtml(hostname)}</div>\n`;
       if (linkTitle) {
-        html += `        <div style="font-weight: 600; color: #1c1e21; font-size: 16px; margin-bottom: 4px;">${linkTitle}</div>\n`;
+        html += `        <div style="font-weight: 600; color: #1c1e21; font-size: 16px; margin-bottom: 4px;">${sanitizeHtml(linkTitle)}</div>\n`;
       }
       if (linkDescription) {
-        html += `        <div style="color: #65676b; font-size: 14px; line-height: 1.33;">${linkDescription}</div>\n`;
+        html += `        <div style="color: #65676b; font-size: 14px; line-height: 1.33;">${sanitizeHtml(linkDescription)}</div>\n`;
       }
       html += `      </div>\n`;
       html += `    </div>\n`;
@@ -228,7 +273,7 @@ export const FacebookPostPreview = () => {
 
             <div className="space-y-2">
               <Label htmlFor="post-type">Post Type</Label>
-              <Select value={postData.postType} onValueChange={(value) => handleInputChange('postType', value)}>
+              <Select value={postData.postType} onValueChange={(value) => setPostData(prev => ({ ...prev, postType: coercePostType(value) }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -249,6 +294,7 @@ export const FacebookPostPreview = () => {
               value={postData.postText}
               onChange={(e) => handleInputChange('postText', e.target.value)}
               rows={4}
+              maxLength={MAX_POST_TEXT}
             />
           </div>
 

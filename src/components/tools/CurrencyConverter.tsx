@@ -71,43 +71,76 @@ export const CurrencyConverter = () => {
     { code: "PLN", name: "Polish Zloty", symbol: "zł" },
   ];
 
+  // Security caps and helpers
+  const MAX_AMOUNT = 1e12; // Cap input amount to avoid excessive values
+  const sanitizeDecimalInput = (v: string, maxLen = 18) => {
+    const stripped = v.replace(/[^0-9.]/g, "");
+    const parts = stripped.split(".");
+    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
+    return normalized.slice(0, maxLen);
+  };
+  const isAllowedCode = (v: string) => currencies.some(c => c.code === v);
+  const coerceCurrency = (v: string) => (isAllowedCode(v) ? v : "USD");
+
   const getSymbol = (code: string) => currencies.find(c => c.code === code)?.symbol || code;
   const getName = (code: string) => currencies.find(c => c.code === code)?.name || code;
 
   useEffect(() => {
     const fetchRates = async () => {
+      const allowed = new Set(currencies.map(c => c.code));
       setIsLoading(true);
       const cacheKey = `rates_${fromCurrency}`;
       const cachedData = localStorage.getItem(cacheKey);
 
       if (cachedData) {
-        const parsed: CachedRates = JSON.parse(cachedData);
-        const now = Date.now();
+        try {
+          const parsed: CachedRates = JSON.parse(cachedData);
+          const now = Date.now();
 
-        if (now - parsed.timestamp < 24 * 60 * 60 * 1000) {
-          setExchangeRates(parsed.rates);
-          setLastUpdated(
-            new Date(parsed.date).toLocaleString(undefined, {
-              year: "numeric",
-              month: "numeric",
-              day: "numeric",
-              hour: "numeric",
-              minute: "numeric",
-              second: "numeric",
-            })
-          );
-          setIsLoading(false);
-          return;
+          if (
+            typeof parsed === "object" && parsed &&
+            typeof parsed.timestamp === "number" &&
+            parsed.rates && typeof parsed.rates === "object" &&
+            typeof parsed.date === "string" &&
+            now - parsed.timestamp < 24 * 60 * 60 * 1000
+          ) {
+            const safeRates: ExchangeRates = {};
+            Object.entries(parsed.rates).forEach(([k, v]) => {
+              if (allowed.has(k) && Number.isFinite(v)) safeRates[k] = v;
+            });
+            setExchangeRates(safeRates);
+            setLastUpdated(
+              new Date(parsed.date).toLocaleString(undefined, {
+                year: "numeric",
+                month: "numeric",
+                day: "numeric",
+                hour: "numeric",
+                minute: "numeric",
+                second: "numeric",
+              })
+            );
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // Ignore corrupted cache
         }
       }
 
       try {
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${fromCurrency}`);
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(fromCurrency)}`, { signal: controller.signal });
+        window.clearTimeout(timeoutId);
         if (!res.ok) throw new Error("Bad response");
         const data = await res.json();
 
-        if (data?.rates) {
-          setExchangeRates(data.rates);
+        if (data?.rates && typeof data.rates === "object") {
+          const safeRates: ExchangeRates = {};
+          Object.entries(data.rates as Record<string, number>).forEach(([k, v]) => {
+            if (allowed.has(k) && Number.isFinite(v)) safeRates[k] = v;
+          });
+          setExchangeRates(safeRates);
           setLastUpdated(
             new Date(data.date).toLocaleString(undefined, {
               year: "numeric",
@@ -123,7 +156,7 @@ export const CurrencyConverter = () => {
             cacheKey,
             JSON.stringify({
               base: fromCurrency,
-              rates: data.rates,
+              rates: safeRates,
               date: data.date,
               timestamp: Date.now(),
             })
@@ -140,7 +173,7 @@ export const CurrencyConverter = () => {
         const convertedRates: ExchangeRates = {};
         
         Object.keys(defaultRates).forEach(currency => {
-          if (currency !== fromCurrency) {
+          if (currency !== fromCurrency && allowed.has(currency)) {
             // Convert from USD to fromCurrency: rate = (toCurrency/USD) / (fromCurrency/USD)
             convertedRates[currency] = defaultRates[currency] / baseRate;
           }
@@ -169,6 +202,8 @@ export const CurrencyConverter = () => {
     // Always calculate, even if amount is empty (treat as 0)
     const value = amount ? parseFloat(amount) : 0;
     if (isNaN(value)) return 0;
+    if (value < 0) return 0;
+    if (value > MAX_AMOUNT) return MAX_AMOUNT;
     if (fromCurrency === toCurrency) return value;
     if (!exchangeRates[toCurrency]) return null; // No rate available
     return value * exchangeRates[toCurrency];
@@ -212,7 +247,8 @@ export const CurrencyConverter = () => {
               type="number"
               placeholder="0.00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 18))}
+              inputMode="decimal"
               min="0"
               step="0.000001"
             />
@@ -226,7 +262,7 @@ export const CurrencyConverter = () => {
               return (
                 <div key={label} className="space-y-2">
                   <Label>{label}</Label>
-                  <Select value={currency} onValueChange={setCurrency}>
+                  <Select value={currency} onValueChange={(v) => setCurrency(coerceCurrency(v))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {currencies.map((c) => (

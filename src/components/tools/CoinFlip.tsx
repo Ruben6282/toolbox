@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Circle } from "lucide-react";
@@ -7,15 +7,41 @@ export const CoinFlip = () => {
   const [result, setResult] = useState("");
   const [isFlipping, setIsFlipping] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const timeoutRef = useRef<number | null>(null);
+  const MAX_HISTORY = 10;
+
+  // Cleanup any pending timeout on unmount to avoid setState on unmounted component
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const flipCoin = () => {
+    if (isFlipping) return; // guard against rapid re-entrance
     setIsFlipping(true);
     
-    setTimeout(() => {
-      const outcome = Math.random() < 0.5 ? "Heads" : "Tails";
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      // Use cryptographically stronger randomness when available
+      let outcome: "Heads" | "Tails";
+      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const arr = new Uint32Array(1);
+        crypto.getRandomValues(arr);
+        outcome = (arr[0] & 1) === 0 ? "Heads" : "Tails";
+      } else {
+        outcome = Math.random() < 0.5 ? "Heads" : "Tails";
+      }
       setResult(outcome);
-      setHistory(prev => [outcome, ...prev.slice(0, 9)]);
+      setHistory(prev => [outcome, ...prev.slice(0, MAX_HISTORY - 1)]);
       setIsFlipping(false);
+      timeoutRef.current = null;
     }, 500);
   };
 

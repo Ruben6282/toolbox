@@ -22,6 +22,12 @@ export const PrimeNumberChecker = () => {
   } | null>(null);
 
   const MAX_SAFE_FACTORIZE = 1_000_000_000_000n; // 1 trillion limit
+  const MAX_DIGITS = 100; // Max 100 digits
+
+  // Sanitize: strip non-digit chars
+  const sanitizeInteger = (val: string): string => {
+    return val.replace(/[^0-9]/g, "").substring(0, MAX_DIGITS);
+  };
 
   const isPrime = (n: bigint): boolean => {
     if (n <= 1n) return false;
@@ -140,9 +146,11 @@ export const PrimeNumberChecker = () => {
           <Input
             id="number"
             type="text"
+            inputMode="numeric"
             placeholder="Enter a positive integer"
             value={number}
-            onChange={(e) => setNumber(e.target.value)}
+            onChange={(e) => setNumber(sanitizeInteger(e.target.value))}
+            maxLength={MAX_DIGITS}
           />
         </div>
 

@@ -10,9 +10,13 @@ import { validateTextLength, truncateText, MAX_TEXT_LENGTH, sanitizeText } from 
 export const BinaryToText = () => {
   const [binary, setBinary] = useState("");
   const [text, setText] = useState("");
+  // Per-tool constraints to avoid heavy processing
+  const MAX_GROUPS = 10000; // limit number of binary groups processed in one go
+  const GROUP_BITS = 8;     // enforce 8-bit groups (standard byte-based binary text)
 
   const handleBinaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value;
+    // Allow only 0/1 and whitespace; strip other characters eagerly
+    const newText = e.target.value.replace(/[^01\s]/g, "");
     
     if (!validateTextLength(newText)) {
       notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
@@ -25,15 +29,29 @@ export const BinaryToText = () => {
 
   const convertToText = () => {
     try {
-      // Sanitize input before conversion
+      // Sanitize input before conversion and validate 8-bit groups
       const sanitized = sanitizeText(binary);
-      const binaryArray = sanitized.trim().split(/\s+/);
-      const textResult = binaryArray
-        .map(bin => {
-          const decimal = parseInt(bin, 2);
-          return String.fromCharCode(decimal);
-        })
-        .join("");
+      const binaryArray = sanitized.trim().split(/\s+/).filter(Boolean);
+      if (binaryArray.length > MAX_GROUPS) {
+        notify.error(`Too many groups. Please limit to ${MAX_GROUPS.toLocaleString()} binary bytes.`);
+        return;
+      }
+
+      for (const token of binaryArray) {
+        if (!/^[01]{1,8}$/.test(token)) {
+          notify.error(`Invalid binary token: "${token}". Use 1–8 bits per group separated by spaces.`);
+          return;
+        }
+      }
+
+      const chars: string[] = [];
+      for (const bin of binaryArray) {
+        const decimal = parseInt(bin, 2);
+        // Constrain to 0–255 for byte-based text
+        const code = Math.max(0, Math.min(255, decimal));
+        chars.push(String.fromCharCode(code));
+      }
+      const textResult = chars.join("");
       setText(sanitizeText(textResult));
       notify.success("Binary converted to text!");
     } catch (error) {

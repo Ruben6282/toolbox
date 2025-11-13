@@ -17,11 +17,39 @@ export const BoxShadowGenerator = () => {
   const [opacity, setOpacity] = useState(25);
   const [inset, setInset] = useState(false);
 
+  // Guardrails
+  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+  const sanitizeHexColor = (val: string): string | null => {
+    if (typeof val !== 'string') return null;
+    const v = val.trim();
+    const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(v);
+    if (!m) return null;
+    const hex = m[1];
+    if (hex.length === 3) {
+      // Expand 3-digit shorthand to 6-digit
+      return '#' + hex.split('').map(ch => ch + ch).join('').toLowerCase();
+    }
+    return '#' + hex.toLowerCase();
+  };
+  const normalizeTypingColor = (val: string): string => {
+    // Allow partial typing: keep a leading # and up to 6 hex chars
+    const stripped = val.replace(/[^#0-9a-fA-F]/g, '');
+    let out = stripped.startsWith('#') ? '#' : '#';
+    const hex = stripped.replace('#', '').slice(0, 6);
+    out += hex;
+    return out;
+  };
+
   const generateBoxShadow = () => {
-    const alpha = opacity / 100;
-    const colorWithAlpha = `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
-    
-    const shadow = `${horizontalOffset}px ${verticalOffset}px ${blurRadius}px ${spreadRadius}px ${colorWithAlpha}${inset ? ' inset' : ''}`;
+    const alpha = clamp(opacity, 0, 100) / 100;
+    const safeColor = sanitizeHexColor(color) || '#000000';
+    const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
+    const colorWithAlpha = `${safeColor}${alphaHex}`;
+    const x = clamp(horizontalOffset, -50, 50);
+    const y = clamp(verticalOffset, -50, 50);
+    const blur = clamp(blurRadius, 0, 50);
+    const spread = clamp(spreadRadius, -50, 50);
+    const shadow = `${x}px ${y}px ${blur}px ${spread}px ${colorWithAlpha}${inset ? ' inset' : ''}`;
     return shadow;
   };
 
@@ -133,12 +161,12 @@ export const BoxShadowGenerator = () => {
                   id="shadow-color"
                   type="color"
                   value={color}
-                  onChange={(e) => setColor(e.target.value)}
+                  onChange={(e) => setColor(sanitizeHexColor(e.target.value) || '#000000')}
                   className="w-16 h-10"
                 />
                 <Input
                   value={color}
-                  onChange={(e) => setColor(e.target.value)}
+                  onChange={(e) => setColor(normalizeTypingColor(e.target.value))}
                   className="flex-1"
                 />
               </div>

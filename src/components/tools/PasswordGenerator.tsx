@@ -7,6 +7,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { notify } from "@/lib/notify";
 import { Copy, RefreshCw } from "lucide-react";
 
+const MIN_LENGTH = 4;
+const MAX_LENGTH = 128;
+
+// Secure random integer
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+};
+
 export const PasswordGenerator = () => {
   const [length, setLength] = useState(16);
   const [useUppercase, setUseUppercase] = useState(true);
@@ -23,16 +36,16 @@ export const PasswordGenerator = () => {
     if (useSymbols) chars += "!@#$%^&*()_+-=[]{}|;:,.<>?";
 
     if (chars === "") {
-  notify.error("Select at least one character type!");
+      notify.error("Select at least one character type!");
       return;
     }
 
     let result = "";
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      result += chars.charAt(secureRandom(chars.length));
     }
     setPassword(result);
-  notify.success("Password generated!");
+    notify.success("Password generated!");
   };
 
   const copyToClipboard = async () => {
@@ -76,10 +89,14 @@ export const PasswordGenerator = () => {
             <Label>Password Length: {length}</Label>
             <Input
               type="range"
-              min="4"
-              max="64"
+              min={MIN_LENGTH}
+              max={MAX_LENGTH}
               value={length}
-              onChange={(e) => setLength(parseInt(e.target.value))}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                const clamped = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, val));
+                setLength(clamped);
+              }}
             />
           </div>
 
