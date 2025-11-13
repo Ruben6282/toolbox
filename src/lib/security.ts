@@ -292,9 +292,9 @@ export function sanitizeUserAgent(userAgent: string): string {
 /**
  * Validate and sanitize number input
  * @param value - Value to validate
- * @param min - Minimum value
- * @param max - Maximum value
- * @returns Sanitized number or null if invalid
+ * @param min - Minimum value (optional)
+ * @param max - Maximum value (optional)
+ * @returns Sanitized number or null if invalid or out of range
  */
 export function sanitizeNumber(value: string | number, min?: number, max?: number): number | null {
   const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -304,11 +304,11 @@ export function sanitizeNumber(value: string | number, min?: number, max?: numbe
   }
   
   if (min !== undefined && num < min) {
-    return min;
+    return null;
   }
   
   if (max !== undefined && num > max) {
-    return max;
+    return null;
   }
   
   return num;

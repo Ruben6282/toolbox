@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,83 @@ export const TaxCalculator = () => {
   }
   type RemoteTaxData = Record<string, RemoteYearData>;
   const [remoteTaxData, setRemoteTaxData] = useState<RemoteTaxData | null>(null);
+  const [isLoadingTaxData, setIsLoadingTaxData] = useState<boolean>(true);
+
+  // Security constants and allowlists
+  const ALLOWED_YEARS = useMemo(() => ["2024", "2025"] as const, []);
+  const ALLOWED_STATES = useMemo(
+    () => [
+      "none",
+      "california",
+      "new-york",
+      "texas",
+      "florida",
+      "illinois",
+      "pennsylvania",
+      "ohio",
+      "georgia",
+      "north-carolina",
+      "michigan",
+    ] as const,
+    []
+  );
+
+  // Caps to prevent resource exhaustion and UI freezes
+  const MAX_SAFE_INPUT = 1e12; // $1,000,000,000,000 upper-bound for any amount
+  const MAX_BRACKETS = 20; // prevent maliciously large brackets arrays
+  const MAX_STANDARD_DEDUCTION = 1e6; // sanity cap
+
+  // Helpers: sanitize and parse numeric inputs safely
+  const sanitizeNumStr = useCallback((raw: string) => {
+    if (typeof raw !== "string") return "";
+    // Remove any non-digit except a single dot; trim length to 20 chars
+    const trimmed = raw.slice(0, 20);
+    let out = "";
+    let dotSeen = false;
+    for (const ch of trimmed) {
+      if (ch >= "0" && ch <= "9") out += ch;
+      else if (ch === "." && !dotSeen) {
+        out += ch;
+        dotSeen = true;
+      }
+      // ignore everything else (e/E/+/-/spaces/etc.)
+    }
+    return out;
+  }, []);
+
+  const safeParseAmount = useCallback(
+    (raw: string) => {
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      return Math.min(n, MAX_SAFE_INPUT);
+    },
+    [MAX_SAFE_INPUT]
+  );
+
+  // Prevent non-numeric keystrokes in number inputs (defense-in-depth)
+  const handleNumberKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    const allowedKeys = [
+      "Backspace",
+      "Delete",
+      "Tab",
+      "ArrowLeft",
+      "ArrowRight",
+      "Home",
+      "End",
+    ];
+    const ctrlCombo = e.ctrlKey || e.metaKey;
+    if (ctrlCombo && ["a", "c", "v", "x"].includes(e.key.toLowerCase())) return;
+    if (allowedKeys.includes(e.key)) return;
+    if (e.key === ".") return; // allow decimal point once; multiple handled by sanitize
+    if (e.key >= "0" && e.key <= "9") return;
+    // Block anything else like e/E/+/-
+    e.preventDefault();
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLInputElement>) => {
+    // Prevent value changes via scroll wheel which can cause accidental input changes
+    (e.currentTarget as HTMLInputElement).blur();
+  }, []);
 
   const [grossIncome, setGrossIncome] = useState("");
   const [filingStatus, setFilingStatus] = useState("single");
@@ -24,11 +101,11 @@ export const TaxCalculator = () => {
   const [additionalIncome, setAdditionalIncome] = useState("");
 
   const clampNonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
-  const income = clampNonNegative(parseFloat(grossIncome));
-  const deductionAmount = clampNonNegative(parseFloat(deductions));
-  const credits = clampNonNegative(parseFloat(taxCredits));
-  const additional = clampNonNegative(parseFloat(additionalIncome));
-  const totalIncome = income + additional;
+  const income = safeParseAmount(grossIncome);
+  const deductionAmount = safeParseAmount(deductions);
+  const credits = safeParseAmount(taxCredits);
+  const additional = safeParseAmount(additionalIncome);
+  const totalIncome = Math.min(income + additional, MAX_SAFE_INPUT);
 
   // Fallback tax data (ensures tool never breaks)
   const fallbackTaxData: Record<string, {
@@ -93,17 +170,80 @@ export const TaxCalculator = () => {
   // Try to fetch tax data (served statically from /tax-data.json); always falls back
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+
+    // Type guards
+    const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+    const isFiniteNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+    // Validate and sanitize remote data to prevent misuse/malicious payloads
+    const validateAndSanitizeRemoteData = (data: unknown): RemoteTaxData | null => {
+      if (!data || typeof data !== "object") return null;
+      const out: Record<string, RemoteYearData> = {};
+      for (const year of ALLOWED_YEARS) {
+        const yd = (data as Record<string, unknown>)[year];
+        if (!isRecord(yd)) continue;
+        const fbUnknown = yd["federalBrackets"];
+        const sdUnknown = yd["standardDeductions"];
+        if (!isRecord(fbUnknown) || !isRecord(sdUnknown)) continue;
+
+        const statuses = ["single", "married"] as const;
+        const sanitizedBrackets: Record<string, Array<{ min: number; max: number; rate: number }>> = {};
+        let valid = true;
+
+        for (const status of statuses) {
+          const arrUnknown = fbUnknown[status];
+          if (!Array.isArray(arrUnknown)) { valid = false; break; }
+          const cleaned: Array<{ min: number; max: number; rate: number }> = [];
+          for (const bUnknown of (arrUnknown as unknown[]).slice(0, MAX_BRACKETS)) {
+            if (!isRecord(bUnknown)) continue;
+            let min = Number(bUnknown.min);
+            let max = Number(bUnknown.max);
+            const rate = Number(bUnknown.rate);
+            if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(rate)) continue;
+            if (min < 0) min = 0;
+            if (max <= min) continue;
+            if (rate < 0 || rate > 1) continue;
+            // Cap extremely large values to avoid overflow/slow formatting
+            if (max > Number.MAX_SAFE_INTEGER) max = Number.MAX_SAFE_INTEGER;
+            cleaned.push({ min, max, rate });
+          }
+          // Sort by min ascending to preserve logic
+          cleaned.sort((a, b) => a.min - b.min);
+          if (cleaned.length === 0) { valid = false; break; }
+          sanitizedBrackets[status] = cleaned;
+        }
+
+        const sanitizedDeductions: Record<string, number> = {};
+        for (const status of statuses) {
+          const vUnknown = sdUnknown[status];
+          const v = Number(vUnknown);
+          if (!Number.isFinite(v) || v < 0) { valid = false; break; }
+          sanitizedDeductions[status] = Math.min(v, MAX_STANDARD_DEDUCTION);
+        }
+
+        if (valid) out[year] = { federalBrackets: sanitizedBrackets, standardDeductions: sanitizedDeductions };
+      }
+      return Object.keys(out).length ? (out as RemoteTaxData) : null;
+    };
+
     (async () => {
       try {
-        const res = await fetch("/tax-data.json", { cache: "no-store" });
+        setIsLoadingTaxData(true);
+        const res = await fetch("/tax-data.json", { cache: "no-store", signal: controller.signal });
         if (!res.ok) throw new Error("Failed to load tax data");
         const data = await res.json();
-        if (!cancelled) setRemoteTaxData(data);
+        if (cancelled) return;
+        const sanitized = validateAndSanitizeRemoteData(data);
+        setRemoteTaxData(sanitized);
       } catch {
         if (!cancelled) setRemoteTaxData(null);
+      } finally {
+        if (!cancelled) setIsLoadingTaxData(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeData = useMemo(() => {
@@ -117,13 +257,14 @@ export const TaxCalculator = () => {
   }, [remoteTaxData, taxYear]);
 
   const calculateFederalTax = () => {
-    const brackets = activeData.federalBrackets[filingStatus] as Array<{ min: number; max: number; rate: number }>;
-    const standardDeduction = activeData.standardDeductions[filingStatus] as number;
+    const safeFiling = filingStatus === "married" ? "married" : "single";
+    const brackets = activeData.federalBrackets[safeFiling] as Array<{ min: number; max: number; rate: number }>;
+    const standardDeduction = activeData.standardDeductions[safeFiling] as number;
     const totalDeduction = Math.max(deductionAmount, standardDeduction);
-    const taxableIncome = Math.max(0, totalIncome - totalDeduction);
+    const taxableIncome = Math.max(0, Math.min(totalIncome - totalDeduction, MAX_SAFE_INPUT));
     
     let tax = 0;
-    for (const bracket of brackets) {
+    for (const bracket of brackets.slice(0, MAX_BRACKETS)) {
       if (taxableIncome > bracket.min) {
         const incomeInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
         if (incomeInBracket > 0) tax += incomeInBracket * bracket.rate;
@@ -162,7 +303,7 @@ export const TaxCalculator = () => {
   const effectiveRate = totalIncome > 0 ? (totalTax / totalIncome) * 100 : 0;
 
   // Currency formatter
-  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const fmt = (n: number) => Math.min(Math.max(0, n), MAX_SAFE_INPUT).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   const clearAll = () => {
     setGrossIncome("");
@@ -201,14 +342,19 @@ export const TaxCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={grossIncome}
-                onChange={(e) => setGrossIncome(e.target.value)}
-                min="0"
+                onChange={(e) => setGrossIncome(sanitizeNumStr(e.target.value))}
+                onKeyDown={handleNumberKeyDown}
+                onWheel={handleWheel}
+                inputMode="decimal"
+                min={0}
+                max={MAX_SAFE_INPUT}
+                autoComplete="off"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="filing-status">Filing Status</Label>
-              <Select value={filingStatus} onValueChange={setFilingStatus}>
+              <Select value={filingStatus} onValueChange={(v) => setFilingStatus(v === "married" ? "married" : "single")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select filing status" />
                 </SelectTrigger>
@@ -226,8 +372,13 @@ export const TaxCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={deductions}
-                onChange={(e) => setDeductions(e.target.value)}
-                min="0"
+                onChange={(e) => setDeductions(sanitizeNumStr(e.target.value))}
+                onKeyDown={handleNumberKeyDown}
+                onWheel={handleWheel}
+                inputMode="decimal"
+                min={0}
+                max={MAX_SAFE_INPUT}
+                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
                 Leave blank to use standard deduction
@@ -241,15 +392,20 @@ export const TaxCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={taxCredits}
-                onChange={(e) => setTaxCredits(e.target.value)}
-                min="0"
+                onChange={(e) => setTaxCredits(sanitizeNumStr(e.target.value))}
+                onKeyDown={handleNumberKeyDown}
+                onWheel={handleWheel}
+                inputMode="decimal"
+                min={0}
+                max={MAX_SAFE_INPUT}
+                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">Credits directly reduce total tax owed.</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="state">State</Label>
-              <Select value={state} onValueChange={setState}>
+              <Select value={state} onValueChange={(v) => setState((ALLOWED_STATES as readonly string[]).includes(v) ? v : "none")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select state" />
                 </SelectTrigger>
@@ -276,8 +432,13 @@ export const TaxCalculator = () => {
                 type="number"
                 placeholder="0"
                 value={additionalIncome}
-                onChange={(e) => setAdditionalIncome(e.target.value)}
-                min="0"
+                onChange={(e) => setAdditionalIncome(sanitizeNumStr(e.target.value))}
+                onKeyDown={handleNumberKeyDown}
+                onWheel={handleWheel}
+                inputMode="decimal"
+                min={0}
+                max={MAX_SAFE_INPUT}
+                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
                 Other income sources (investments, side jobs, etc.)
@@ -372,8 +533,8 @@ export const TaxCalculator = () => {
         </Card>
       )}
 
-      {!remoteTaxData && (
-        <div className="text-center text-xs text-muted-foreground italic">Loading remote tax data...</div>
+      {isLoadingTaxData && (
+        <div className="text-center text-xs text-muted-foreground italic" aria-live="polite">Loading remote tax data...</div>
       )}
 
       <Card>

@@ -3,15 +3,23 @@
  *
  * Security & UX Features:
  * - Explicit Range Validation: Price, discount, and tax are rejected when out of bounds
- * - Input Sanitization: sanitizeNumber() used as a final guard against NaN/Infinity
+ * - Input Sanitization: All inputs trimmed and validated with sanitizeNumber()
  * - NaN/Infinity Guards: Verifies all derived numbers are finite before rendering
  * - Error Handling UI: Role alert banner with aria-live announcements
- * - Accessibility: aria-invalid + aria-describedby on invalid fields; aria-live on results
+ * - Accessibility: aria-invalid + aria-describedby on invalid fields; targeted aria-live regions
  * - Localization: Intl.NumberFormat for currency-safe, locale-aware formatting
  * - Robustness: Percentage and amount discounts validated; discount cannot exceed price
+ * - Precision: All monetary values rounded to 2 decimal places
+ * 
+ * IMPORTANT SECURITY NOTES:
+ * - This is CLIENT-SIDE validation only. Backend MUST re-validate all inputs
+ * - Deploy with Content-Security-Policy headers to prevent XSS
+ * - Consider rate limiting on backend if this data is submitted to a server
+ * - All calculations are synchronous and run on every input change (no debouncing
+ *   to avoid race conditions between validation display and calculations)
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,88 +60,85 @@ export function validateAndComputeDiscount(params: {
   discountValue: string;
   taxRate: string;
 }): DiscountComputation {
-  const { originalPrice, discountType, discountValue, taxRate } = params;
+  try {
+    const { originalPrice, discountType, discountValue, taxRate } = params;
 
-  // --- Original Price Validation ---
-  let price = 0;
+    // --- Original Price Validation ---
+    let price = 0;
 
-  if (originalPrice.trim() !== "") {
-    const rawP = parseFloat(originalPrice);
+    const trimmedPrice = originalPrice.trim();
+    if (trimmedPrice !== "") {
+      // Reject scientific notation for clearer UX
+      if (/[eE]/.test(trimmedPrice)) {
+        return {
+          error: "Scientific notation is not allowed. Please enter a standard number.",
+          errorField: "price",
+        };
+      }
 
-    if (isNaN(rawP) || !isFinite(rawP)) {
-      return {
-        error: "Invalid original price. Please enter a valid number.",
-        errorField: "price",
-      };
+      const sanP = sanitizeNumber(trimmedPrice, 0, PRICE_MAX);
+      
+      if (sanP === null) {
+        const rawP = parseFloat(trimmedPrice);
+        if (isNaN(rawP) || !isFinite(rawP)) {
+          return {
+            error: "Invalid original price. Please enter a valid number.",
+            errorField: "price",
+          };
+        }
+        return {
+          error: `Original price must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
+          errorField: "price",
+        };
+      }
+
+      price = sanP;
     }
-
-    if (rawP < 0 || rawP > PRICE_MAX) {
-      return {
-        error: `Original price must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
-        errorField: "price",
-      };
-    }
-
-    const sanP = sanitizeNumber(rawP, 0, PRICE_MAX);
-    if (sanP === null) {
-      return {
-        error: "Original price is invalid.",
-        errorField: "price",
-      };
-    }
-
-    price = sanP;
-  }
 
   // --- Discount Validation ---
   let discountNumeric = 0;
 
-  if (discountValue.trim() !== "") {
-    const rawD = parseFloat(discountValue);
-
-    if (isNaN(rawD) || !isFinite(rawD)) {
+  const trimmedDiscount = discountValue.trim();
+  if (trimmedDiscount !== "") {
+    // Reject scientific notation for clearer UX
+    if (/[eE]/.test(trimmedDiscount)) {
       return {
-        error:
-          discountType === "percentage"
-            ? "Invalid discount percentage. Please enter a valid number."
-            : "Invalid discount amount. Please enter a valid number.",
+        error: "Scientific notation is not allowed. Please enter a standard number.",
         errorField: "discount",
       };
     }
 
     if (discountType === "percentage") {
-      if (rawD < DISCOUNT_PERCENT_MIN || rawD > DISCOUNT_PERCENT_MAX) {
+      const sanD = sanitizeNumber(trimmedDiscount, DISCOUNT_PERCENT_MIN, DISCOUNT_PERCENT_MAX);
+      
+      if (sanD === null) {
+        const rawD = parseFloat(trimmedDiscount);
+        if (isNaN(rawD) || !isFinite(rawD)) {
+          return {
+            error: "Invalid discount percentage. Please enter a valid number between 0% and 100%.",
+            errorField: "discount",
+          };
+        }
         return {
           error: `Discount percentage must be between ${DISCOUNT_PERCENT_MIN}% and ${DISCOUNT_PERCENT_MAX}%.`,
-          errorField: "discount",
-        };
-      }
-
-      const sanD = sanitizeNumber(
-        rawD,
-        DISCOUNT_PERCENT_MIN,
-        DISCOUNT_PERCENT_MAX
-      );
-      if (sanD === null) {
-        return {
-          error: "Discount percentage is invalid.",
           errorField: "discount",
         };
       }
       discountNumeric = sanD;
     } else {
       // Fixed amount
-      if (rawD < 0 || rawD > PRICE_MAX) {
+      const sanD = sanitizeNumber(trimmedDiscount, 0, PRICE_MAX);
+      
+      if (sanD === null) {
+        const rawD = parseFloat(trimmedDiscount);
+        if (isNaN(rawD) || !isFinite(rawD)) {
+          return {
+            error: "Invalid discount amount. Please enter a valid number.",
+            errorField: "discount",
+          };
+        }
         return {
           error: `Discount amount must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
-          errorField: "discount",
-        };
-      }
-
-      const sanD = sanitizeNumber(rawD, 0, PRICE_MAX);
-      if (sanD === null) {
-        return {
-          error: "Discount amount is invalid.",
           errorField: "discount",
         };
       }
@@ -155,27 +160,28 @@ export function validateAndComputeDiscount(params: {
   // --- Tax Validation ---
   let taxRateNum = 0;
 
-  if (taxRate.trim() !== "") {
-    const rawT = parseFloat(taxRate);
-
-    if (isNaN(rawT) || !isFinite(rawT)) {
+  const trimmedTax = taxRate.trim();
+  if (trimmedTax !== "") {
+    // Reject scientific notation for clearer UX
+    if (/[eE]/.test(trimmedTax)) {
       return {
-        error: "Invalid tax rate. Please enter a valid number.",
+        error: "Scientific notation is not allowed. Please enter a standard number.",
         errorField: "tax",
       };
     }
 
-    if (rawT < TAX_MIN || rawT > TAX_MAX) {
+    const sanT = sanitizeNumber(trimmedTax, TAX_MIN, TAX_MAX);
+    
+    if (sanT === null) {
+      const rawT = parseFloat(trimmedTax);
+      if (isNaN(rawT) || !isFinite(rawT)) {
+        return {
+          error: "Invalid tax rate. Please enter a valid number between 0% and 100%.",
+          errorField: "tax",
+        };
+      }
       return {
         error: `Tax rate must be between ${TAX_MIN}% and ${TAX_MAX}%.`,
-        errorField: "tax",
-      };
-    }
-
-    const sanT = sanitizeNumber(rawT, TAX_MIN, TAX_MAX);
-    if (sanT === null) {
-      return {
-        error: "Tax rate is invalid.",
         errorField: "tax",
       };
     }
@@ -183,22 +189,24 @@ export function validateAndComputeDiscount(params: {
     taxRateNum = sanT;
   }
 
-  // --- Computation ---
+  // --- Computation with 2 decimal place precision ---
   let discountAmount: number;
   let effectivePercent: number;
 
   if (discountType === "percentage") {
-    discountAmount = (price * discountNumeric) / 100;
-    effectivePercent = discountNumeric;
+    discountAmount = Math.round((price * discountNumeric) / 100 * 100) / 100;
+    effectivePercent = Math.round(discountNumeric * 100) / 100;
   } else {
-    discountAmount = discountNumeric;
-    effectivePercent = price > 0 ? (discountAmount / price) * 100 : 0;
+    discountAmount = Math.round(discountNumeric * 100) / 100;
+    effectivePercent = price > 0 
+      ? Math.round((discountAmount / price) * 100 * 100) / 100 
+      : 0;
   }
 
-  const discountedPrice = price - discountAmount;
-  const taxAmount = (discountedPrice * taxRateNum) / 100;
-  const finalPrice = discountedPrice + taxAmount;
-  const savings = price - discountedPrice;
+  const discountedPrice = Math.round((price - discountAmount) * 100) / 100;
+  const taxAmount = Math.round((discountedPrice * taxRateNum) / 100 * 100) / 100;
+  const finalPrice = Math.round((discountedPrice + taxAmount) * 100) / 100;
+  const savings = Math.round((price - discountedPrice) * 100) / 100;
 
   // Finite guards
   if (
@@ -227,6 +235,15 @@ export function validateAndComputeDiscount(params: {
     savings,
     effectivePercent,
   };
+  } catch (error) {
+    // Catch any unexpected errors to prevent component crash
+    // In production, this should be logged to monitoring service
+    console.error("DiscountCalculator: Unexpected error in validateAndComputeDiscount", error);
+    return {
+      error: "An unexpected error occurred. Please refresh and try again.",
+      errorField: null,
+    };
+  }
 }
 
 export const DiscountCalculator = () => {
@@ -238,6 +255,8 @@ export const DiscountCalculator = () => {
   const [taxRate, setTaxRate] = useState("");
 
   // Locale-aware currency formatter (default locale, USD)
+  // Note: Currency is hardcoded to USD for consistency. For multi-currency support,
+  // add a currency selector and pass the selected currency here.
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
@@ -249,6 +268,9 @@ export const DiscountCalculator = () => {
     []
   );
 
+  // Calculate directly from inputs to avoid race conditions
+  // Note: Removed debouncing as it created race conditions between
+  // displayed validation errors and actual calculations
   const calc = useMemo(
     () =>
       validateAndComputeDiscount({
@@ -260,12 +282,12 @@ export const DiscountCalculator = () => {
     [originalPrice, discountType, discountValue, taxRate]
   );
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     setOriginalPrice("");
     setDiscountType("percentage");
     setDiscountValue("");
     setTaxRate("");
-  };
+  }, []);
 
   const hasResults =
     !calc.error &&
@@ -403,29 +425,37 @@ export const DiscountCalculator = () => {
           <CardHeader>
             <CardTitle>Calculation Results</CardTitle>
           </CardHeader>
-          <CardContent
-            className="space-y-4"
-            aria-live="polite"
-            aria-atomic="true"
-          >
+          <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Original Price:</span>
-                <span className="font-medium break-words text-right">
+                <span 
+                  className="font-medium break-words text-right"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
                   {currencyFormatter.format(calc.price!)}
                 </span>
               </div>
 
               <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Discount Amount:</span>
-                <span className="font-medium text-green-600 break-words text-right">
+                <span 
+                  className="font-medium text-green-600 break-words text-right"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
                   –{currencyFormatter.format(calc.discountAmount!)}
                 </span>
               </div>
 
               <div className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground">Discounted Price:</span>
-                <span className="font-medium break-words text-right">
+                <span 
+                  className="font-medium break-words text-right"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
                   {currencyFormatter.format(calc.discountedPrice!)}
                 </span>
               </div>
@@ -434,16 +464,24 @@ export const DiscountCalculator = () => {
                 <>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">
-                      Tax ({calc.taxRate.toFixed(1)}%):
+                      Tax ({calc.taxRate.toFixed(2)}%):
                     </span>
-                    <span className="font-medium break-words text-right">
+                    <span 
+                      className="font-medium break-words text-right"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
                       +{currencyFormatter.format(calc.taxAmount!)}
                     </span>
                   </div>
 
                   <div className="flex justify-between border-t pt-2 text-xs sm:text-sm gap-2">
                     <span className="font-semibold">Final Price:</span>
-                    <span className="font-bold text-base sm:text-lg break-words text-right">
+                    <span 
+                      className="font-bold text-base sm:text-lg break-words text-right"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
                       {currencyFormatter.format(calc.finalPrice!)}
                     </span>
                   </div>
@@ -455,12 +493,16 @@ export const DiscountCalculator = () => {
                   <span className="text-green-800 font-medium text-xs sm:text-sm">
                     You Save:
                   </span>
-                  <span className="text-green-800 font-bold text-base sm:text-lg break-words">
+                  <span 
+                    className="text-green-800 font-bold text-base sm:text-lg break-words"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
                     {currencyFormatter.format(calc.savings!)}
                   </span>
                 </div>
                 <div className="text-xs sm:text-sm text-green-700 mt-1">
-                  {(calc.effectivePercent ?? 0).toFixed(1)}% off
+                  {(calc.effectivePercent ?? 0).toFixed(2)}% off
                 </div>
               </div>
             </div>
