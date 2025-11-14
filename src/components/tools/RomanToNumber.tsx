@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,295 +9,235 @@ import { RotateCcw, Copy } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { safeNumber } from "@/lib/safe-number";
 
-const MAX_INPUT_LENGTH = 50; // Max length for Roman numeral or decimal
+const MAX_ROMAN_LENGTH = 20;
+const MAX_DECIMAL_DIGITS = 10; // can be long, validated only on convert
 
-// Sanitize Roman numeral: allow only I,V,X,L,C,D,M (case-insensitive)
-const sanitizeRoman = (val: string): string => {
-  return val.toUpperCase().replace(/[^IVXLCDM]/g, "").substring(0, MAX_INPUT_LENGTH);
+const STRICT_ROMAN_REGEX =
+  /^M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/;
+
+const sanitizeRoman = (val: string): string =>
+  val.toUpperCase().replace(/[^IVXLCDM]/g, "").slice(0, MAX_ROMAN_LENGTH);
+
+const sanitizeDecimal = (val: string): string =>
+  val.replace(/[^0-9]/g, "").slice(0, MAX_DECIMAL_DIGITS);
+
+// Roman → Number
+const romanToDecimal = (roman: string): number => {
+  const map: Record<string, number> = {
+    I: 1,
+    V: 5,
+    X: 10,
+    L: 50,
+    C: 100,
+    D: 500,
+    M: 1000,
+  };
+
+  let total = 0;
+  let prev = 0;
+
+  for (let i = roman.length - 1; i >= 0; i--) {
+    const value = map[roman[i]];
+    if (!value) throw new Error(`Invalid Roman numeral: ${roman[i]}`);
+
+    if (value < prev) total -= value;
+    else total += value;
+    prev = value;
+  }
+
+  return total;
 };
 
-// Sanitize decimal: allow only digits
-const sanitizeDecimal = (val: string): string => {
-  return val.replace(/[^0-9]/g, "").substring(0, MAX_INPUT_LENGTH);
+// Number → Roman
+const decimalToRoman = (num: number): string => {
+  if (num < 1 || num > 3999) throw new Error("Number must be 1–3999");
+
+  const values = [
+    1000, 900, 500, 400, 100, 90,
+    50, 40, 10, 9, 5, 4, 1,
+  ];
+
+  const symbols = [
+    "M", "CM", "D", "CD", "C", "XC",
+    "L", "XL", "X", "IX", "V", "IV", "I",
+  ];
+
+  let result = "";
+  for (let i = 0; i < values.length; i++) {
+    while (num >= values[i]) {
+      num -= values[i];
+      result += symbols[i];
+    }
+  }
+
+  return result;
 };
 
 export const RomanToNumber = () => {
-  const [romanNumeral, setRomanNumeral] = useState("");
-  const [result, setResult] = useState<number | string | null>(null);
+  const [input, setInput] = useState("");
+  const [result, setResult] = useState<string | number | null>(null);
+  const [convertedInput, setConvertedInput] = useState("");
   const [error, setError] = useState("");
 
-  const romanToDecimal = (roman: string): number => {
-    const romanMap: { [key: string]: number } = {
-      'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000
-    };
-
-    let result = 0;
-    let prevValue = 0;
-
-    for (let i = roman.length - 1; i >= 0; i--) {
-      const currentValue = romanMap[roman[i].toUpperCase()];
-      
-      if (currentValue === undefined) {
-        throw new Error(`Invalid Roman numeral: ${roman[i]}`);
-      }
-
-      if (currentValue < prevValue) {
-        result -= currentValue;
-      } else {
-        result += currentValue;
-      }
-      
-      prevValue = currentValue;
-    }
-
-    return result;
-  };
-
-  const decimalToRoman = (num: number): string => {
-    if (num <= 0 || num > 3999) {
-      throw new Error("Number must be between 1 and 3999");
-    }
-
-    const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-    const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
-    
-    let result = '';
-    
-    for (let i = 0; i < values.length; i++) {
-      while (num >= values[i]) {
-        result += symbols[i];
-        num -= values[i];
-      }
-    }
-    
-    return result;
+  const handleInputChange = (val: string) => {
+    // The user can freely type anything — validation happens only on convert
+    if (/^[0-9]+$/.test(val)) setInput(sanitizeDecimal(val));
+    else setInput(sanitizeRoman(val));
   };
 
   const convertRoman = () => {
-    if (!romanNumeral.trim()) {
+    const raw = sanitizeRoman(input.trim());
+
+    if (!raw) {
       setError("Please enter a Roman numeral");
-      setResult(null);
       notify.error("Please enter a Roman numeral");
+      setResult(null);
       return;
     }
 
-    try {
-      const decimal = romanToDecimal(romanNumeral.trim());
-      setResult(decimal);
-      setError("");
-      notify.success(`Converted to decimal: ${decimal}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid Roman numeral");
+    if (!STRICT_ROMAN_REGEX.test(raw)) {
+      setError("Invalid Roman numeral format");
+      notify.error("Invalid Roman numeral format");
       setResult(null);
-      notify.error(err instanceof Error ? err.message : "Invalid Roman numeral");
+      return;
     }
+
+    let decimal: number;
+    try {
+      decimal = romanToDecimal(raw);
+    } catch {
+      setError("Invalid Roman numeral");
+      notify.error("Invalid Roman numeral");
+      setResult(null);
+      return;
+    }
+
+    if (decimal > 3999) {
+      setError("Roman numeral value cannot exceed 3999");
+      notify.error("Roman numeral value cannot exceed 3999");
+      setResult(null);
+      return;
+    }
+
+    setError("");
+    setResult(decimal);
+    setConvertedInput(raw);
+    notify.success(`Converted to decimal: ${decimal}`);
   };
 
   const convertDecimal = () => {
-    const num = safeNumber(romanNumeral, { min: 1, max: 3999, allowDecimal: false });
+    const num = safeNumber(input, { min: 1, max: Infinity, allowDecimal: false });
+
     if (num === null) {
-      setError("Please enter a valid number between 1 and 3999");
+      setError("Enter a valid number");
+      notify.error("Enter a valid number");
       setResult(null);
-      notify.error("Please enter a valid number between 1 and 3999");
+      return;
+    }
+
+    // Only validate max when converting
+    if (num > 3999) {
+      setError("Maximum allowed value is 3999");
+      notify.error("Maximum allowed value is 3999");
+      setResult(null);
       return;
     }
 
     try {
       const roman = decimalToRoman(num);
-      setResult(roman);
       setError("");
+      setResult(roman);
+      setConvertedInput(String(num));
       notify.success(`Converted to Roman: ${roman}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid number");
+    } catch {
+      setError("Invalid number");
+      notify.error("Invalid number");
       setResult(null);
-      notify.error(err instanceof Error ? err.message : "Invalid number");
     }
   };
 
   const copyToClipboard = async () => {
     if (result === null) return;
     try {
-      // Modern approach - works on most browsers including mobile
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(result.toString());
-        notify.success("Result copied to clipboard!");
-      } else {
-        // Fallback for older browsers or when clipboard API is not available
-        const textArea = document.createElement("textarea");
-        textArea.value = result.toString();
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-            notify.success("Result copied to clipboard!");
-          } else {
-            notify.error("Failed to copy!");
-          }
-        } catch (err) {
-          console.error('Fallback: Failed to copy', err);
-          notify.error("Failed to copy to clipboard!");
-        }
-        
-        document.body.removeChild(textArea);
-      }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-      notify.error("Failed to copy to clipboard!");
+      await navigator.clipboard.writeText(String(result));
+      notify.success("Copied!");
+    } catch {
+      notify.error("Failed to copy");
     }
   };
 
   const clearAll = () => {
-    setRomanNumeral("");
+    setInput("");
     setResult(null);
+    setConvertedInput("");
     setError("");
-    notify.success("Cleared all values!");
+    notify.success("Cleared!");
   };
-
-  const romanExamples = [
-    { roman: "I", decimal: 1 },
-    { roman: "IV", decimal: 4 },
-    { roman: "V", decimal: 5 },
-    { roman: "IX", decimal: 9 },
-    { roman: "X", decimal: 10 },
-    { roman: "XL", decimal: 40 },
-    { roman: "L", decimal: 50 },
-    { roman: "XC", decimal: 90 },
-    { roman: "C", decimal: 100 },
-    { roman: "CD", decimal: 400 },
-    { roman: "D", decimal: 500 },
-    { roman: "CM", decimal: 900 },
-    { roman: "M", decimal: 1000 },
-    { roman: "MMXXIV", decimal: 2024 },
-  ];
 
   return (
     <div className="space-y-6">
+      {/* Input */}
       <Card>
         <CardHeader>
           <CardTitle>Roman Numeral Converter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="roman-input">Enter Roman Numeral or Number</Label>
-            <Input
-              id="roman-input"
-              placeholder="e.g., MMXXIV or 2024"
-              value={romanNumeral}
-              onChange={(e) => {
-                // Allow typing either Roman numerals or decimal numbers
-                const val = e.target.value;
-                if (/^[0-9]*$/.test(val)) {
-                  // Pure digits - sanitize as decimal
-                  setRomanNumeral(sanitizeDecimal(val));
-                } else {
-                  // Contains letters - sanitize as Roman
-                  setRomanNumeral(sanitizeRoman(val));
-                }
-              }}
-              maxLength={MAX_INPUT_LENGTH}
-            />
-          </div>
+          <Label>Enter Roman Numeral or Number</Label>
+          <Input
+            value={input}
+            onChange={(e) => handleInputChange(e.target.value)}
+            placeholder="e.g., MMXXIV or 2024"
+            maxLength={MAX_ROMAN_LENGTH}
+          />
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={convertRoman} disabled={!romanNumeral.trim()} className="w-full sm:w-auto">
-              Convert Roman to Number
+            <Button onClick={convertRoman} disabled={!input.trim()}>
+              Convert Roman → Number
             </Button>
-            <Button onClick={convertDecimal} disabled={!romanNumeral.trim()} className="w-full sm:w-auto">
-              Convert Number to Roman
+            <Button onClick={convertDecimal} disabled={!input.trim()}>
+              Convert Number → Roman
             </Button>
-            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear
+
+            <Button variant="outline" onClick={clearAll}>
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Error */}
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-red-300 bg-red-50">
           <CardContent className="pt-6">
-            <p className="text-red-800 font-medium">Error: {error}</p>
+            <p className="text-red-800 font-medium">{error}</p>
           </CardContent>
         </Card>
       )}
 
+      {/* Result */}
       {result !== null && !error && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <span>Conversion Result</span>
-              <Button size="sm" variant="outline" onClick={copyToClipboard} className="w-full sm:w-auto">
-                <Copy className="h-4 w-4 mr-2" />
-                Copy
+            <CardTitle className="flex justify-between items-center">
+              Conversion Result
+              <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                <Copy className="h-4 w-4 mr-2" /> Copy
               </Button>
             </CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="bg-muted p-4 sm:p-6 rounded-lg text-center">
-              <div className="text-2xl sm:text-3xl font-bold mb-2 break-words px-2">{result}</div>
-              <p className="text-xs sm:text-sm text-muted-foreground break-words px-2">
-                {typeof result === 'number' 
-                  ? `Roman numeral "${romanNumeral}" equals ${result}`
-                  : `Number ${romanNumeral} equals "${result}" in Roman numerals`
-                }
+            <div className="bg-muted p-6 rounded-lg text-center">
+              <div className="text-3xl font-bold mb-2 break-words">{result}</div>
+              <p className="text-sm text-muted-foreground">
+                {typeof result === "number"
+                  ? `Roman numeral "${convertedInput}" = ${result}`
+                  : `Number ${convertedInput} = "${result}"`}
               </p>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Roman Numeral Examples</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {romanExamples.map((example, index) => (
-              <div key={index} className="bg-muted p-2 sm:p-3 rounded-lg text-center">
-                <div className="font-medium text-sm sm:text-base">{example.roman}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">{example.decimal}</div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Roman Numeral Rules</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div>
-              <strong>Basic Symbols:</strong>
-              <ul className="ml-4 mt-1 space-y-1">
-                <li>I = 1, V = 5, X = 10, L = 50, C = 100, D = 500, M = 1000</li>
-              </ul>
-            </div>
-            <div>
-              <strong>Subtraction Rule:</strong>
-              <ul className="ml-4 mt-1 space-y-1">
-                <li>I before V or X: IV = 4, IX = 9</li>
-                <li>X before L or C: XL = 40, XC = 90</li>
-                <li>C before D or M: CD = 400, CM = 900</li>
-              </ul>
-            </div>
-            <div>
-              <strong>Addition Rule:</strong>
-              <ul className="ml-4 mt-1 space-y-1">
-                <li>Symbols are added when a smaller symbol follows a larger one</li>
-                <li>Example: VI = 5 + 1 = 6, XII = 10 + 1 + 1 = 12</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

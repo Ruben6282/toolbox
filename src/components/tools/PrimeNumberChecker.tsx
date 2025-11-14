@@ -21,25 +21,46 @@ export const PrimeNumberChecker = () => {
     factors?: bigint[];
   } | null>(null);
 
-  const MAX_SAFE_FACTORIZE = 1_000_000_000_000n; // 1 trillion limit
-  const MAX_DIGITS = 100; // Max 100 digits
+  const MAX_SAFE_FACTORIZE = 1_000_000_000_000n; // 1 trillion
+  const MAX_DIGITS = 100; // Max digits allowed
+  const HARD_MAX_DIGITS = 200; // Absolute max sanity limit
 
-  // Sanitize: strip non-digit chars
+  // Sanitize input (digits only, strip leading zeros, enforce limits)
   const sanitizeInteger = (val: string): string => {
-    return val.replace(/[^0-9]/g, "").substring(0, MAX_DIGITS);
+    // Remove non-numeric
+    let clean = val.replace(/[^0-9]/g, "");
+
+    // Absolute hard limit
+    if (clean.length > HARD_MAX_DIGITS) {
+      notify.error(`Maximum allowed length is ${HARD_MAX_DIGITS} digits.`);
+      clean = clean.substring(0, HARD_MAX_DIGITS);
+    }
+
+    // Remove leading zeros (but allow one zero)
+    clean = clean.replace(/^0+(?!$)/, "");
+
+    // Soft UI limit
+    if (clean.length > MAX_DIGITS) {
+      notify.warning(`Input limited to the first ${MAX_DIGITS} digits.`);
+      clean = clean.substring(0, MAX_DIGITS);
+    }
+
+    return clean;
   };
 
   const isPrime = (n: bigint): boolean => {
     if (n <= 1n) return false;
     if (n <= 3n) return true;
     if (n % 2n === 0n || n % 3n === 0n) return false;
+
     for (let i = 5n; i * i <= n; i += 6n) {
       if (n % i === 0n || n % (i + 2n) === 0n) return false;
     }
     return true;
   };
 
-  const millerRabinTest = (n: bigint, k = 5): boolean => {
+  // Probabilistic Miller–Rabin test
+  const millerRabinTest = (n: bigint, k = 12): boolean => {
     if (n < 2n) return false;
     if (n % 2n === 0n) return n === 2n;
 
@@ -53,6 +74,7 @@ export const PrimeNumberChecker = () => {
     const modPow = (base: bigint, exp: bigint, mod: bigint): bigint => {
       let result = 1n;
       base %= mod;
+
       while (exp > 0n) {
         if (exp % 2n === 1n) result = (result * base) % mod;
         base = (base * base) % mod;
@@ -62,19 +84,19 @@ export const PrimeNumberChecker = () => {
     };
 
     for (let i = 0; i < k; i++) {
-      const a = 2n + BigInt(Math.floor(Math.random() * Number(n - 4n)));
+      const a = 2n + BigInt(Math.floor(Math.random() * 1_000_000)) % (n - 3n); // uniform enough
       let x = modPow(a, d, n);
       if (x === 1n || x === n - 1n) continue;
 
-      let cont = false;
+      let continueLoop = false;
       for (let j = 0n; j < r - 1n; j++) {
         x = (x * x) % n;
         if (x === n - 1n) {
-          cont = true;
+          continueLoop = true;
           break;
         }
       }
-      if (cont) continue;
+      if (continueLoop) continue;
       return false;
     }
     return true;
@@ -94,7 +116,7 @@ export const PrimeNumberChecker = () => {
   const checkPrime = async () => {
     const value = number.trim();
     if (!value) {
-  notify.error("Please enter a number");
+      notify.error("Please enter a number");
       return;
     }
 
@@ -102,12 +124,12 @@ export const PrimeNumberChecker = () => {
     try {
       num = BigInt(value);
     } catch {
-  notify.error("Invalid number");
+      notify.error("Invalid number");
       return;
     }
 
     if (num < 1n) {
-  notify.error("Please enter a positive integer");
+      notify.error("Please enter a positive integer");
       return;
     }
 
@@ -115,13 +137,15 @@ export const PrimeNumberChecker = () => {
     setResult(null);
     setCheckedNumber(value);
 
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 30));
 
     let isPrimeResult: boolean;
     let factors: bigint[] | undefined;
 
     if (num > MAX_SAFE_FACTORIZE) {
-  notify.info("Number too large to fully factorize — using probabilistic check.");
+      notify.info(
+        `Number exceeds ${MAX_SAFE_FACTORIZE.toLocaleString()} — performing fast probabilistic prime check.`
+      );
       isPrimeResult = millerRabinTest(num);
     } else {
       isPrimeResult = isPrime(num);
@@ -137,9 +161,10 @@ export const PrimeNumberChecker = () => {
       <CardHeader>
         <CardTitle>Prime Number Checker</CardTitle>
         <CardDescription>
-          Check if a number is prime and view its factors (safe for large inputs)
+          Supports very large numbers. Uses exact or probabilistic checks depending on size.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-4">
         <div>
           <Label htmlFor="number">Enter a number</Label>
@@ -150,21 +175,21 @@ export const PrimeNumberChecker = () => {
             placeholder="Enter a positive integer"
             value={number}
             onChange={(e) => setNumber(sanitizeInteger(e.target.value))}
-            maxLength={MAX_DIGITS}
+            maxLength={HARD_MAX_DIGITS}
           />
         </div>
 
         <Button onClick={checkPrime} className="w-full" disabled={loading}>
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Checking...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking...
             </>
           ) : (
             "Check Prime"
           )}
         </Button>
 
+        {/* Result */}
         {result && checkedNumber && (
           <div className="space-y-4">
             <div
@@ -174,21 +199,24 @@ export const PrimeNumberChecker = () => {
                   : "border-primary bg-primary/10"
               }`}
             >
-              <div className="text-3xl sm:text-4xl font-bold mb-2 break-words px-2">{checkedNumber}</div>
+              <div className="text-3xl sm:text-4xl font-bold mb-2 break-words px-2">
+                {checkedNumber}
+              </div>
               <div
                 className={`text-lg sm:text-xl font-semibold ${
                   result.isPrime ? "text-green-500" : "text-primary"
                 }`}
               >
-                {result.isPrime
-                  ? "is a Prime Number"
-                  : "is not a Prime Number"}
+                {result.isPrime ? "is a Prime Number" : "is NOT a Prime Number"}
               </div>
             </div>
 
+            {/* Factors */}
             {result.factors && (
               <div className="rounded-lg bg-muted p-3 sm:p-4">
-                <h3 className="font-semibold mb-2 text-sm sm:text-base">Factors of {checkedNumber}:</h3>
+                <h3 className="font-semibold mb-2 text-sm sm:text-base">
+                  Factors of {checkedNumber}:
+                </h3>
                 <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
                   {result.factors.map((factor) => (
                     <span
