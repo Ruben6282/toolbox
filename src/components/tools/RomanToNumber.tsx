@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Copy } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { safeNumber } from "@/lib/safe-number";
 
 const MAX_INPUT_LENGTH = 50; // Max length for Roman numeral or decimal
 
@@ -91,11 +92,11 @@ export const RomanToNumber = () => {
   };
 
   const convertDecimal = () => {
-    const num = parseInt(romanNumeral);
-    if (isNaN(num)) {
-      setError("Please enter a valid number");
+    const num = safeNumber(romanNumeral, { min: 1, max: 3999, allowDecimal: false });
+    if (num === null) {
+      setError("Please enter a valid number between 1 and 3999");
       setResult(null);
-      notify.error("Please enter a valid number");
+      notify.error("Please enter a valid number between 1 and 3999");
       return;
     }
 

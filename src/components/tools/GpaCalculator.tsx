@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, Plus, Trash2, GraduationCap } from "lucide-react";
+import { RotateCcw, Plus, Trash2 } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
 
 interface Course {
   id: string;
@@ -73,12 +76,19 @@ export const GpaCalculator = () => {
     courses.forEach(course => {
       if (course.name.trim() && course.credits > 0) {
         const points = scale[course.grade as keyof typeof scale] || 0;
-        totalPoints += points * course.credits;
-        totalCredits += course.credits;
+        const coursePoints = safeCalc(D => D(points).mul(course.credits));
+        if (coursePoints !== null) {
+          totalPoints += coursePoints;
+          totalCredits += course.credits;
+        }
       }
     });
 
-    return totalCredits > 0 ? totalPoints / totalCredits : 0;
+    if (totalCredits > 0) {
+      const gpa = safeCalc(D => D(totalPoints).div(totalCredits));
+      return gpa !== null ? gpa : 0;
+    }
+    return 0;
   };
 
   const gpa = calculateGPA();
@@ -153,13 +163,15 @@ export const GpaCalculator = () => {
 
                 <div>
                   <Label htmlFor={`credits-${course.id}`}>Credits</Label>
-                  <Input
+                  <SafeNumberInput
                     id={`credits-${course.id}`}
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={course.credits}
-                    onChange={(e) => updateCourse(course.id, 'credits', parseInt(e.target.value) || 0)}
+                    value={course.credits.toString()}
+                    onChange={(sanitized) => {
+                      const credits = safeNumber(sanitized, { min: 0, max: 10, allowDecimal: false }) || 0;
+                      updateCourse(course.id, 'credits', credits);
+                    }}
+                    sanitizeOptions={{ min: 0, max: 10, allowDecimal: false }}
+                    inputMode="numeric"
                   />
                 </div>
 

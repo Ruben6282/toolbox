@@ -22,7 +22,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -32,7 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle, RotateCcw } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 const PRICE_MAX = 1e9; // $1,000,000,000
 const DISCOUNT_PERCENT_MIN = 0;
@@ -68,26 +70,19 @@ export function validateAndComputeDiscount(params: {
 
     const trimmedPrice = originalPrice.trim();
     if (trimmedPrice !== "") {
-      // Reject scientific notation for clearer UX
-      if (/[eE]/.test(trimmedPrice)) {
+      const sanP = safeNumber(trimmedPrice, { min: 0, max: PRICE_MAX });
+      
+      if (sanP === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid original price. Please enter a valid number.",
           errorField: "price",
         };
       }
 
-      const sanP = sanitizeNumber(trimmedPrice, 0, PRICE_MAX);
-      
-      if (sanP === null) {
-        const rawP = parseFloat(trimmedPrice);
-        if (isNaN(rawP) || !isFinite(rawP)) {
-          return {
-            error: "Invalid original price. Please enter a valid number.",
-            errorField: "price",
-          };
-        }
+      const rangeError = validateRange(sanP, 0, PRICE_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Original price must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
+          error: typeof rangeError === 'string' ? rangeError : `Original price must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
           errorField: "price",
         };
       }
@@ -100,45 +95,39 @@ export function validateAndComputeDiscount(params: {
 
   const trimmedDiscount = discountValue.trim();
   if (trimmedDiscount !== "") {
-    // Reject scientific notation for clearer UX
-    if (/[eE]/.test(trimmedDiscount)) {
-      return {
-        error: "Scientific notation is not allowed. Please enter a standard number.",
-        errorField: "discount",
-      };
-    }
-
     if (discountType === "percentage") {
-      const sanD = sanitizeNumber(trimmedDiscount, DISCOUNT_PERCENT_MIN, DISCOUNT_PERCENT_MAX);
+      const sanD = safeNumber(trimmedDiscount, { min: DISCOUNT_PERCENT_MIN, max: DISCOUNT_PERCENT_MAX });
       
       if (sanD === null) {
-        const rawD = parseFloat(trimmedDiscount);
-        if (isNaN(rawD) || !isFinite(rawD)) {
-          return {
-            error: "Invalid discount percentage. Please enter a valid number between 0% and 100%.",
-            errorField: "discount",
-          };
-        }
         return {
-          error: `Discount percentage must be between ${DISCOUNT_PERCENT_MIN}% and ${DISCOUNT_PERCENT_MAX}%.`,
+          error: "Invalid discount percentage. Please enter a valid number between 0% and 100%.",
+          errorField: "discount",
+        };
+      }
+
+      const rangeError = validateRange(sanD, DISCOUNT_PERCENT_MIN, DISCOUNT_PERCENT_MAX);
+      if (rangeError !== true) {
+        return {
+          error: typeof rangeError === 'string' ? rangeError : `Discount percentage must be between ${DISCOUNT_PERCENT_MIN}% and ${DISCOUNT_PERCENT_MAX}%.`,
           errorField: "discount",
         };
       }
       discountNumeric = sanD;
     } else {
       // Fixed amount
-      const sanD = sanitizeNumber(trimmedDiscount, 0, PRICE_MAX);
+      const sanD = safeNumber(trimmedDiscount, { min: 0, max: PRICE_MAX });
       
       if (sanD === null) {
-        const rawD = parseFloat(trimmedDiscount);
-        if (isNaN(rawD) || !isFinite(rawD)) {
-          return {
-            error: "Invalid discount amount. Please enter a valid number.",
-            errorField: "discount",
-          };
-        }
         return {
-          error: `Discount amount must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
+          error: "Invalid discount amount. Please enter a valid number.",
+          errorField: "discount",
+        };
+      }
+
+      const rangeError = validateRange(sanD, 0, PRICE_MAX);
+      if (rangeError !== true) {
+        return {
+          error: typeof rangeError === 'string' ? rangeError : `Discount amount must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
           errorField: "discount",
         };
       }
@@ -162,26 +151,19 @@ export function validateAndComputeDiscount(params: {
 
   const trimmedTax = taxRate.trim();
   if (trimmedTax !== "") {
-    // Reject scientific notation for clearer UX
-    if (/[eE]/.test(trimmedTax)) {
+    const sanT = safeNumber(trimmedTax, { min: TAX_MIN, max: TAX_MAX });
+    
+    if (sanT === null) {
       return {
-        error: "Scientific notation is not allowed. Please enter a standard number.",
+        error: "Invalid tax rate. Please enter a valid number between 0% and 100%.",
         errorField: "tax",
       };
     }
 
-    const sanT = sanitizeNumber(trimmedTax, TAX_MIN, TAX_MAX);
-    
-    if (sanT === null) {
-      const rawT = parseFloat(trimmedTax);
-      if (isNaN(rawT) || !isFinite(rawT)) {
-        return {
-          error: "Invalid tax rate. Please enter a valid number between 0% and 100%.",
-          errorField: "tax",
-        };
-      }
+    const rangeError = validateRange(sanT, TAX_MIN, TAX_MAX);
+    if (rangeError !== true) {
       return {
-        error: `Tax rate must be between ${TAX_MIN}% and ${TAX_MAX}%.`,
+        error: typeof rangeError === 'string' ? rangeError : `Tax rate must be between ${TAX_MIN}% and ${TAX_MAX}%.`,
         errorField: "tax",
       };
     }
@@ -189,33 +171,37 @@ export function validateAndComputeDiscount(params: {
     taxRateNum = sanT;
   }
 
-  // --- Computation with 2 decimal place precision ---
-  let discountAmount: number;
-  let effectivePercent: number;
+  // --- Computation using safeCalc ---
+  let discountAmount: number | null;
+  let effectivePercent: number | null;
 
   if (discountType === "percentage") {
-    discountAmount = Math.round((price * discountNumeric) / 100 * 100) / 100;
-    effectivePercent = Math.round(discountNumeric * 100) / 100;
+    discountAmount = safeCalc(D => D(price).mul(discountNumeric).div(100));
+    effectivePercent = discountNumeric;
   } else {
-    discountAmount = Math.round(discountNumeric * 100) / 100;
+    discountAmount = discountNumeric;
     effectivePercent = price > 0 
-      ? Math.round((discountAmount / price) * 100 * 100) / 100 
+      ? safeCalc(D => D(discountNumeric).div(price).mul(100))
       : 0;
   }
 
-  const discountedPrice = Math.round((price - discountAmount) * 100) / 100;
-  const taxAmount = Math.round((discountedPrice * taxRateNum) / 100 * 100) / 100;
-  const finalPrice = Math.round((discountedPrice + taxAmount) * 100) / 100;
-  const savings = Math.round((price - discountedPrice) * 100) / 100;
+  if (discountAmount === null || effectivePercent === null) {
+    return {
+      error: "Calculation error. Please check your inputs.",
+      errorField: null,
+    };
+  }
 
-  // Finite guards
+  const discountedPrice = safeCalc(D => D(price).minus(discountAmount!));
+  const taxAmount = safeCalc(D => D(discountedPrice ?? 0).mul(taxRateNum).div(100));
+  const finalPrice = safeCalc(D => D(discountedPrice ?? 0).plus(taxAmount ?? 0));
+  const savings = safeCalc(D => D(price).minus(discountedPrice ?? 0));
+
   if (
-    !Number.isFinite(discountAmount) ||
-    !Number.isFinite(discountedPrice) ||
-    !Number.isFinite(taxAmount) ||
-    !Number.isFinite(finalPrice) ||
-    !Number.isFinite(savings) ||
-    !Number.isFinite(effectivePercent)
+    discountedPrice === null ||
+    taxAmount === null ||
+    finalPrice === null ||
+    savings === null
   ) {
     return {
       error: "Calculation error. Please check your inputs.",
@@ -254,13 +240,7 @@ export const DiscountCalculator = () => {
   const [discountValue, setDiscountValue] = useState("");
   const [taxRate, setTaxRate] = useState("");
 
-  // Client-side input sanitizers to complement server-side validation
-  const sanitizeDecimalInput = (v: string, maxLen = 16) => {
-    const stripped = v.replace(/[^0-9.]/g, "");
-    const parts = stripped.split(".");
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
-    return normalized.slice(0, maxLen);
-  };
+
 
   const coerceDiscountType = (v: string): "percentage" | "amount" =>
     v === "percentage" || v === "amount" ? v : "percentage";
@@ -316,15 +296,13 @@ export const DiscountCalculator = () => {
           {/* Original Price */}
           <div className="space-y-2">
             <Label htmlFor="original-price">Original Price</Label>
-            <Input
+            <SafeNumberInput
               id="original-price"
-              type="number"
               placeholder="0.00"
               value={originalPrice}
-              onChange={(e) => setOriginalPrice(sanitizeDecimalInput(e.target.value, 16))}
+              onChange={(sanitized) => setOriginalPrice(sanitized)}
+              sanitizeOptions={{ min: 0, max: PRICE_MAX }}
               inputMode="decimal"
-              min="0"
-              step="0.01"
               aria-invalid={calc.errorField === "price" ? "true" : "false"}
               aria-describedby={
                 calc.errorField === "price" ? "discount-error" : undefined
@@ -362,16 +340,16 @@ export const DiscountCalculator = () => {
                   ? "Discount Percentage (%)"
                   : "Discount Amount"}
               </Label>
-              <Input
+              <SafeNumberInput
                 id="discount-value"
-                type="number"
                 placeholder={discountType === "percentage" ? "0" : "0.00"}
                 value={discountValue}
-                onChange={(e) => setDiscountValue(sanitizeDecimalInput(e.target.value, 12))}
+                onChange={(sanitized) => setDiscountValue(sanitized)}
+                sanitizeOptions={{ 
+                  min: 0, 
+                  max: discountType === "percentage" ? DISCOUNT_PERCENT_MAX : PRICE_MAX 
+                }}
                 inputMode="decimal"
-                min="0"
-                max={discountType === "percentage" ? "100" : undefined}
-                step={discountType === "percentage" ? "0.1" : "0.01"}
                 aria-invalid={calc.errorField === "discount" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "discount" ? "discount-error" : undefined
@@ -386,16 +364,13 @@ export const DiscountCalculator = () => {
           {/* Tax Rate */}
           <div className="space-y-2">
             <Label htmlFor="tax-rate">Tax Rate (%) (Optional)</Label>
-            <Input
+            <SafeNumberInput
               id="tax-rate"
-              type="number"
               placeholder="0"
               value={taxRate}
-              onChange={(e) => setTaxRate(sanitizeDecimalInput(e.target.value, 8))}
+              onChange={(sanitized) => setTaxRate(sanitized)}
+              sanitizeOptions={{ min: TAX_MIN, max: TAX_MAX }}
               inputMode="decimal"
-              min="0"
-              max="100"
-              step="0.1"
               aria-invalid={calc.errorField === "tax" ? "true" : "false"}
               aria-describedby={
                 calc.errorField === "tax" ? "discount-error" : undefined
@@ -448,7 +423,7 @@ export const DiscountCalculator = () => {
                   aria-live="polite"
                   aria-atomic="true"
                 >
-                  {currencyFormatter.format(calc.price!)}
+                  {formatCurrency(calc.price!)}
                 </span>
               </div>
 
@@ -459,7 +434,7 @@ export const DiscountCalculator = () => {
                   aria-live="polite"
                   aria-atomic="true"
                 >
-                  –{currencyFormatter.format(calc.discountAmount!)}
+                  –{formatCurrency(calc.discountAmount!)}
                 </span>
               </div>
 
@@ -470,7 +445,7 @@ export const DiscountCalculator = () => {
                   aria-live="polite"
                   aria-atomic="true"
                 >
-                  {currencyFormatter.format(calc.discountedPrice!)}
+                  {formatCurrency(calc.discountedPrice!)}
                 </span>
               </div>
 
@@ -485,7 +460,7 @@ export const DiscountCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      +{currencyFormatter.format(calc.taxAmount!)}
+                      +{formatCurrency(calc.taxAmount!)}
                     </span>
                   </div>
 
@@ -496,7 +471,7 @@ export const DiscountCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.finalPrice!)}
+                      {formatCurrency(calc.finalPrice!)}
                     </span>
                   </div>
                 </>
@@ -512,7 +487,7 @@ export const DiscountCalculator = () => {
                     aria-live="polite"
                     aria-atomic="true"
                   >
-                    {currencyFormatter.format(calc.savings!)}
+                    {formatCurrency(calc.savings!)}
                   </span>
                 </div>
                 <div className="text-xs sm:text-sm text-green-700 mt-1">

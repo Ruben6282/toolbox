@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Moon, Clock, Sunrise, Bed, RotateCcw } from "lucide-react";
+import { Moon, Sunrise, Bed, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { safeNumber } from "@/lib/safe-number";
 
 const MIN_FALL_ASLEEP_TIME = 0;
 const MAX_FALL_ASLEEP_TIME = 60;
@@ -27,13 +29,13 @@ export const SleepCycleCalculator = () => {
   const [bedtime, setBedtime] = useState("");
   const [wakeupTime, setWakeupTime] = useState("");
   const [sleepDuration, setSleepDuration] = useState(8);
-  const [fallAsleepTime, setFallAsleepTime] = useState<number | "">(15);
+  const [fallAsleepTime, setFallAsleepTime] = useState("15");
 
   const calculateSleepTimes = useMemo(() => {
     const results: SleepTime[] = [];
     
-    // Use fallback value for calculations
-    const fallAsleepMinutes = typeof fallAsleepTime === 'number' ? fallAsleepTime : 15;
+    // Parse fallAsleepTime with safeNumber
+    const fallAsleepMinutes = safeNumber(fallAsleepTime, { min: MIN_FALL_ASLEEP_TIME, max: MAX_FALL_ASLEEP_TIME, allowDecimal: false }) || 15;
     
     if (bedtime) {
       const [hours, minutes] = bedtime.split(':').map(Number);
@@ -106,28 +108,11 @@ export const SleepCycleCalculator = () => {
     setBedtime("");
     setWakeupTime("");
     setSleepDuration(8);
-    setFallAsleepTime(15);
+    setFallAsleepTime("15");
     notify.success("All fields cleared!");
   };
 
-  const handleFallAsleepChange = (value: string) => {
-    if (value === "") {
-      setFallAsleepTime("");
-    } else {
-      const parsed = parseInt(value, 10);
-      if (!isNaN(parsed) && isFinite(parsed)) {
-        // Clamp to range
-        const clamped = Math.max(MIN_FALL_ASLEEP_TIME, Math.min(MAX_FALL_ASLEEP_TIME, parsed));
-        setFallAsleepTime(clamped);
-      }
-    }
-  };
 
-  const handleFallAsleepBlur = () => {
-    if (fallAsleepTime === "" || fallAsleepTime < MIN_FALL_ASLEEP_TIME) {
-      setFallAsleepTime(15);
-    }
-  };
 
   const getCycleColor = (cycles: number) => {
     switch (cycles) {
@@ -196,15 +181,12 @@ export const SleepCycleCalculator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="fall-asleep">Time to Fall Asleep (minutes)</Label>
-            <Input
+            <SafeNumberInput
               id="fall-asleep"
-              type="number"
-              inputMode="numeric"
-              min={MIN_FALL_ASLEEP_TIME}
-              max={MAX_FALL_ASLEEP_TIME}
               value={fallAsleepTime}
-              onChange={(e) => handleFallAsleepChange(e.target.value)}
-              onBlur={handleFallAsleepBlur}
+              onChange={(sanitized) => setFallAsleepTime(sanitized)}
+              sanitizeOptions={{ min: MIN_FALL_ASLEEP_TIME, max: MAX_FALL_ASLEEP_TIME, allowDecimal: false }}
+              inputMode="numeric"
             />
             <p className="text-sm text-muted-foreground">
               Average time it takes you to fall asleep

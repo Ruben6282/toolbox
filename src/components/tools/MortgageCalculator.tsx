@@ -22,10 +22,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, RotateCcw } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 // Security bounds
 const LOAN_AMOUNT_MAX = 1e10; // $10,000,000,000
@@ -72,24 +74,17 @@ export function validateAndComputeMortgage(params: {
     let loanAmountNum = 0;
     const trimmedLoanAmount = loanAmount.trim();
     if (trimmedLoanAmount !== "") {
-      if (/[eE]/.test(trimmedLoanAmount)) {
+      const sanLoan = safeNumber(trimmedLoanAmount, { min: 0, max: LOAN_AMOUNT_MAX });
+      if (sanLoan === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid loan amount. Please enter a valid number.",
           errorField: "loanAmount",
         };
       }
-
-      const sanLoan = sanitizeNumber(trimmedLoanAmount, 0, LOAN_AMOUNT_MAX);
-      if (sanLoan === null) {
-        const raw = parseFloat(trimmedLoanAmount);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid loan amount. Please enter a valid number.",
-            errorField: "loanAmount",
-          };
-        }
+      const rangeError = validateRange(sanLoan, 0, LOAN_AMOUNT_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Loan amount must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
+          error: typeof rangeError === 'string' ? rangeError : `Loan amount must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
           errorField: "loanAmount",
         };
       }
@@ -100,24 +95,17 @@ export function validateAndComputeMortgage(params: {
     let interestRateNum = 0;
     const trimmedRate = interestRate.trim();
     if (trimmedRate !== "") {
-      if (/[eE]/.test(trimmedRate)) {
+      const sanRate = safeNumber(trimmedRate, { min: INTEREST_RATE_MIN, max: INTEREST_RATE_MAX });
+      if (sanRate === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid interest rate. Please enter a valid number.",
           errorField: "interestRate",
         };
       }
-
-      const sanRate = sanitizeNumber(trimmedRate, INTEREST_RATE_MIN, INTEREST_RATE_MAX);
-      if (sanRate === null) {
-        const raw = parseFloat(trimmedRate);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid interest rate. Please enter a valid number.",
-            errorField: "interestRate",
-          };
-        }
+      const rangeError = validateRange(sanRate, INTEREST_RATE_MIN, INTEREST_RATE_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Interest rate must be between ${INTEREST_RATE_MIN}% and ${INTEREST_RATE_MAX}%.`,
+          error: typeof rangeError === 'string' ? rangeError : `Interest rate must be between ${INTEREST_RATE_MIN}% and ${INTEREST_RATE_MAX}%.`,
           errorField: "interestRate",
         };
       }
@@ -128,28 +116,20 @@ export function validateAndComputeMortgage(params: {
     let loanTermNum = 30; // Default to 30 years
     const trimmedTerm = loanTerm.trim();
     if (trimmedTerm !== "") {
-      if (/[eE.]/.test(trimmedTerm)) {
-        return {
-          error: "Loan term must be a whole number of years.",
-          errorField: "loanTerm",
-        };
-      }
-
-      const sanTerm = sanitizeNumber(trimmedTerm, LOAN_TERM_MIN, LOAN_TERM_MAX);
+      const sanTerm = safeNumber(trimmedTerm, { min: LOAN_TERM_MIN, max: LOAN_TERM_MAX, allowDecimal: false });
       if (sanTerm === null) {
-        const raw = parseInt(trimmedTerm);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid loan term. Please enter a valid number.",
-            errorField: "loanTerm",
-          };
-        }
         return {
-          error: `Loan term must be between ${LOAN_TERM_MIN} and ${LOAN_TERM_MAX} years.`,
+          error: "Invalid loan term. Please enter a valid number.",
           errorField: "loanTerm",
         };
       }
-      // Ensure it's an integer
+      const rangeError = validateRange(sanTerm, LOAN_TERM_MIN, LOAN_TERM_MAX);
+      if (rangeError !== true) {
+        return {
+          error: typeof rangeError === 'string' ? rangeError : `Loan term must be between ${LOAN_TERM_MIN} and ${LOAN_TERM_MAX} years.`,
+          errorField: "loanTerm",
+        };
+      }
       loanTermNum = Math.floor(sanTerm);
     }
 
@@ -157,24 +137,17 @@ export function validateAndComputeMortgage(params: {
     let downPaymentNum = 0;
     const trimmedDown = downPayment.trim();
     if (trimmedDown !== "") {
-      if (/[eE]/.test(trimmedDown)) {
+      const sanDown = safeNumber(trimmedDown, { min: 0, max: LOAN_AMOUNT_MAX });
+      if (sanDown === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid down payment. Please enter a valid number.",
           errorField: "downPayment",
         };
       }
-
-      const sanDown = sanitizeNumber(trimmedDown, 0, LOAN_AMOUNT_MAX);
-      if (sanDown === null) {
-        const raw = parseFloat(trimmedDown);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid down payment. Please enter a valid number.",
-            errorField: "downPayment",
-          };
-        }
+      const rangeError = validateRange(sanDown, 0, LOAN_AMOUNT_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Down payment must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
+          error: typeof rangeError === 'string' ? rangeError : `Down payment must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
           errorField: "downPayment",
         };
       }
@@ -193,24 +166,17 @@ export function validateAndComputeMortgage(params: {
     let propertyTaxNum = 0;
     const trimmedTax = propertyTax.trim();
     if (trimmedTax !== "") {
-      if (/[eE]/.test(trimmedTax)) {
+      const sanTax = safeNumber(trimmedTax, { min: 0, max: LOAN_AMOUNT_MAX });
+      if (sanTax === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid property tax. Please enter a valid number.",
           errorField: "propertyTax",
         };
       }
-
-      const sanTax = sanitizeNumber(trimmedTax, 0, LOAN_AMOUNT_MAX);
-      if (sanTax === null) {
-        const raw = parseFloat(trimmedTax);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid property tax. Please enter a valid number.",
-            errorField: "propertyTax",
-          };
-        }
+      const rangeError = validateRange(sanTax, 0, LOAN_AMOUNT_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Property tax must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
+          error: typeof rangeError === 'string' ? rangeError : `Property tax must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
           errorField: "propertyTax",
         };
       }
@@ -221,24 +187,17 @@ export function validateAndComputeMortgage(params: {
     let homeInsuranceNum = 0;
     const trimmedIns = homeInsurance.trim();
     if (trimmedIns !== "") {
-      if (/[eE]/.test(trimmedIns)) {
+      const sanIns = safeNumber(trimmedIns, { min: 0, max: LOAN_AMOUNT_MAX });
+      if (sanIns === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid home insurance. Please enter a valid number.",
           errorField: "homeInsurance",
         };
       }
-
-      const sanIns = sanitizeNumber(trimmedIns, 0, LOAN_AMOUNT_MAX);
-      if (sanIns === null) {
-        const raw = parseFloat(trimmedIns);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid home insurance. Please enter a valid number.",
-            errorField: "homeInsurance",
-          };
-        }
+      const rangeError = validateRange(sanIns, 0, LOAN_AMOUNT_MAX);
+      if (rangeError !== true) {
         return {
-          error: `Home insurance must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
+          error: typeof rangeError === 'string' ? rangeError : `Home insurance must be between $0 and $${LOAN_AMOUNT_MAX.toLocaleString()}.`,
           errorField: "homeInsurance",
         };
       }
@@ -249,24 +208,17 @@ export function validateAndComputeMortgage(params: {
     let pmiRateNum = 0;
     const trimmedPmi = pmi.trim();
     if (trimmedPmi !== "") {
-      if (/[eE]/.test(trimmedPmi)) {
+      const sanPmi = safeNumber(trimmedPmi, { min: 0, max: PMI_RATE_MAX });
+      if (sanPmi === null) {
         return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
+          error: "Invalid PMI rate. Please enter a valid number.",
           errorField: "pmi",
         };
       }
-
-      const sanPmi = sanitizeNumber(trimmedPmi, 0, PMI_RATE_MAX);
-      if (sanPmi === null) {
-        const raw = parseFloat(trimmedPmi);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return {
-            error: "Invalid PMI rate. Please enter a valid number.",
-            errorField: "pmi",
-          };
-        }
+      const rangeError = validateRange(sanPmi, 0, PMI_RATE_MAX);
+      if (rangeError !== true) {
         return {
-          error: `PMI rate must be between 0% and ${PMI_RATE_MAX}%.`,
+          error: typeof rangeError === 'string' ? rangeError : `PMI rate must be between 0% and ${PMI_RATE_MAX}%.`,
           errorField: "pmi",
         };
       }
@@ -298,73 +250,86 @@ export function validateAndComputeMortgage(params: {
     }
 
     // Calculate actual loan amount after down payment
-    const actualLoanAmount = Math.round((loanAmountNum - downPaymentNum) * 100) / 100;
+    const actualLoanAmount = safeCalc(D => D(loanAmountNum).minus(downPaymentNum));
 
-    // Division by zero protection
-    if (actualLoanAmount <= 0) {
+    if (actualLoanAmount === null || actualLoanAmount <= 0) {
       return {
         error: "Loan amount after down payment must be greater than $0.",
         errorField: "downPayment",
       };
     }
 
-    const monthlyRate = interestRateNum / 100 / 12;
-    const numPayments = loanTermNum * 12;
+    const monthlyRate = safeCalc(D => D(interestRateNum).div(100).div(12));
+    const numPayments = safeCalc(D => D(loanTermNum).mul(12));
+
+    if (monthlyRate === null || numPayments === null) {
+      return {
+        error: "Calculation error: Invalid rate or term.",
+        errorField: null,
+      };
+    }
 
     // Check for edge case: 0% interest rate
-    let monthlyPayment: number;
+    let monthlyPayment: number | null;
     if (monthlyRate === 0) {
       // With 0% interest, payment is just principal divided by months
-      monthlyPayment = actualLoanAmount / numPayments;
+      monthlyPayment = safeCalc(D => D(actualLoanAmount).div(numPayments));
     } else {
       // Standard mortgage formula
-      const denominator = Math.pow(1 + monthlyRate, numPayments) - 1;
-
-      // Division by zero protection
-      if (denominator === 0 || !Number.isFinite(denominator)) {
-        return {
-          error: "Calculation error: Invalid interest rate or loan term combination.",
-          errorField: "interestRate",
-        };
-      }
-
-      const numerator = actualLoanAmount * monthlyRate * Math.pow(1 + monthlyRate, numPayments);
-
-      if (!Number.isFinite(numerator)) {
+      const factor = safeCalc(D => D(1).plus(monthlyRate).pow(numPayments));
+      if (factor === null) {
         return {
           error: "Calculation error: Loan parameters produce invalid result.",
           errorField: null,
         };
       }
 
-      monthlyPayment = numerator / denominator;
+      const denominator = safeCalc(D => D(factor).minus(1));
+      if (denominator === null || denominator === 0) {
+        return {
+          error: "Calculation error: Invalid interest rate or loan term combination.",
+          errorField: "interestRate",
+        };
+      }
+
+      const numerator = safeCalc(D => D(actualLoanAmount).mul(monthlyRate).mul(factor));
+      if (numerator === null) {
+        return {
+          error: "Calculation error: Loan parameters produce invalid result.",
+          errorField: null,
+        };
+      }
+
+      monthlyPayment = safeCalc(D => D(numerator).div(denominator));
     }
 
-    // Round to 2 decimal places
-    monthlyPayment = Math.round(monthlyPayment * 100) / 100;
+    if (monthlyPayment === null) {
+      return {
+        error: "Calculation error: Results are invalid. Please check your inputs.",
+        errorField: null,
+      };
+    }
 
-    const totalPayment = Math.round(monthlyPayment * numPayments * 100) / 100;
-    const totalInterest = Math.round((totalPayment - actualLoanAmount) * 100) / 100;
+    const totalPayment = safeCalc(D => D(monthlyPayment!).mul(numPayments));
+    const totalInterest = safeCalc(D => D(totalPayment ?? 0).minus(actualLoanAmount));
 
     // Calculate monthly costs
-    const monthlyTax = Math.round((propertyTaxNum / 12) * 100) / 100;
-    const monthlyInsurance = Math.round((homeInsuranceNum / 12) * 100) / 100;
+    const monthlyTax = safeCalc(D => D(propertyTaxNum).div(12));
+    const monthlyInsurance = safeCalc(D => D(homeInsuranceNum).div(12));
     // PMI is calculated on actual loan amount after down payment
-    const monthlyPmi = Math.round((pmiRateNum / 100 * actualLoanAmount / 12) * 100) / 100;
+    const monthlyPmi = safeCalc(D => D(pmiRateNum).div(100).mul(actualLoanAmount).div(12));
 
-    const totalMonthlyPayment = Math.round(
-      (monthlyPayment + monthlyTax + monthlyInsurance + monthlyPmi) * 100
-    ) / 100;
+    const totalMonthlyPayment = safeCalc(D => 
+      D(monthlyPayment!).plus(monthlyTax ?? 0).plus(monthlyInsurance ?? 0).plus(monthlyPmi ?? 0)
+    );
 
-    // Final finite checks
     if (
-      !Number.isFinite(monthlyPayment) ||
-      !Number.isFinite(totalPayment) ||
-      !Number.isFinite(totalInterest) ||
-      !Number.isFinite(monthlyTax) ||
-      !Number.isFinite(monthlyInsurance) ||
-      !Number.isFinite(monthlyPmi) ||
-      !Number.isFinite(totalMonthlyPayment)
+      totalPayment === null ||
+      totalInterest === null ||
+      monthlyTax === null ||
+      monthlyInsurance === null ||
+      monthlyPmi === null ||
+      totalMonthlyPayment === null
     ) {
       return {
         error: "Calculation error: Results are invalid. Please check your inputs.",
@@ -409,6 +374,8 @@ export const MortgageCalculator = () => {
   const [propertyTax, setPropertyTax] = useState("");
   const [homeInsurance, setHomeInsurance] = useState("");
   const [pmi, setPmi] = useState("");
+
+
 
   // Locale-aware currency formatter (USD)
   const currencyFormatter = useMemo(
@@ -464,14 +431,13 @@ export const MortgageCalculator = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="loan-amount">Loan Amount ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="loan-amount"
-                type="number"
                 placeholder="0"
                 value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setLoanAmount(sanitized)}
+                sanitizeOptions={{ min: 0, max: LOAN_AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "loanAmount" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "loanAmount" ? "mortgage-error" : undefined
@@ -485,15 +451,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="interest-rate">Interest Rate (%)</Label>
-              <Input
+              <SafeNumberInput
                 id="interest-rate"
-                type="number"
                 placeholder="0.00"
                 value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
-                min="0"
-                max="30"
-                step="0.01"
+                onChange={(sanitized) => setInterestRate(sanitized)}
+                sanitizeOptions={{ min: INTEREST_RATE_MIN, max: INTEREST_RATE_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "interestRate" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "interestRate" ? "mortgage-error" : undefined
@@ -507,14 +471,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="loan-term">Loan Term (Years)</Label>
-              <Input
+              <SafeNumberInput
                 id="loan-term"
-                type="number"
                 placeholder="30"
                 value={loanTerm}
-                onChange={(e) => setLoanTerm(e.target.value)}
-                min="1"
-                max="50"
+                onChange={(sanitized) => setLoanTerm(sanitized)}
+                sanitizeOptions={{ min: LOAN_TERM_MIN, max: LOAN_TERM_MAX, allowDecimal: false }}
+                inputMode="numeric"
                 aria-invalid={calc.errorField === "loanTerm" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "loanTerm" ? "mortgage-error" : undefined
@@ -528,14 +491,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="down-payment">Down Payment ($) (Optional)</Label>
-              <Input
+              <SafeNumberInput
                 id="down-payment"
-                type="number"
                 placeholder="0"
                 value={downPayment}
-                onChange={(e) => setDownPayment(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setDownPayment(sanitized)}
+                sanitizeOptions={{ min: 0, max: LOAN_AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "downPayment" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "downPayment" ? "mortgage-error" : undefined
@@ -546,14 +508,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="property-tax">Annual Property Tax ($) (Optional)</Label>
-              <Input
+              <SafeNumberInput
                 id="property-tax"
-                type="number"
                 placeholder="0"
                 value={propertyTax}
-                onChange={(e) => setPropertyTax(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setPropertyTax(sanitized)}
+                sanitizeOptions={{ min: 0, max: LOAN_AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "propertyTax" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "propertyTax" ? "mortgage-error" : undefined
@@ -564,14 +525,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="home-insurance">Annual Home Insurance ($) (Optional)</Label>
-              <Input
+              <SafeNumberInput
                 id="home-insurance"
-                type="number"
                 placeholder="0"
                 value={homeInsurance}
-                onChange={(e) => setHomeInsurance(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setHomeInsurance(sanitized)}
+                sanitizeOptions={{ min: 0, max: LOAN_AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "homeInsurance" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "homeInsurance" ? "mortgage-error" : undefined
@@ -582,15 +542,13 @@ export const MortgageCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="pmi">PMI Rate (%) (Optional)</Label>
-              <Input
+              <SafeNumberInput
                 id="pmi"
-                type="number"
                 placeholder="0.00"
                 value={pmi}
-                onChange={(e) => setPmi(e.target.value)}
-                min="0"
-                max="5"
-                step="0.01"
+                onChange={(sanitized) => setPmi(sanitized)}
+                sanitizeOptions={{ min: 0, max: PMI_RATE_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "pmi" ? "true" : "false"}
                 aria-describedby={
                   calc.errorField === "pmi" ? "mortgage-error" : undefined
@@ -646,7 +604,7 @@ export const MortgageCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.monthlyPayment!)}
+                      {formatCurrency(calc.monthlyPayment!)}
                     </span>
                   </div>
                   {calc.propertyTax! > 0 && (
@@ -657,7 +615,7 @@ export const MortgageCalculator = () => {
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {currencyFormatter.format(calc.monthlyTax!)}
+                        {formatCurrency(calc.monthlyTax!)}
                       </span>
                     </div>
                   )}
@@ -669,7 +627,7 @@ export const MortgageCalculator = () => {
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {currencyFormatter.format(calc.monthlyInsurance!)}
+                        {formatCurrency(calc.monthlyInsurance!)}
                       </span>
                     </div>
                   )}
@@ -681,7 +639,7 @@ export const MortgageCalculator = () => {
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {currencyFormatter.format(calc.monthlyPmi!)}
+                        {formatCurrency(calc.monthlyPmi!)}
                       </span>
                     </div>
                   )}
@@ -692,7 +650,7 @@ export const MortgageCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.totalMonthlyPayment!)}
+                      {formatCurrency(calc.totalMonthlyPayment!)}
                     </span>
                   </div>
                 </div>
@@ -708,7 +666,7 @@ export const MortgageCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.actualLoanAmount!)}
+                      {formatCurrency(calc.actualLoanAmount!)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
@@ -718,7 +676,7 @@ export const MortgageCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.totalInterest!)}
+                      {formatCurrency(calc.totalInterest!)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
@@ -728,7 +686,7 @@ export const MortgageCalculator = () => {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {currencyFormatter.format(calc.totalPayment!)}
+                      {formatCurrency(calc.totalPayment!)}
                     </span>
                   </div>
                   {calc.downPayment! > 0 && (
@@ -739,7 +697,7 @@ export const MortgageCalculator = () => {
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {currencyFormatter.format(calc.downPayment!)}
+                        {formatCurrency(calc.downPayment!)}
                       </span>
                     </div>
                   )}

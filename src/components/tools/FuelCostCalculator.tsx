@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, Fuel } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
 
 const ALLOWED_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR"] as const;
 const ALLOWED_UNITS = ["metric", "imperial"] as const;
@@ -15,10 +17,7 @@ const MAX_DISTANCE = 1000000; // 1M km/mi
 const MAX_EFFICIENCY = 1000; // L/100km or MPG
 const MAX_PRICE = 1000; // per unit
 
-// Sanitize decimal input
-const sanitizeDecimalInput = (value: string): string => {
-  return value.replace(/[^\d.]/g, '').slice(0, 10);
-};
+
 
 const coerceCurrency = (value: string): Currency => {
   return ALLOWED_CURRENCIES.includes(value as Currency) ? (value as Currency) : "USD";
@@ -35,35 +34,40 @@ export const FuelCostCalculator = () => {
   const [currency, setCurrency] = useState<Currency>("USD");
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
 
-  // Clamp parsed values to safe ranges
-  const dist = Math.max(0, Math.min(MAX_DISTANCE, parseFloat(distance) || 0));
-  const efficiency = Math.max(0, Math.min(MAX_EFFICIENCY, parseFloat(fuelEfficiency) || 0));
-  const price = Math.max(0, Math.min(MAX_PRICE, parseFloat(fuelPrice) || 0));
+  // Parse values with unified system
+  const dist = safeNumber(distance, { min: 0, max: MAX_DISTANCE }) || 0;
+  const efficiency = safeNumber(fuelEfficiency, { min: 0, max: MAX_EFFICIENCY }) || 0;
+  const price = safeNumber(fuelPrice, { min: 0, max: MAX_PRICE }) || 0;
 
   const calculateFuelCost = () => {
     if (dist <= 0 || efficiency <= 0 || price <= 0) {
       return { fuelNeeded: 0, totalCost: 0, costPerKm: 0, costPerMile: 0 };
     }
 
-    let fuelNeeded: number;
-    let costPerKm: number;
-    let costPerMile: number;
+    let fuelNeeded: number | null;
+    let costPerKm: number | null;
+    let costPerMile: number | null;
 
     if (unitSystem === "metric") {
       // Distance in km, efficiency in L/100km
-      fuelNeeded = (dist * efficiency) / 100;
-      costPerKm = (fuelNeeded * price) / dist;
-      costPerMile = costPerKm * 1.609; // Convert to cost per mile
+      fuelNeeded = safeCalc(D => D(dist).mul(efficiency).div(100));
+      costPerKm = fuelNeeded ? safeCalc(D => D(fuelNeeded!).mul(price).div(dist)) : null;
+      costPerMile = costPerKm ? safeCalc(D => D(costPerKm!).mul(1.609)) : null; // Convert to cost per mile
     } else {
       // Distance in miles, efficiency in MPG
-      fuelNeeded = dist / efficiency;
-      costPerMile = (fuelNeeded * price) / dist;
-      costPerKm = costPerMile / 1.609; // Convert to cost per km
+      fuelNeeded = safeCalc(D => D(dist).div(efficiency));
+      costPerMile = fuelNeeded ? safeCalc(D => D(fuelNeeded!).mul(price).div(dist)) : null;
+      costPerKm = costPerMile ? safeCalc(D => D(costPerMile!).div(1.609)) : null; // Convert to cost per km
     }
 
-    const totalCost = fuelNeeded * price;
+    const totalCost = fuelNeeded ? safeCalc(D => D(fuelNeeded!).mul(price)) : null;
 
-    return { fuelNeeded, totalCost, costPerKm, costPerMile };
+    return { 
+      fuelNeeded: fuelNeeded || 0, 
+      totalCost: totalCost || 0, 
+      costPerKm: costPerKm || 0, 
+      costPerMile: costPerMile || 0 
+    };
   };
 
   const result = calculateFuelCost();
@@ -114,16 +118,13 @@ export const FuelCostCalculator = () => {
               <Label htmlFor="distance">
                 Distance ({unitSystem === "metric" ? "km" : "miles"})
               </Label>
-              <Input
+              <SafeNumberInput
                 id="distance"
-                type="number"
-                inputMode="decimal"
                 placeholder="0"
                 value={distance}
-                onChange={(e) => setDistance(sanitizeDecimalInput(e.target.value))}
-                min="0"
-                max={MAX_DISTANCE}
-                step="0.1"
+                onChange={(sanitized) => setDistance(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_DISTANCE }}
+                inputMode="decimal"
               />
             </div>
 
@@ -131,16 +132,13 @@ export const FuelCostCalculator = () => {
               <Label htmlFor="fuel-efficiency">
                 Fuel Efficiency ({unitSystem === "metric" ? "L/100km" : "MPG"})
               </Label>
-              <Input
+              <SafeNumberInput
                 id="fuel-efficiency"
-                type="number"
-                inputMode="decimal"
                 placeholder="0"
                 value={fuelEfficiency}
-                onChange={(e) => setFuelEfficiency(sanitizeDecimalInput(e.target.value))}
-                min="0"
-                max={MAX_EFFICIENCY}
-                step="0.1"
+                onChange={(sanitized) => setFuelEfficiency(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_EFFICIENCY }}
+                inputMode="decimal"
               />
             </div>
 
@@ -148,16 +146,13 @@ export const FuelCostCalculator = () => {
               <Label htmlFor="fuel-price">
                 Fuel Price ({getCurrencySymbol()}/{unitSystem === "metric" ? "L" : "gallon"})
               </Label>
-              <Input
+              <SafeNumberInput
                 id="fuel-price"
-                type="number"
-                inputMode="decimal"
                 placeholder="0"
                 value={fuelPrice}
-                onChange={(e) => setFuelPrice(sanitizeDecimalInput(e.target.value))}
-                min="0"
-                max={MAX_PRICE}
-                step="0.01"
+                onChange={(sanitized) => setFuelPrice(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_PRICE }}
+                inputMode="decimal"
               />
             </div>
 

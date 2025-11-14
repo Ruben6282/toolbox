@@ -13,11 +13,13 @@
  */
 
 import { useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 const MAX_PRINCIPAL = 1e12; // 1 trillion
 const MIN_PRINCIPAL = 0;
@@ -34,24 +36,7 @@ type LoanResult = {
   totalInterest: number;
 };
 
-/**
- * Safe numeric parser with validation and clamping
- */
-function safeParseNumber(
-  input: string,
-  min: number,
-  max: number
-): number | null {
-  if (!input || input.trim() === "") return null;
 
-  const raw = parseFloat(input);
-  const sanitized = sanitizeNumber(raw, min, max);
-
-  // sanitizeNumber returns null for invalid values
-  if (sanitized === null) return null;
-
-  return sanitized;
-}
 
 export const LoanCalculator = () => {
   const [principal, setPrincipal] = useState("100000");
@@ -59,6 +44,8 @@ export const LoanCalculator = () => {
   const [years, setYears] = useState("30");
   const [result, setResult] = useState<LoanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+
 
   // Currency formatter (locale-aware)
   const currencyFormatter = useMemo(() => {
@@ -83,95 +70,90 @@ export const LoanCalculator = () => {
       return;
     }
 
-    // Raw parse for detailed error feedback
-    const rawP = parseFloat(pStr);
-    const rawR = parseFloat(rStr);
-    const rawY = parseFloat(yStr);
+    // Safe parsing with unified system
+    const principalVal = safeNumber(pStr, { min: MIN_PRINCIPAL, max: MAX_PRINCIPAL });
+    const rateVal = safeNumber(rStr, { min: MIN_RATE, max: MAX_RATE });
+    const yearsVal = safeNumber(yStr, { min: MIN_YEARS, max: MAX_YEARS });
 
-    // Basic validity checks
-    if (isNaN(rawP) || !isFinite(rawP)) {
+    // Validate principal
+    if (principalVal === null) {
       setError("Invalid loan amount. Please enter a valid number.");
       setResult(null);
       return;
     }
+    const principalRangeError = validateRange(principalVal, MIN_PRINCIPAL, MAX_PRINCIPAL);
+    if (principalRangeError !== true) {
+      setError(
+        typeof principalRangeError === 'string' 
+          ? principalRangeError 
+          : `Loan amount must be between ${formatCurrency(MIN_PRINCIPAL)} and ${formatCurrency(MAX_PRINCIPAL)}.`
+      );
+      setResult(null);
+      return;
+    }
 
-    if (isNaN(rawR) || !isFinite(rawR)) {
+    // Validate rate
+    if (rateVal === null) {
       setError("Invalid interest rate. Please enter a valid number.");
       setResult(null);
       return;
     }
+    const rateRangeError = validateRange(rateVal, MIN_RATE, MAX_RATE);
+    if (rateRangeError !== true) {
+      setError(
+        typeof rateRangeError === 'string'
+          ? rateRangeError
+          : `Annual interest rate must be between ${MIN_RATE}% and ${MAX_RATE}%.`
+      );
+      setResult(null);
+      return;
+    }
 
-    if (isNaN(rawY) || !isFinite(rawY)) {
+    // Validate years
+    if (yearsVal === null) {
       setError("Invalid loan term. Please enter a valid number of years.");
       setResult(null);
       return;
     }
-
-    // Range validation
-    if (rawP < MIN_PRINCIPAL || rawP > MAX_PRINCIPAL) {
+    const yearsRangeError = validateRange(yearsVal, MIN_YEARS, MAX_YEARS);
+    if (yearsRangeError !== true) {
       setError(
-        `Loan amount must be between ${currencyFormatter.format(
-          MIN_PRINCIPAL
-        )} and ${currencyFormatter.format(MAX_PRINCIPAL)}.`
+        typeof yearsRangeError === 'string'
+          ? yearsRangeError
+          : `Loan term must be between ${MIN_YEARS} and ${MAX_YEARS} years.`
       );
       setResult(null);
       return;
     }
 
-    if (rawR < MIN_RATE || rawR > MAX_RATE) {
-      setError(
-        `Annual interest rate must be between ${MIN_RATE}% and ${MAX_RATE}%.`
-      );
-      setResult(null);
-      return;
-    }
+    const months = safeCalc(D => D(yearsVal).mul(12));
 
-    if (rawY < MIN_YEARS || rawY > MAX_YEARS) {
-      setError(
-        `Loan term must be between ${MIN_YEARS} and ${MAX_YEARS} years.`
-      );
-      setResult(null);
-      return;
-    }
-
-    // Safe parsing + clamping
-    const principalVal = safeParseNumber(pStr, MIN_PRINCIPAL, MAX_PRINCIPAL);
-    const rateVal = safeParseNumber(rStr, MIN_RATE, MAX_RATE);
-    const yearsVal = safeParseNumber(yStr, MIN_YEARS, MAX_YEARS);
-
-    if (
-      principalVal === null ||
-      rateVal === null ||
-      yearsVal === null
-    ) {
-      setError("One or more inputs are invalid. Please check your values.");
-      setResult(null);
-      return;
-    }
-
-    const months = yearsVal * 12;
-
-    if (months <= 0) {
+    if (months === null || months <= 0) {
       setError("Loan term must be greater than 0 months.");
       setResult(null);
       return;
     }
 
-    let monthlyPayment: number;
-    let totalPayment: number;
-    let totalInterest: number;
+    let monthlyPayment: number | null;
+    let totalPayment: number | null;
+    let totalInterest: number | null;
 
     try {
       if (rateVal === 0) {
         // Zero-interest loan: simple division
-        monthlyPayment = principalVal / months;
+        monthlyPayment = safeCalc(D => D(principalVal).div(months));
         totalPayment = principalVal;
         totalInterest = 0;
       } else {
-        const monthlyRate = rateVal / 100 / 12;
-        const factor = Math.pow(1 + monthlyRate, months);
+        const monthlyRate = safeCalc(D => D(rateVal).div(100).div(12));
+        if (monthlyRate === null) {
+          setError("Invalid monthly rate calculation.");
+          setResult(null);
+          return;
+        }
 
-        if (!isFinite(factor) || factor <= 1) {
+        const factor = safeCalc(D => D(1).plus(monthlyRate).pow(months));
+        if (factor === null || factor <= 1) {
           setError(
             "Calculation overflow. Try reducing the rate or term length."
           );
@@ -179,17 +161,18 @@ export const LoanCalculator = () => {
           return;
         }
 
-        monthlyPayment =
-          (principalVal * monthlyRate * factor) / (factor - 1);
+        monthlyPayment = safeCalc(D => 
+          D(principalVal).mul(monthlyRate).mul(factor).div(D(factor).minus(1))
+        );
 
-        totalPayment = monthlyPayment * months;
-        totalInterest = totalPayment - principalVal;
+        totalPayment = safeCalc(D => D(monthlyPayment!).mul(months));
+        totalInterest = safeCalc(D => D(totalPayment!).minus(principalVal));
       }
 
       if (
-        !isFinite(monthlyPayment) ||
-        !isFinite(totalPayment) ||
-        !isFinite(totalInterest)
+        monthlyPayment === null ||
+        totalPayment === null ||
+        totalInterest === null
       ) {
         setError("Calculation resulted in an invalid number.");
         setResult(null);
@@ -208,20 +191,17 @@ export const LoanCalculator = () => {
     }
   };
 
-  const handlePrincipalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const handlePrincipalChange = (val: string) => {
     setPrincipal(val);
     calculateLoan(val, rate, years);
   };
 
-  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const handleRateChange = (val: string) => {
     setRate(val);
     calculateLoan(principal, val, years);
   };
 
-  const handleYearsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const handleYearsChange = (val: string) => {
     setYears(val);
     calculateLoan(principal, rate, val);
   };
@@ -238,12 +218,12 @@ export const LoanCalculator = () => {
           {/* Loan Amount */}
           <div className="space-y-2">
             <Label htmlFor="loan-amount">Loan Amount</Label>
-            <Input
+            <SafeNumberInput
               id="loan-amount"
-              type="number"
-              inputMode="decimal"
               value={principal}
               onChange={handlePrincipalChange}
+              sanitizeOptions={{ min: MIN_PRINCIPAL, max: MAX_PRINCIPAL }}
+              inputMode="decimal"
               aria-label="Loan amount"
               aria-invalid={hasError ? "true" : "false"}
               aria-describedby={hasError ? "loan-error" : undefined}
@@ -258,13 +238,12 @@ export const LoanCalculator = () => {
           {/* Interest Rate */}
           <div className="space-y-2">
             <Label htmlFor="loan-rate">Annual Interest Rate (%)</Label>
-            <Input
+            <SafeNumberInput
               id="loan-rate"
-              type="number"
-              step="0.1"
-              inputMode="decimal"
               value={rate}
               onChange={handleRateChange}
+              sanitizeOptions={{ min: MIN_RATE, max: MAX_RATE }}
+              inputMode="decimal"
               aria-label="Annual interest rate"
               aria-invalid={hasError ? "true" : "false"}
               aria-describedby={hasError ? "loan-error" : undefined}
@@ -278,12 +257,12 @@ export const LoanCalculator = () => {
           {/* Loan Term */}
           <div className="space-y-2">
             <Label htmlFor="loan-years">Loan Term (years)</Label>
-            <Input
+            <SafeNumberInput
               id="loan-years"
-              type="number"
-              inputMode="numeric"
               value={years}
               onChange={handleYearsChange}
+              sanitizeOptions={{ min: MIN_YEARS, max: MAX_YEARS, allowDecimal: false }}
+              inputMode="numeric"
               aria-label="Loan term in years"
               aria-invalid={hasError ? "true" : "false"}
               aria-describedby={hasError ? "loan-error" : undefined}
@@ -324,7 +303,7 @@ export const LoanCalculator = () => {
                 aria-atomic="true"
               >
                 <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary break-words px-2">
-                  {currencyFormatter.format(result.monthlyPayment)}
+                  {formatCurrency(result.monthlyPayment)}
                 </div>
                 <p className="mt-2 text-sm sm:text-base text-muted-foreground">
                   per month
@@ -341,7 +320,7 @@ export const LoanCalculator = () => {
               <CardContent>
                 <div className="text-center">
                   <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary break-all px-2">
-                    {currencyFormatter.format(result.totalPayment)}
+                    {formatCurrency(result.totalPayment)}
                   </div>
                   <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
                     over {years} years
@@ -357,7 +336,7 @@ export const LoanCalculator = () => {
               <CardContent>
                 <div className="text-center">
                   <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent break-all px-2">
-                    {currencyFormatter.format(result.totalInterest)}
+                    {formatCurrency(result.totalInterest)}
                   </div>
                   <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
                     interest paid

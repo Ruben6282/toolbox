@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, ExternalLink, RotateCcw, Star, MapPin, Clock } from "lucide-react";
+import { Search, RotateCcw, Star, MapPin, Clock } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { sanitizeText, truncateText } from "@/lib/security";
 
@@ -14,16 +14,22 @@ const MAX_LOCATION_LENGTH = 100;
 const ALLOWED_DEVICES = ["desktop", "mobile", "tablet"] as const;
 type Device = typeof ALLOWED_DEVICES[number];
 
+const SIMULATED_DELAY_MS = 1000;
+
 const coerceDevice = (value: string): Device => {
   return ALLOWED_DEVICES.includes(value as Device) ? (value as Device) : "desktop";
 };
 
-// Sanitize text inputs
+// Sanitize text inputs: strip control chars + hard limit
 const sanitizeInput = (text: string, maxLen: number): string => {
-  const cleaned = text.split('').filter(char => {
-    const code = char.charCodeAt(0);
-    return code >= 32 || code === 9 || code === 10 || code === 13;
-  }).join('');
+  const cleaned = text
+    .split("")
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      // keep visible characters, spaces, tabs, and newlines
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("");
   return cleaned.slice(0, maxLen);
 };
 
@@ -31,7 +37,7 @@ interface SerpResult {
   title: string;
   url: string;
   description: string;
-  type: 'organic' | 'ad' | 'featured' | 'local' | 'image' | 'video';
+  type: "organic" | "ad" | "featured" | "local" | "image" | "video";
   position: number;
   rating?: number;
   reviews?: number;
@@ -52,85 +58,93 @@ export const GoogleSerpSimulator = () => {
       return;
     }
 
-    // Sanitize and truncate user inputs, then cap to 100 chars
-    const safeQuery = sanitizeText(truncateText(query)).slice(0, 100);
-    const safeLocation = location ? sanitizeText(truncateText(location)).slice(0, 100) : 'your area';
-    const urlSlug = safeQuery.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Defense in depth: sanitize again before using in generated content
+    const safeQueryRaw = sanitizeText(truncateText(query));
+    const safeLocationRaw = location ? sanitizeText(truncateText(location)) : "";
+
+    const safeQuery = sanitizeInput(safeQueryRaw, 100).trim();
+    const safeLocation = safeLocationRaw
+      ? sanitizeInput(safeLocationRaw, 100).trim()
+      : "your area";
+
+    const urlSlug = safeQuery
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
 
     setIsLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulate remote API latency so users see the loading state
+      await new Promise((resolve) => setTimeout(resolve, SIMULATED_DELAY_MS));
 
-      // Generate mock SERP results
       const mockResults: SerpResult[] = [
         {
           title: `${safeQuery} - Official Website`,
           url: `https://example.com/${urlSlug}`,
           description: `Find everything you need to know about ${safeQuery}. Comprehensive guide, tips, and resources for ${safeQuery.toLowerCase()}.`,
-          type: 'organic',
-          position: 1
+          type: "organic",
+          position: 1,
         },
         {
           title: `Best ${safeQuery} Services | Top Rated`,
           url: `https://services.com/${urlSlug}`,
-          description: `Professional ${safeQuery} services with 5-star ratings. Get quotes from verified providers in your area.`,
-          type: 'ad',
+          description: `Professional ${safeQuery} services with high ratings. Get quotes from verified providers in your area.`,
+          type: "ad",
           position: 2,
           rating: 4.8,
-          reviews: 1247
+          reviews: 1247,
         },
         {
           title: `${safeQuery} Guide 2024 - Complete Tutorial`,
           url: `https://guide.com/${urlSlug}`,
           description: `Step-by-step ${safeQuery} tutorial for beginners. Learn the basics and advanced techniques.`,
-          type: 'featured',
-          position: 3
+          type: "featured",
+          position: 3,
         },
         {
           title: `${safeQuery} Near Me - Local Results`,
           url: `https://local.com/${urlSlug}`,
           description: `${safeQuery} services in ${safeLocation}. Open now, reviews, and contact information.`,
-          type: 'local',
+          type: "local",
           position: 4,
           rating: 4.5,
-          reviews: 89
+          reviews: 89,
         },
         {
           title: `${safeQuery} Images - Visual Results`,
           url: `https://images.com/${urlSlug}`,
           description: `Browse thousands of ${safeQuery} images. High-quality photos and illustrations.`,
-          type: 'image',
+          type: "image",
           position: 5,
-          image: `https://picsum.photos/200/150?random=${Math.floor(Math.random() * 1000)}`
+          image: `https://picsum.photos/200/150?random=${Math.floor(Math.random() * 1000)}`,
         },
         {
           title: `${safeQuery} Video Tutorial - YouTube`,
-          url: `https://youtube.com/watch?v=${Math.random().toString(36).substring(7)}`,
+          url: `https://youtube.com/watch?v=${Math.random().toString(36).slice(2, 9)}`,
           description: `Watch this comprehensive ${safeQuery} video tutorial. Perfect for visual learners.`,
-          type: 'video',
+          type: "video",
           position: 6,
           rating: 4.7,
-          reviews: 2341
+          reviews: 2341,
         },
         {
           title: `${safeQuery} FAQ - Common Questions`,
           url: `https://faq.com/${urlSlug}`,
           description: `Frequently asked questions about ${safeQuery}. Get answers to the most common queries.`,
-          type: 'organic',
-          position: 7
+          type: "organic",
+          position: 7,
         },
         {
           title: `${safeQuery} Tools & Resources`,
           url: `https://tools.com/${urlSlug}`,
           description: `Free ${safeQuery} tools and resources. Calculators, generators, and helpful utilities.`,
-          type: 'organic',
-          position: 8
-        }
+          type: "organic",
+          position: 8,
+        },
       ];
 
       setResults(mockResults);
-      notify.success("SERP results generated!");
+      notify.success("Simulated SERP results generated!");
     } catch (error) {
       console.error(error);
       notify.error("Failed to generate SERP results. Please try again.");
@@ -145,27 +159,44 @@ export const GoogleSerpSimulator = () => {
     setLocation("");
   };
 
-  const getResultTypeColor = (type: string) => {
+  const getResultTypeColor = (type: SerpResult["type"]) => {
     switch (type) {
-      case 'ad': return 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800';
-      case 'featured': return 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800';
-      case 'local': return 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800';
-      case 'image': return 'bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800';
-      case 'video': return 'bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800';
-      default: return 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+      case "ad":
+        return "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+      case "featured":
+        return "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800";
+      case "local":
+        return "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800";
+      case "image":
+        return "bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800";
+      case "video":
+        return "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800";
+      default:
+        return "bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
     }
   };
 
-  const getResultTypeIcon = (type: string) => {
+  const getResultTypeIcon = (type: SerpResult["type"]) => {
     switch (type) {
-      case 'ad': return '🔵';
-      case 'featured': return '⭐';
-      case 'local': return '📍';
-      case 'image': return '🖼️';
-      case 'video': return '🎥';
-      default: return '🔍';
+      case "ad":
+        return "🔵";
+      case "featured":
+        return "⭐";
+      case "local":
+        return "📍";
+      case "image":
+        return "🖼️";
+      case "video":
+        return "🎥";
+      default:
+        return "🔍";
     }
   };
+
+  const resultsSummary =
+    results.length > 0
+      ? `Showing ${results.length} simulated results for "${query}" on ${device.charAt(0).toUpperCase() + device.slice(1)}`
+      : "";
 
   return (
     <div className="space-y-6 px-2 sm:px-0">
@@ -174,8 +205,15 @@ export const GoogleSerpSimulator = () => {
           <CardTitle>Google SERP Simulator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Simulate how your page might appear in Google search results. This tool uses{" "}
+            <span className="font-semibold">mock data only</span> and does not query Google.
+          </p>
+
           <div className="space-y-2">
-            <Label htmlFor="search-query" className="text-xs sm:text-sm">Search Query</Label>
+            <Label htmlFor="search-query" className="text-xs sm:text-sm">
+              Search Query
+            </Label>
             <Input
               id="search-query"
               placeholder="Enter your search query..."
@@ -183,11 +221,16 @@ export const GoogleSerpSimulator = () => {
               onChange={(e) => setQuery(sanitizeInput(e.target.value, MAX_QUERY_LENGTH))}
               maxLength={MAX_QUERY_LENGTH}
             />
+            <p className="text-[11px] sm:text-xs text-muted-foreground">
+              {query.length}/{MAX_QUERY_LENGTH} characters
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="location" className="text-xs sm:text-sm">Location (optional)</Label>
+              <Label htmlFor="location" className="text-xs sm:text-sm">
+                Location (optional)
+              </Label>
               <Input
                 id="location"
                 placeholder="City, State or Country"
@@ -195,13 +238,18 @@ export const GoogleSerpSimulator = () => {
                 onChange={(e) => setLocation(sanitizeInput(e.target.value, MAX_LOCATION_LENGTH))}
                 maxLength={MAX_LOCATION_LENGTH}
               />
+              <p className="text-[11px] sm:text-xs text-muted-foreground">
+                {location.length}/{MAX_LOCATION_LENGTH} characters
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="device" className="text-xs sm:text-sm">Device Type</Label>
+              <Label htmlFor="device" className="text-xs sm:text-sm">
+                Device Type
+              </Label>
               <Select value={device} onValueChange={(value) => setDevice(coerceDevice(value))}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select device" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="desktop">Desktop</SelectItem>
@@ -213,8 +261,8 @@ export const GoogleSerpSimulator = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full">
-            <Button 
-              onClick={generateSerpResults} 
+            <Button
+              onClick={generateSerpResults}
               disabled={isLoading || !query.trim()}
               className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
@@ -230,8 +278,8 @@ export const GoogleSerpSimulator = () => {
           {isLoading && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-xs sm:text-sm text-muted-foreground">Generating SERP results...</span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                <span className="text-xs sm:text-sm text-muted-foreground">Generating simulated results…</span>
               </div>
             </div>
           )}
@@ -241,48 +289,72 @@ export const GoogleSerpSimulator = () => {
       {results.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg break-words">
-              <Search className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-              <span className="break-words">Search Results for "{query}"</span>
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg break-words">
+                <Search className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                <span className="break-words">Search Results for "{query}"</span>
+              </CardTitle>
+              <Badge variant="outline" className="text-[11px] sm:text-xs">
+                Simulated SERP
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
+            {resultsSummary && (
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">{resultsSummary}</p>
+            )}
             <div className="space-y-4">
-              {results.map((result, index) => (
-                <div key={index} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors">
+              {results.map((result) => (
+                <div
+                  key={`${result.type}-${result.position}`}
+                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors"
+                >
                   <div className="flex flex-col lg:flex-row items-start justify-between gap-3">
                     <div className="flex-1 w-full min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="text-xs sm:text-sm text-muted-foreground">#{result.position}</span>
-                        <Badge className={getResultTypeColor(result.type) + " text-xs sm:text-sm px-2 py-1"}>
-                          {getResultTypeIcon(result.type)} {result.type.toUpperCase()}
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          #{result.position}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            getResultTypeColor(result.type) +
+                            " text-[10px] sm:text-xs px-2 py-0.5 border"
+                          }
+                        >
+                          {getResultTypeIcon(result.type)}{" "}
+                          <span className="ml-1">{result.type.toUpperCase()}</span>
                         </Badge>
-                        {result.rating && (
+                        {typeof result.rating === "number" && (
                           <div className="flex items-center gap-1 text-xs sm:text-sm">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span>{result.rating}</span>
-                            <span className="text-muted-foreground">({result.reviews} reviews)</span>
+                            <span>{result.rating.toFixed(1)}</span>
+                            {typeof result.reviews === "number" && (
+                              <span className="text-muted-foreground">
+                                ({result.reviews.toLocaleString()} reviews)
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
-                      
+
                       <h3 className="text-sm sm:text-base md:text-lg font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer mb-2 break-words">
                         {result.title}
                       </h3>
-                      
+
                       <p className="text-xs sm:text-sm text-muted-foreground mb-2 break-words">
                         {result.description}
                       </p>
-                      
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
+
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-muted-foreground">
                         <span className="font-mono break-all">{result.url}</span>
-                        {result.type === 'local' && (
+                        {result.type === "local" && (
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
-                            <span>Local Business</span>
+                            <span>Local result</span>
                           </div>
                         )}
-                        {result.type === 'video' && (
+                        {result.type === "video" && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             <span>5:32</span>
@@ -290,7 +362,7 @@ export const GoogleSerpSimulator = () => {
                         )}
                       </div>
                     </div>
-                    
+
                     {result.image && (
                       <div className="flex-shrink-0 w-full lg:w-auto">
                         <img
@@ -309,7 +381,7 @@ export const GoogleSerpSimulator = () => {
         </Card>
       )}
 
-      <Card>
+       <Card>
         <CardHeader>
           <CardTitle>SERP Features Explained</CardTitle>
         </CardHeader>
@@ -353,14 +425,14 @@ export const GoogleSerpSimulator = () => {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-            <li>• Optimize title tags to be compelling and under 60 characters</li>
-            <li>• Write meta descriptions that encourage clicks (150-160 characters)</li>
-            <li>• Use structured data to appear in rich snippets</li>
-            <li>• Optimize for featured snippets with clear, concise answers</li>
-            <li>• Build local citations for local business visibility</li>
-            <li>• Create high-quality, engaging content that answers user queries</li>
-            <li>• Use relevant keywords naturally throughout your content</li>
-            <li>• Optimize page loading speed for better rankings</li>
+            <li>• Optimize title tags to be compelling and under ~60 characters.</li>
+            <li>• Write meta descriptions that encourage clicks (150–160 characters).</li>
+            <li>• Use structured data (schema.org) to appear in rich results.</li>
+            <li>• Optimize for featured snippets with clear, concise answers.</li>
+            <li>• Build local citations and Google Business Profile for local visibility.</li>
+            <li>• Create high-quality, engaging content that answers user intent.</li>
+            <li>• Use relevant keywords naturally throughout your content.</li>
+            <li>• Improve page loading speed and mobile usability for better rankings.</li>
           </ul>
         </CardContent>
       </Card>

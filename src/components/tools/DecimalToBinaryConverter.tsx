@@ -14,7 +14,7 @@ export const DecimalToBinaryConverter = () => {
   const MAX_DECIMAL = 4294967295; // 32-bit max
   const MAX_BINARY_LENGTH = 32;
 
-  const sanitizeIntInput = (v: string, maxLen = 10) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
+  const sanitizeIntInput = (v: string, maxLen = 15) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
   const sanitizeBinaryInput = (v: string, maxLen = MAX_BINARY_LENGTH) => v.replace(/[^01]/g, "").slice(0, maxLen);
 
   const formatNumber = (num: number) => {

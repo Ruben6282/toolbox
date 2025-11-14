@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { RotateCcw, Activity } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 export const CalorieCalculator = () => {
   const [age, setAge] = useState("");
@@ -16,27 +18,21 @@ export const CalorieCalculator = () => {
   const [goal, setGoal] = useState("maintain");
   const [unitSystem, setUnitSystem] = useState("metric");
 
-  // Guardrails and sanitizers
+  // Range constants
   const MIN_AGE = 1;
   const MAX_AGE = 120;
   const METRIC = { MIN_W: 1, MAX_W: 500, MIN_H: 30, MAX_H: 300 };
   const IMPERIAL = { MIN_W: 2, MAX_W: 1100, MIN_H: 12, MAX_H: 120 };
-  const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
-  const sanitizeIntInput = (v: string, maxLen = 3) => v.replace(/[^0-9]/g, "").slice(0, maxLen);
-  const sanitizeDecimalInput = (v: string, maxLen = 8) => {
-    const cleaned = v.replace(/[^0-9.]/g, "");
-    const parts = cleaned.split(".");
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : cleaned;
-    return normalized.slice(0, maxLen);
-  };
+
   const coerceUnit = (v: string) => (v === "metric" || v === "imperial" ? v : "metric");
   const coerceGender = (v: string) => (v === "male" || v === "female" ? v : "male");
   const coerceActivity = (v: string) => (v in activityLevels ? v : "moderate");
   const coerceGoal = (v: string) => (v in goals ? v : "maintain");
 
-  const ageNum = parseFloat(age) || 0;
-  const weightNum = parseFloat(weight) || 0;
-  const heightNum = parseFloat(height) || 0;
+  // Parse inputs using unified system
+  const ageNum = safeNumber(age, { allowDecimal: false }) || 0;
+  const weightNum = safeNumber(weight) || 0;
+  const heightNum = safeNumber(height) || 0;
 
   const activityLevels = {
     sedentary: { label: "Sedentary", multiplier: 1.2, description: "Little or no exercise" },
@@ -57,47 +53,50 @@ export const CalorieCalculator = () => {
   };
 
   const calculateBMR = () => {
-    if (ageNum < MIN_AGE || ageNum > MAX_AGE) return 0;
+    if (!validateRange(ageNum, MIN_AGE, MAX_AGE)) return 0;
     if (weightNum <= 0 || heightNum <= 0) return 0;
 
-    // Validate unit-specific ranges defensively
+    // Validate unit-specific ranges
     if (unitSystem === "metric") {
-      if (weightNum < METRIC.MIN_W || weightNum > METRIC.MAX_W) return 0;
-      if (heightNum < METRIC.MIN_H || heightNum > METRIC.MAX_H) return 0;
+      if (!validateRange(weightNum, METRIC.MIN_W, METRIC.MAX_W)) return 0;
+      if (!validateRange(heightNum, METRIC.MIN_H, METRIC.MAX_H)) return 0;
     } else {
-      if (weightNum < IMPERIAL.MIN_W || weightNum > IMPERIAL.MAX_W) return 0;
-      if (heightNum < IMPERIAL.MIN_H || heightNum > IMPERIAL.MAX_H) return 0;
+      if (!validateRange(weightNum, IMPERIAL.MIN_W, IMPERIAL.MAX_W)) return 0;
+      if (!validateRange(heightNum, IMPERIAL.MIN_H, IMPERIAL.MAX_H)) return 0;
     }
 
-    let bmr: number;
+    // Harris-Benedict equation using safe math
+    let bmr: number | null;
     
     if (gender === "male") {
       if (unitSystem === "metric") {
-        bmr = 88.362 + (13.397 * weightNum) + (4.799 * heightNum) - (5.677 * ageNum);
+        bmr = safeCalc(D => D(88.362).plus(D(13.397).mul(weightNum)).plus(D(4.799).mul(heightNum)).minus(D(5.677).mul(ageNum)));
       } else {
-        bmr = 88.362 + (13.397 * weightNum * 0.453592) + (4.799 * heightNum * 2.54) - (5.677 * ageNum);
+        bmr = safeCalc(D => D(88.362).plus(D(13.397).mul(weightNum).mul(0.453592)).plus(D(4.799).mul(heightNum).mul(2.54)).minus(D(5.677).mul(ageNum)));
       }
     } else {
       if (unitSystem === "metric") {
-        bmr = 447.593 + (9.247 * weightNum) + (3.098 * heightNum) - (4.330 * ageNum);
+        bmr = safeCalc(D => D(447.593).plus(D(9.247).mul(weightNum)).plus(D(3.098).mul(heightNum)).minus(D(4.330).mul(ageNum)));
       } else {
-        bmr = 447.593 + (9.247 * weightNum * 0.453592) + (3.098 * heightNum * 2.54) - (4.330 * ageNum);
+        bmr = safeCalc(D => D(447.593).plus(D(9.247).mul(weightNum).mul(0.453592)).plus(D(3.098).mul(heightNum).mul(2.54)).minus(D(4.330).mul(ageNum)));
       }
     }
     
-    return Math.round(bmr);
+    return bmr ? Math.round(bmr) : 0;
   };
 
   const calculateTDEE = () => {
     const bmr = calculateBMR();
     const activity = activityLevels[activityLevel as keyof typeof activityLevels];
-    return Math.round(bmr * activity.multiplier);
+    const tdee = safeCalc(D => D(bmr).mul(activity.multiplier));
+    return tdee ? Math.round(tdee) : 0;
   };
 
   const calculateCalorieNeeds = () => {
     const tdee = calculateTDEE();
     const goalData = goals[goal as keyof typeof goals];
-    return Math.round(tdee - goalData.deficit);
+    const needs = safeCalc(D => D(tdee).minus(goalData.deficit));
+    return needs ? Math.round(needs) : 0;
   };
 
   const bmr = calculateBMR();
@@ -124,11 +123,13 @@ export const CalorieCalculator = () => {
   const calculateBMI = () => {
     if (weightNum <= 0 || heightNum <= 0) return 0;
     
+    let bmi: number | null;
     if (unitSystem === "metric") {
-      return weightNum / Math.pow(heightNum / 100, 2);
+      bmi = safeCalc(D => D(weightNum).div(D(heightNum).div(100).pow(2)));
     } else {
-      return (weightNum * 703) / Math.pow(heightNum, 2);
+      bmi = safeCalc(D => D(weightNum).mul(703).div(D(heightNum).pow(2)));
     }
+    return bmi || 0;
   };
 
   const bmi = calculateBMI();
@@ -157,15 +158,13 @@ export const CalorieCalculator = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="age">Age</Label>
-              <Input
+              <SafeNumberInput
                 id="age"
-                type="number"
                 placeholder="0"
                 value={age}
-                onChange={(e) => setAge(sanitizeIntInput(e.target.value))}
+                onChange={setAge}
                 inputMode="numeric"
-                min={MIN_AGE}
-                max={MAX_AGE}
+                sanitizeOptions={{ allowDecimal: false }}
               />
             </div>
 
@@ -186,16 +185,11 @@ export const CalorieCalculator = () => {
               <Label htmlFor="weight">
                 Weight ({unitSystem === "metric" ? "kg" : "lbs"})
               </Label>
-              <Input
+              <SafeNumberInput
                 id="weight"
-                type="number"
                 placeholder="0"
                 value={weight}
-                onChange={(e) => setWeight(sanitizeDecimalInput(e.target.value))}
-                inputMode="decimal"
-                min={unitSystem === "metric" ? METRIC.MIN_W : IMPERIAL.MIN_W}
-                max={unitSystem === "metric" ? METRIC.MAX_W : IMPERIAL.MAX_W}
-                step={0.1}
+                onChange={setWeight}
               />
             </div>
 
@@ -203,16 +197,11 @@ export const CalorieCalculator = () => {
               <Label htmlFor="height">
                 Height ({unitSystem === "metric" ? "cm" : "inches"})
               </Label>
-              <Input
+              <SafeNumberInput
                 id="height"
-                type="number"
                 placeholder="0"
                 value={height}
-                onChange={(e) => setHeight(sanitizeDecimalInput(e.target.value))}
-                inputMode="decimal"
-                min={unitSystem === "metric" ? METRIC.MIN_H : IMPERIAL.MIN_H}
-                max={unitSystem === "metric" ? METRIC.MAX_H : IMPERIAL.MAX_H}
-                step={0.1}
+                onChange={setHeight}
               />
             </div>
           </div>

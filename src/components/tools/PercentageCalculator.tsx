@@ -12,38 +12,27 @@
  */
 
 import { useState, useMemo } from "react";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, ShieldCheck } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { AlertCircle } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatNumber } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 const MAX_VALUE = 1e12; // 1 trillion
 const MIN_PERCENTAGE = -1000;
 const MAX_PERCENTAGE = 1000;
 
-/**
- * Safe numeric parser with validation and clamping
- */
-function safeParseNumber(input: string, min: number = -MAX_VALUE, max: number = MAX_VALUE): number {
-  if (!input || input.trim() === "") return 0;
-  
-  const raw = parseFloat(input);
-  
-  // Validate using security utility
-  const sanitized = sanitizeNumber(raw, min, max);
-  
-  // sanitizeNumber returns null for invalid values
-  if (sanitized === null) return 0;
-  
-  return sanitized;
-}
+
 
 export const PercentageCalculator = () => {
   const [value, setValue] = useState("");
   const [percentage, setPercentage] = useState("");
   const [result, setResult] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+
 
   // Localization formatter
   const numberFormatter = useMemo(() => {
@@ -62,45 +51,45 @@ export const PercentageCalculator = () => {
       return;
     }
 
-    // Safe parsing with validation
-    const val = safeParseNumber(v, -MAX_VALUE, MAX_VALUE);
-    const perc = safeParseNumber(p, MIN_PERCENTAGE, MAX_PERCENTAGE);
+    // Safe parsing with unified system
+    const val = safeNumber(v, { min: -MAX_VALUE, max: MAX_VALUE });
+    const perc = safeNumber(p, { min: MIN_PERCENTAGE, max: MAX_PERCENTAGE });
 
-    // Check for invalid input
-    const rawVal = parseFloat(v);
-    const rawPerc = parseFloat(p);
-
-    if (v.trim() && (isNaN(rawVal) || !isFinite(rawVal))) {
-      setError("Invalid value. Please enter a valid number.");
-      setResult(null);
-      return;
+    // Validate value input
+    if (v.trim()) {
+      if (val === null) {
+        setError("Invalid value. Please enter a valid number.");
+        setResult(null);
+        return;
+      }
+      const rangeError = validateRange(val, -MAX_VALUE, MAX_VALUE);
+      if (rangeError !== true) {
+        setError(typeof rangeError === 'string' ? rangeError : `Value must be between ${formatNumber(-MAX_VALUE)} and ${formatNumber(MAX_VALUE)}`);
+        setResult(null);
+        return;
+      }
     }
 
-    if (p.trim() && (isNaN(rawPerc) || !isFinite(rawPerc))) {
-      setError("Invalid percentage. Please enter a valid number.");
-      setResult(null);
-      return;
+    // Validate percentage input
+    if (p.trim()) {
+      if (perc === null) {
+        setError("Invalid percentage. Please enter a valid number.");
+        setResult(null);
+        return;
+      }
+      const rangeError = validateRange(perc, MIN_PERCENTAGE, MAX_PERCENTAGE);
+      if (rangeError !== true) {
+        setError(typeof rangeError === 'string' ? rangeError : `Percentage must be between ${MIN_PERCENTAGE}% and ${MAX_PERCENTAGE}%`);
+        setResult(null);
+        return;
+      }
     }
 
-    // Check range violations
-    if (v.trim() && (rawVal < -MAX_VALUE || rawVal > MAX_VALUE)) {
-      setError(`Value must be between ${numberFormatter.format(-MAX_VALUE)} and ${numberFormatter.format(MAX_VALUE)}`);
-      setResult(null);
-      return;
-    }
-
-    if (p.trim() && (rawPerc < MIN_PERCENTAGE || rawPerc > MAX_PERCENTAGE)) {
-      setError(`Percentage must be between ${MIN_PERCENTAGE}% and ${MAX_PERCENTAGE}%`);
-      setResult(null);
-      return;
-    }
-
-    // Both inputs valid - calculate
-    if (v.trim() && p.trim()) {
-      const calculatedResult = (val * perc) / 100;
+    // Both inputs valid - calculate using safeCalc
+    if (v.trim() && p.trim() && val !== null && perc !== null) {
+      const calculatedResult = safeCalc(D => D(val).mul(perc).div(100));
       
-      // Final sanity check on result
-      if (!isFinite(calculatedResult)) {
+      if (calculatedResult === null) {
         setError("Calculation resulted in invalid number");
         setResult(null);
         return;
@@ -121,15 +110,16 @@ export const PercentageCalculator = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="value-input">Value</Label>
-            <Input
+            <SafeNumberInput
               id="value-input"
-              type="number"
               placeholder="Enter value..."
               value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-                calculate(e.target.value, percentage);
+              onChange={(sanitized) => {
+                setValue(sanitized);
+                calculate(sanitized, percentage);
               }}
+              sanitizeOptions={{ min: -MAX_VALUE, max: MAX_VALUE }}
+              inputMode="decimal"
               aria-label="Value to calculate percentage of"
               aria-invalid={error ? "true" : "false"}
               aria-describedby={error ? "error-message" : undefined}
@@ -141,15 +131,16 @@ export const PercentageCalculator = () => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="percentage-input">Percentage</Label>
-            <Input
+            <SafeNumberInput
               id="percentage-input"
-              type="number"
               placeholder="Enter percentage..."
               value={percentage}
-              onChange={(e) => {
-                setPercentage(e.target.value);
-                calculate(value, e.target.value);
+              onChange={(sanitized) => {
+                setPercentage(sanitized);
+                calculate(value, sanitized);
               }}
+              sanitizeOptions={{ min: MIN_PERCENTAGE, max: MAX_PERCENTAGE }}
+              inputMode="decimal"
               aria-label="Percentage to calculate"
               aria-invalid={error ? "true" : "false"}
               aria-describedby={error ? "error-message" : undefined}
@@ -186,10 +177,10 @@ export const PercentageCalculator = () => {
               aria-atomic="true"
             >
               <div className="text-3xl sm:text-4xl font-bold text-primary break-words px-2">
-                {numberFormatter.format(result)}
+                {formatNumber(result, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </div>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground break-words px-2">
-                {numberFormatter.format(safeParseNumber(percentage, MIN_PERCENTAGE, MAX_PERCENTAGE))}% of {numberFormatter.format(safeParseNumber(value, -MAX_VALUE, MAX_VALUE))} = {numberFormatter.format(result)}
+                {formatNumber(safeNumber(percentage, { min: MIN_PERCENTAGE, max: MAX_PERCENTAGE }) || 0, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}% of {formatNumber(safeNumber(value, { min: -MAX_VALUE, max: MAX_VALUE }) || 0, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} = {formatNumber(result, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </p>
             </div>
           </CardContent>
@@ -203,20 +194,25 @@ export const PercentageCalculator = () => {
         <CardContent>
           <div className="space-y-2 text-sm">
             {value && percentage && !error && (() => {
-              const val = safeParseNumber(value, -MAX_VALUE, MAX_VALUE);
-              const perc = safeParseNumber(percentage, MIN_PERCENTAGE, MAX_PERCENTAGE);
-              const addResult = val * (1 + perc / 100);
-              const subtractResult = val * (1 - perc / 100);
+              const val = safeNumber(value, { min: -MAX_VALUE, max: MAX_VALUE });
+              const perc = safeNumber(percentage, { min: MIN_PERCENTAGE, max: MAX_PERCENTAGE });
+              
+              if (val === null || perc === null) return null;
+              
+              const addResult = safeCalc(D => D(val).mul(D(1).plus(D(perc).div(100))));
+              const subtractResult = safeCalc(D => D(val).mul(D(1).minus(D(perc).div(100))));
+              
+              if (addResult === null || subtractResult === null) return null;
               
               return (
                 <>
                   <div className="flex justify-between border-b pb-2">
-                    <span className="text-muted-foreground">Add {numberFormatter.format(perc)}%:</span>
-                    <span className="font-medium">{numberFormatter.format(addResult)}</span>
+                    <span className="text-muted-foreground">Add {formatNumber(perc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%:</span>
+                    <span className="font-medium">{formatNumber(addResult, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between border-b pb-2">
-                    <span className="text-muted-foreground">Subtract {numberFormatter.format(perc)}%:</span>
-                    <span className="font-medium">{numberFormatter.format(subtractResult)}</span>
+                    <span className="text-muted-foreground">Subtract {formatNumber(perc, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%:</span>
+                    <span className="font-medium">{formatNumber(subtractResult, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                   </div>
                 </>
               );

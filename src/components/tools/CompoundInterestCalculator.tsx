@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, RotateCcw } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange, validateResult, ValidationErrors } from "@/lib/validators";
 
 // Security bounds and allowed values
 const AMOUNT_MAX = 1e10; // $10,000,000,000
@@ -102,101 +104,72 @@ export function validateAndComputeCompoundInterest(params: {
       };
     }
 
-    // Numeric validation with sanitation and scientific notation block
-    // Principal
+    // Principal validation
     let principalNum = 0;
     const pTrim = (principal || "").trim();
     if (pTrim !== "") {
-      if (/[eE]/.test(pTrim)) {
-        return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
-          errorField: "principal",
-        };
+      const parsed = safeNumber(pTrim);
+      if (parsed === null) {
+        return { error: ValidationErrors.INVALID_NUMBER, errorField: "principal" };
       }
-      const san = sanitizeNumber(pTrim, 0, AMOUNT_MAX);
-      if (san === null) {
-        const raw = parseFloat(pTrim);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid amount. Enter a valid number.", errorField: "principal" };
-        }
+      if (!validateRange(parsed, 0, AMOUNT_MAX)) {
         return {
           error: `Initial investment must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`,
           errorField: "principal",
         };
       }
-      principalNum = san;
+      principalNum = parsed;
     }
 
-    // Interest rate (percent)
+    // Interest rate validation
     let rateNum = 0;
     const rTrim = (interestRate || "").trim();
     if (rTrim !== "") {
-      if (/[eE]/.test(rTrim)) {
-        return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
-          errorField: "interestRate",
-        };
+      const parsed = safeNumber(rTrim);
+      if (parsed === null) {
+        return { error: ValidationErrors.INVALID_NUMBER, errorField: "interestRate" };
       }
-      const san = sanitizeNumber(rTrim, RATE_MIN, RATE_MAX);
-      if (san === null) {
-        const raw = parseFloat(rTrim);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid interest rate.", errorField: "interestRate" };
-        }
+      if (!validateRange(parsed, RATE_MIN, RATE_MAX)) {
         return {
           error: `Interest rate must be between ${RATE_MIN}% and ${RATE_MAX}%.`,
           errorField: "interestRate",
         };
       }
-      rateNum = san;
+      rateNum = parsed;
     }
 
-    // Time value
+    // Time validation
     let timeNum = 0;
     const tTrim = (time || "").trim();
     if (tTrim !== "") {
-      if (/[eE]/.test(tTrim)) {
-        return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
-          errorField: "time",
-        };
+      const parsed = safeNumber(tTrim);
+      if (parsed === null) {
+        return { error: ValidationErrors.INVALID_NUMBER, errorField: "time" };
       }
-      const san = sanitizeNumber(tTrim, 0, TIME_YEARS_MAX * 365); // sanitize raw entry; detailed check after unit conversion
-      if (san === null) {
-        const raw = parseFloat(tTrim);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid time value.", errorField: "time" };
-        }
+      if (parsed < 0 || parsed > TIME_YEARS_MAX * 365) {
         return {
           error: `Time value out of range.`,
           errorField: "time",
         };
       }
-      timeNum = san;
+      timeNum = parsed;
     }
 
-    // Additional contribution per period
+    // Additional contribution validation
     let additionalNum = 0;
     const aTrim = (additionalContributions || "").trim();
     if (aTrim !== "") {
-      if (/[eE]/.test(aTrim)) {
-        return {
-          error: "Scientific notation is not allowed. Please enter a standard number.",
-          errorField: "additionalContributions",
-        };
+      const parsed = safeNumber(aTrim);
+      if (parsed === null) {
+        return { error: ValidationErrors.INVALID_NUMBER, errorField: "additionalContributions" };
       }
-      const san = sanitizeNumber(aTrim, 0, AMOUNT_MAX);
-      if (san === null) {
-        const raw = parseFloat(aTrim);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid contribution amount.", errorField: "additionalContributions" };
-        }
+      if (!validateRange(parsed, 0, AMOUNT_MAX)) {
         return {
           error: `Contribution must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`,
           errorField: "additionalContributions",
         };
       }
-      additionalNum = san;
+      additionalNum = parsed;
     }
 
     // Convert time to years with whitelist
@@ -256,64 +229,67 @@ export function validateAndComputeCompoundInterest(params: {
     const r = rateNum / 100; // decimal APR
     const t = years;
 
-    // Compute compound on principal with 0% special handling
+    // Compute compound on principal using safe math
     let compoundAmount = 0;
     if (r === 0) {
       compoundAmount = principalNum;
     } else {
-      const growth = Math.pow(1 + r / n, n * t);
-      if (!Number.isFinite(growth) || growth <= 0) {
+      const result = safeCalc(D => D(1).plus(D(r).div(n)).pow(D(n).mul(t)).mul(principalNum));
+      if (result === null) {
         return { error: "Calculation error: invalid growth factor.", errorField: "interestRate" };
       }
-      compoundAmount = principalNum * growth;
+      compoundAmount = result;
     }
 
-    // Future value of contributions (annuity due/ordinary?) — assume end-of-period contributions (ordinary annuity)
+    // Future value of contributions using safe math
     let contributionValue = 0;
     const contributionPeriods = contribN * t;
     if (additionalNum > 0 && contributionPeriods > 0) {
       const contributionRate = r / contribN;
       if (contributionRate === 0) {
-        contributionValue = additionalNum * contributionPeriods; // no interest accrual
+        contributionValue = additionalNum * contributionPeriods;
       } else {
-        const growth = Math.pow(1 + contributionRate, contributionPeriods);
-        if (!Number.isFinite(growth) || growth <= 0) {
+        const result = safeCalc(D => {
+          const growth = D(1).plus(contributionRate).pow(contributionPeriods);
+          return D(additionalNum).mul(growth.minus(1).div(contributionRate));
+        });
+        if (result === null) {
           return { error: "Calculation error: invalid contribution growth.", errorField: "interestRate" };
         }
-        const denom = contributionRate;
-        if (denom === 0 || !Number.isFinite(denom)) {
-          return { error: "Calculation error: invalid contribution rate.", errorField: "interestRate" };
-        }
-        contributionValue = additionalNum * ((growth - 1) / denom);
+        contributionValue = result;
       }
     }
 
-    let finalAmount = compoundAmount + contributionValue;
-    let totalContributions = principalNum + additionalNum * contributionPeriods;
-    let totalInterest = finalAmount - totalContributions;
+    const finalAmount = safeCalc(D => D(compoundAmount).plus(contributionValue));
+    const totalContributions = safeCalc(D => D(principalNum).plus(D(additionalNum).mul(contributionPeriods)));
+    
+    if (finalAmount === null || totalContributions === null) {
+      return { error: "Calculation error: results are invalid.", errorField: null };
+    }
+
+    const totalInterest = safeCalc(D => D(finalAmount).minus(totalContributions));
+    if (totalInterest === null) {
+      return { error: "Calculation error: results are invalid.", errorField: null };
+    }
 
     // Round monetary values to 2 decimals
     const round2 = (x: number) => Math.round(x * 100) / 100;
     compoundAmount = round2(compoundAmount);
     contributionValue = round2(contributionValue);
-    finalAmount = round2(finalAmount);
-    totalContributions = round2(totalContributions);
-    totalInterest = round2(totalInterest);
+    const finalAmountRounded = round2(finalAmount);
+    const totalContributionsRounded = round2(totalContributions);
+    const totalInterestRounded = round2(totalInterest);
 
-    // Effective annual rate based on contributions baseline if possible
+    // Effective annual rate
     let effectiveAnnualRate = 0;
     if (t > 0 && totalContributions > 0) {
-      const ratio = finalAmount / totalContributions;
-      if (ratio > 0) {
-        const ear = Math.pow(ratio, 1 / t) - 1;
-        effectiveAnnualRate = Math.round(ear * 10000) / 100; // percent with 2 decimals
-      }
+      const ear = safeCalc(D => D(finalAmount).div(totalContributions).pow(D(1).div(t)).minus(1).mul(100));
+      effectiveAnnualRate = ear ? round2(ear) : 0;
     }
 
-    // Final finite checks
-    const all = [compoundAmount, contributionValue, finalAmount, totalContributions, totalInterest, effectiveAnnualRate];
-    if (all.some((v) => !Number.isFinite(v))) {
-      return { error: "Calculation error: results are invalid.", errorField: null };
+    // Validate displayable results
+    if (!validateResult(finalAmountRounded)) {
+      return { error: ValidationErrors.RESULT_TOO_LARGE, errorField: null };
     }
 
     return {
@@ -330,9 +306,9 @@ export function validateAndComputeCompoundInterest(params: {
       compoundingPeriodsPerYear: n,
       compoundAmount,
       contributionValue,
-      finalAmount,
-      totalContributions,
-      totalInterest,
+      finalAmount: finalAmountRounded,
+      totalContributions: totalContributionsRounded,
+      totalInterest: totalInterestRounded,
       effectiveAnnualRate,
     };
   } catch (error) {
@@ -353,13 +329,7 @@ export const CompoundInterestCalculator = () => {
   const [additionalContributions, setAdditionalContributions] = useState("");
   const [contributionFrequency, setContributionFrequency] = useState<Frequency>("monthly");
 
-  // Input sanitizers and enum coercers to prevent malformed values and scientific notation UX
-  const sanitizeDecimalInput = (v: string, maxLen = 16) => {
-    const stripped = v.replace(/[^0-9.]/g, "");
-    const parts = stripped.split(".");
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
-    return normalized.slice(0, maxLen);
-  };
+  // Enum coercers
   const coerceTimeUnit = (v: string): TimeUnit => (AllowedTimeUnits.includes(v as TimeUnit) ? (v as TimeUnit) : "years");
   const coerceFrequency = (v: string): Frequency => (AllowedFrequencies.includes(v as Frequency) ? (v as Frequency) : "annually");
 
@@ -417,34 +387,25 @@ export const CompoundInterestCalculator = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="principal">Initial Investment ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="principal"
-                type="number"
                 placeholder="0"
                 value={principal}
-                onChange={(e) => setPrincipal(sanitizeDecimalInput(e.target.value, 16))}
-                inputMode="decimal"
-                min="0"
-                step="0.01"
+                onChange={setPrincipal}
                 aria-invalid={calc.errorField === "principal" ? "true" : "false"}
                 aria-describedby={calc.errorField === "principal" ? "compound-error" : undefined}
                 className={calc.errorField === "principal" ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">Max: {currencyFormatter.format(AMOUNT_MAX)}</p>
+              <p className="text-xs text-muted-foreground">Max: {formatCurrency(AMOUNT_MAX)}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="interest-rate">Annual Interest Rate (%)</Label>
-              <Input
+              <SafeNumberInput
                 id="interest-rate"
-                type="number"
                 placeholder="0.00"
                 value={interestRate}
-                onChange={(e) => setInterestRate(sanitizeDecimalInput(e.target.value, 8))}
-                inputMode="decimal"
-                min="0"
-                max={String(RATE_MAX)}
-                step="0.01"
+                onChange={setInterestRate}
                 aria-invalid={calc.errorField === "interestRate" ? "true" : "false"}
                 aria-describedby={calc.errorField === "interestRate" ? "compound-error" : undefined}
                 className={calc.errorField === "interestRate" ? "border-red-500" : ""}
@@ -454,15 +415,11 @@ export const CompoundInterestCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="time">Time Period</Label>
-              <Input
+              <SafeNumberInput
                 id="time"
-                type="number"
                 placeholder="0"
                 value={time}
-                onChange={(e) => setTime(sanitizeDecimalInput(e.target.value, 10))}
-                inputMode="decimal"
-                min="0"
-                step="0.01"
+                onChange={setTime}
                 aria-invalid={calc.errorField === "time" ? "true" : "false"}
                 aria-describedby={calc.errorField === "time" ? "compound-error" : undefined}
                 className={calc.errorField === "time" ? "border-red-500" : ""}
@@ -504,20 +461,16 @@ export const CompoundInterestCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="additional">Additional Contributions ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="additional"
-                type="number"
                 placeholder="0"
                 value={additionalContributions}
-                onChange={(e) => setAdditionalContributions(sanitizeDecimalInput(e.target.value, 16))}
-                inputMode="decimal"
-                min="0"
-                step="0.01"
+                onChange={setAdditionalContributions}
                 aria-invalid={calc.errorField === "additionalContributions" ? "true" : "false"}
                 aria-describedby={calc.errorField === "additionalContributions" ? "compound-error" : undefined}
                 className={calc.errorField === "additionalContributions" ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">Max per period: {currencyFormatter.format(AMOUNT_MAX)}</p>
+              <p className="text-xs text-muted-foreground">Max per period: {formatCurrency(AMOUNT_MAX)}</p>
             </div>
 
             <div className="space-y-2">

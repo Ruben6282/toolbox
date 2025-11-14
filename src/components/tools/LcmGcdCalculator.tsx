@@ -1,35 +1,28 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
+import { Input } from "@/components/ui/input";
 
 // Max safe integer for calculations to prevent overflow
 const MAX_NUMBER = 1e9;
 const MIN_NUMBER = 1;
-
-// Sanitize: strip non-digit chars, clamp to safe range
-const sanitizeInteger = (val: string): string => {
-  const cleaned = val.replace(/[^0-9]/g, "");
-  if (cleaned === "") return "";
-  const num = parseInt(cleaned, 10);
-  if (isNaN(num)) return "";
-  const clamped = Math.max(MIN_NUMBER, Math.min(MAX_NUMBER, num));
-  return clamped.toString();
-};
 
 export const LcmGcdCalculator = () => {
   const [number1, setNumber1] = useState("");
   const [number2, setNumber2] = useState("");
   const [additionalNumbers, setAdditionalNumbers] = useState("");
 
-  const num1 = parseInt(number1) || 0;
-  const num2 = parseInt(number2) || 0;
+  const num1 = safeNumber(number1, { min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }) || 0;
+  const num2 = safeNumber(number2, { min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }) || 0;
   const additional = additionalNumbers
     .split(",")
-    .map(n => parseInt(n.trim()))
-    .filter(n => !isNaN(n) && n > 0);
+    .map(n => safeNumber(n.trim(), { min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }))
+    .filter((n): n is number => n !== null && n > 0);
 
   const gcd = (a: number, b: number): number => {
     if (b === 0) return a;
@@ -37,7 +30,8 @@ export const LcmGcdCalculator = () => {
   };
 
   const lcm = (a: number, b: number): number => {
-    return (a * b) / gcd(a, b);
+    const result = safeCalc(D => D(a).mul(b).div(gcd(a, b)));
+    return result !== null ? result : 0;
   };
 
   const calculateGCD = (numbers: number[]): number => {
@@ -97,29 +91,25 @@ export const LcmGcdCalculator = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="number1">First Number</Label>
-              <Input
+              <SafeNumberInput
                 id="number1"
-                type="text"
-                inputMode="numeric"
                 placeholder="Enter first number"
                 value={number1}
-                onChange={(e) => setNumber1(sanitizeInteger(e.target.value))}
-                min={MIN_NUMBER}
-                max={MAX_NUMBER}
+                onChange={(sanitized) => setNumber1(sanitized)}
+                sanitizeOptions={{ min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }}
+                inputMode="numeric"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="number2">Second Number</Label>
-              <Input
+              <SafeNumberInput
                 id="number2"
-                type="text"
-                inputMode="numeric"
                 placeholder="Enter second number"
                 value={number2}
-                onChange={(e) => setNumber2(sanitizeInteger(e.target.value))}
-                min={MIN_NUMBER}
-                max={MAX_NUMBER}
+                onChange={(sanitized) => setNumber2(sanitized)}
+                sanitizeOptions={{ min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }}
+                inputMode="numeric"
               />
             </div>
           </div>

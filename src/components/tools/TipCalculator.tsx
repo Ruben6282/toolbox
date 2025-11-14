@@ -13,11 +13,13 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, RotateCcw, ShieldCheck } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { AlertCircle, RotateCcw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 const BILL_MAX = 1e9; // $1,000,000,000
 const TIP_MIN = 0;
@@ -51,49 +53,63 @@ export function validateAndComputeTip(params: {
   const { billAmount, useCustomTip, tipPercentage, customTip, people } = params;
 
   // Bill validation
-  const billRaw = billAmount.trim() === "" ? NaN : parseFloat(billAmount);
-  const billSan = isNaN(billRaw) ? null : sanitizeNumber(billRaw, 0, BILL_MAX);
-  if (billAmount.trim() !== "" && billSan === null) {
+  const bill = safeNumber(billAmount, { min: 0, max: BILL_MAX });
+  if (billAmount.trim() !== "" && bill === null) {
     return { error: `Bill must be between $0 and $${BILL_MAX.toLocaleString()}`, errorField: "bill" };
   }
-  const bill = billSan ?? 0;
+  if (bill !== null) {
+    const rangeError = validateRange(bill, 0, BILL_MAX);
+    if (rangeError !== true) {
+      return { error: typeof rangeError === 'string' ? rangeError : `Bill must be between $0 and $${BILL_MAX.toLocaleString()}`, errorField: "bill" };
+    }
+  }
+  const billValue = bill ?? 0;
 
   // Tip validation (custom or preset)
   const tipString = useCustomTip ? customTip : tipPercentage;
   if (useCustomTip && tipString.trim() === "") {
     return { error: "Please enter a custom tip percentage (0-100)", errorField: "tip" };
   }
-  const tipRaw = tipString.trim() === "" ? NaN : parseFloat(tipString);
-  const tipSan = isNaN(tipRaw) ? null : sanitizeNumber(tipRaw, TIP_MIN, TIP_MAX);
-  if (tipString.trim() !== "" && tipSan === null) {
+  const tipPercent = safeNumber(tipString, { min: TIP_MIN, max: TIP_MAX });
+  if (tipString.trim() !== "" && tipPercent === null) {
     return { error: `Tip percentage must be between ${TIP_MIN}% and ${TIP_MAX}%`, errorField: "tip" };
   }
-  const tipPercent = tipSan ?? 0;
+  if (tipPercent !== null) {
+    const rangeError = validateRange(tipPercent, TIP_MIN, TIP_MAX);
+    if (rangeError !== true) {
+      return { error: typeof rangeError === 'string' ? rangeError : `Tip percentage must be between ${TIP_MIN}% and ${TIP_MAX}%`, errorField: "tip" };
+    }
+  }
+  const tipPercentValue = tipPercent ?? 0;
 
   // People validation
-  const peopleRaw = people.trim() === "" ? NaN : parseFloat(people);
-  const peopleSan0 = isNaN(peopleRaw) ? null : sanitizeNumber(peopleRaw, PEOPLE_MIN, PEOPLE_MAX);
-  if (people.trim() !== "" && peopleSan0 === null) {
+  const peopleValue = safeNumber(people, { min: PEOPLE_MIN, max: PEOPLE_MAX, allowDecimal: false });
+  if (people.trim() !== "" && peopleValue === null) {
     return { error: `Number of people must be ${PEOPLE_MIN}-${PEOPLE_MAX}`, errorField: "people" };
   }
-  const peopleInt = Math.round(peopleSan0 ?? 1);
+  if (peopleValue !== null) {
+    const rangeError = validateRange(peopleValue, PEOPLE_MIN, PEOPLE_MAX);
+    if (rangeError !== true) {
+      return { error: typeof rangeError === 'string' ? rangeError : `Number of people must be ${PEOPLE_MIN}-${PEOPLE_MAX}`, errorField: "people" };
+    }
+  }
+  const peopleInt = Math.round(peopleValue ?? 1);
 
-  // Compute
-  const tipAmount = (bill * tipPercent) / 100;
-  const totalBill = bill + tipAmount;
-  const tipPerPerson = tipAmount / peopleInt;
-  const totalPerPerson = totalBill / peopleInt;
+  // Compute using safeCalc
+  const tipAmount = safeCalc(D => D(billValue).mul(tipPercentValue).div(100));
+  const totalBill = safeCalc(D => D(billValue).plus(tipAmount ?? 0));
+  const tipPerPerson = safeCalc(D => D(tipAmount ?? 0).div(peopleInt));
+  const totalPerPerson = safeCalc(D => D(totalBill ?? 0).div(peopleInt));
 
-  // Finite guards
-  if (!Number.isFinite(tipAmount) || !Number.isFinite(totalBill) || !Number.isFinite(tipPerPerson) || !Number.isFinite(totalPerPerson)) {
+  if (tipAmount === null || totalBill === null || tipPerPerson === null || totalPerPerson === null) {
     return { error: "Calculation error. Please check your inputs.", errorField: null };
   }
 
   return {
     error: null,
     errorField: null,
-    bill,
-    tipPercent,
+    bill: billValue,
+    tipPercent: tipPercentValue,
     people: peopleInt,
     tipAmount,
     totalBill,
@@ -108,6 +124,8 @@ export const TipCalculator = () => {
   const [customTip, setCustomTip] = useState("");
   const [people, setPeople] = useState("1");
   const [useCustomTip, setUseCustomTip] = useState(false);
+
+
 
   // Locale-aware currency formatter (default locale, USD)
   const currencyFormatter = useMemo(() => new Intl.NumberFormat(undefined, {
@@ -145,14 +163,13 @@ export const TipCalculator = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="bill-amount">Bill Amount</Label>
-            <Input
+            <SafeNumberInput
               id="bill-amount"
-              type="number"
               placeholder="0.00"
               value={billAmount}
-              onChange={(e) => setBillAmount(e.target.value)}
-              min="0"
-              step="0.01"
+              onChange={(sanitized) => setBillAmount(sanitized)}
+              sanitizeOptions={{ min: 0, max: BILL_MAX }}
+              inputMode="decimal"
               aria-invalid={calc.errorField === "bill" ? "true" : "false"}
               aria-describedby={calc.errorField === "bill" ? "tipcalc-error" : undefined}
               className={calc.errorField === "bill" ? "border-red-500" : ""}
@@ -189,14 +206,12 @@ export const TipCalculator = () => {
               </Select>
             </div>
             {useCustomTip && (
-              <Input
-                type="number"
+              <SafeNumberInput
                 placeholder="Enter custom percentage"
                 value={customTip}
-                onChange={(e) => setCustomTip(e.target.value)}
-                min="0"
-                max="100"
-                step="0.1"
+                onChange={(sanitized) => setCustomTip(sanitized)}
+                sanitizeOptions={{ min: TIP_MIN, max: TIP_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "tip" ? "true" : "false"}
                 aria-describedby={calc.errorField === "tip" ? "tipcalc-error" : undefined}
                 className={calc.errorField === "tip" ? "border-red-500" : ""}
@@ -206,14 +221,13 @@ export const TipCalculator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="people">Number of People</Label>
-            <Input
+            <SafeNumberInput
               id="people"
-              type="number"
               placeholder="1"
               value={people}
-              onChange={(e) => setPeople(e.target.value)}
-              min="1"
-              max={PEOPLE_MAX}
+              onChange={(sanitized) => setPeople(sanitized)}
+              sanitizeOptions={{ min: PEOPLE_MIN, max: PEOPLE_MAX, allowDecimal: false }}
+              inputMode="numeric"
               aria-invalid={calc.errorField === "people" ? "true" : "false"}
               aria-describedby={calc.errorField === "people" ? "tipcalc-error" : undefined}
               className={calc.errorField === "people" ? "border-red-500" : ""}
@@ -251,11 +265,11 @@ export const TipCalculator = () => {
               <div className="space-y-2">
                 <div className="flex justify-between text-xs sm:text-sm gap-2">
                   <span className="text-muted-foreground">Tip Amount:</span>
-                  <span className="font-medium break-words text-right">{currencyFormatter.format(calc.tipAmount!)}</span>
+                  <span className="font-medium break-words text-right">{formatCurrency(calc.tipAmount!)}</span>
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm gap-2">
                   <span className="text-muted-foreground">Total Bill:</span>
-                  <span className="font-medium break-words text-right">{currencyFormatter.format(calc.totalBill!)}</span>
+                  <span className="font-medium break-words text-right">{formatCurrency(calc.totalBill!)}</span>
                 </div>
               </div>
 
@@ -263,11 +277,11 @@ export const TipCalculator = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Tip per Person:</span>
-                    <span className="font-medium break-words text-right">{currencyFormatter.format(calc.tipPerPerson!)}</span>
+                    <span className="font-medium break-words text-right">{formatCurrency(calc.tipPerPerson!)}</span>
                   </div>
                   <div className="flex justify-between text-xs sm:text-sm gap-2">
                     <span className="text-muted-foreground">Total per Person:</span>
-                    <span className="font-medium break-words text-right">{currencyFormatter.format(calc.totalPerPerson!)}</span>
+                    <span className="font-medium break-words text-right">{formatCurrency(calc.totalPerPerson!)}</span>
                   </div>
                 </div>
               )}
@@ -278,13 +292,13 @@ export const TipCalculator = () => {
               <p className="text-xs sm:text-sm text-muted-foreground">
                 {(calc.people ?? 1) === 1 ? (
                   <>
-                    You should tip <strong>{currencyFormatter.format(calc.tipAmount!)}</strong> ({(calc.tipPercent ?? 0).toFixed(0)}% of {currencyFormatter.format(calc.bill!)}),
-                    making your total <strong>{currencyFormatter.format(calc.totalBill!)}</strong>.
+                    You should tip <strong>{formatCurrency(calc.tipAmount!)}</strong> ({(calc.tipPercent ?? 0).toFixed(0)}% of {formatCurrency(calc.bill!)}),
+                    making your total <strong>{formatCurrency(calc.totalBill!)}</strong>.
                   </>
                 ) : (
                   <>
-                    Each person should pay <strong>{currencyFormatter.format(calc.totalPerPerson!)}</strong>
-                    (including <strong>{currencyFormatter.format(calc.tipPerPerson!)}</strong> tip each).
+                    Each person should pay <strong>{formatCurrency(calc.totalPerPerson!)}</strong>
+                    (including <strong>{formatCurrency(calc.tipPerPerson!)}</strong> tip each).
                   </>
                 )}
               </p>

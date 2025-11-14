@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCcw, ArrowUpDown } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
 
 interface ExchangeRates {
   [key: string]: number;
@@ -73,12 +75,6 @@ export const CurrencyConverter = () => {
 
   // Security caps and helpers
   const MAX_AMOUNT = 1e12; // Cap input amount to avoid excessive values
-  const sanitizeDecimalInput = (v: string, maxLen = 18) => {
-    const stripped = v.replace(/[^0-9.]/g, "");
-    const parts = stripped.split(".");
-    const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("")}` : stripped;
-    return normalized.slice(0, maxLen);
-  };
   const isAllowedCode = (v: string) => currencies.some(c => c.code === v);
   const coerceCurrency = (v: string) => (isAllowedCode(v) ? v : "USD");
 
@@ -199,14 +195,11 @@ export const CurrencyConverter = () => {
   }, [fromCurrency]);
 
   const convertedAmount = (() => {
-    // Always calculate, even if amount is empty (treat as 0)
-    const value = amount ? parseFloat(amount) : 0;
-    if (isNaN(value)) return 0;
-    if (value < 0) return 0;
-    if (value > MAX_AMOUNT) return MAX_AMOUNT;
+    // Parse amount with unified system
+    const value = safeNumber(amount, { min: 0, max: MAX_AMOUNT }) || 0;
     if (fromCurrency === toCurrency) return value;
     if (!exchangeRates[toCurrency]) return null; // No rate available
-    return value * exchangeRates[toCurrency];
+    return safeCalc(D => D(value).mul(exchangeRates[toCurrency])) || 0;
   })();
 
   const swapCurrencies = () => {
@@ -242,15 +235,13 @@ export const CurrencyConverter = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="amount">Amount</Label>
-            <Input
+            <SafeNumberInput
               id="amount"
-              type="number"
               placeholder="0.00"
               value={amount}
-              onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 18))}
+              onChange={(sanitized) => setAmount(sanitized)}
+              sanitizeOptions={{ min: 0, max: MAX_AMOUNT }}
               inputMode="decimal"
-              min="0"
-              step="0.000001"
             />
           </div>
 

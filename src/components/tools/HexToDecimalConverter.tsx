@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Copy, Calculator } from "lucide-react";
 import { notify } from "@/lib/notify";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
+import { safeNumber } from "@/lib/safe-number";
 
 const MAX_HEX_LENGTH = 8; // Support up to 32-bit (FFFFFFFF)
 const MAX_DECIMAL = 4294967295; // 2^32 - 1
@@ -12,11 +14,6 @@ const MAX_DECIMAL = 4294967295; // 2^32 - 1
 // Sanitize hex input to only allow valid hex chars
 const sanitizeHexInput = (value: string): string => {
   return value.replace(/[^0-9A-Fa-f]/g, '').slice(0, MAX_HEX_LENGTH).toUpperCase();
-};
-
-// Sanitize decimal input to only allow digits
-const sanitizeIntInput = (value: string): string => {
-  return value.replace(/[^\d]/g, '').slice(0, 10);
 };
 
 export const HexToDecimalConverter = () => {
@@ -78,15 +75,14 @@ export const HexToDecimalConverter = () => {
   };
 
   const handleDecimalChange = (value: string) => {
-    const sanitized = sanitizeIntInput(value);
-    setDecimal(sanitized);
-    if (sanitized.trim() === "") {
+    setDecimal(value);
+    if (value.trim() === "") {
       setHex("");
       return;
     }
 
-    const num = parseInt(sanitized);
-    if (isNaN(num) || num < 0 || num > MAX_DECIMAL) {
+    const num = safeNumber(value, { min: 0, max: MAX_DECIMAL, allowDecimal: false });
+    if (num === null) {
       setHex("");
     } else {
       const result = convertDecimalToHex(num);
@@ -208,16 +204,14 @@ export const HexToDecimalConverter = () => {
           <div className="space-y-2">
             <Label htmlFor="decimal">Decimal Number</Label>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Input
+              <SafeNumberInput
                 id="decimal"
-                type="number"
-                inputMode="numeric"
                 placeholder="Enter decimal number (e.g., 255)"
                 value={decimal}
-                onChange={(e) => handleDecimalChange(e.target.value)}
+                onChange={handleDecimalChange}
+                sanitizeOptions={{ min: 0, max: MAX_DECIMAL, allowDecimal: false }}
+                inputMode="numeric"
                 className={!decimalValidation.isValid ? "border-red-500" : ""}
-                min="0"
-                max={MAX_DECIMAL}
               />
               <Button
                 onClick={() => copyToClipboard(decimal, "Decimal")}

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, Receipt } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
 
 export const TaxCalculator = () => {
   // New: tax year + dynamic data with safe fallback
@@ -41,57 +43,7 @@ export const TaxCalculator = () => {
   const MAX_BRACKETS = 20; // prevent maliciously large brackets arrays
   const MAX_STANDARD_DEDUCTION = 1e6; // sanity cap
 
-  // Helpers: sanitize and parse numeric inputs safely
-  const sanitizeNumStr = useCallback((raw: string) => {
-    if (typeof raw !== "string") return "";
-    // Remove any non-digit except a single dot; trim length to 20 chars
-    const trimmed = raw.slice(0, 20);
-    let out = "";
-    let dotSeen = false;
-    for (const ch of trimmed) {
-      if (ch >= "0" && ch <= "9") out += ch;
-      else if (ch === "." && !dotSeen) {
-        out += ch;
-        dotSeen = true;
-      }
-      // ignore everything else (e/E/+/-/spaces/etc.)
-    }
-    return out;
-  }, []);
 
-  const safeParseAmount = useCallback(
-    (raw: string) => {
-      const n = parseFloat(raw);
-      if (!Number.isFinite(n) || n <= 0) return 0;
-      return Math.min(n, MAX_SAFE_INPUT);
-    },
-    [MAX_SAFE_INPUT]
-  );
-
-  // Prevent non-numeric keystrokes in number inputs (defense-in-depth)
-  const handleNumberKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    const allowedKeys = [
-      "Backspace",
-      "Delete",
-      "Tab",
-      "ArrowLeft",
-      "ArrowRight",
-      "Home",
-      "End",
-    ];
-    const ctrlCombo = e.ctrlKey || e.metaKey;
-    if (ctrlCombo && ["a", "c", "v", "x"].includes(e.key.toLowerCase())) return;
-    if (allowedKeys.includes(e.key)) return;
-    if (e.key === ".") return; // allow decimal point once; multiple handled by sanitize
-    if (e.key >= "0" && e.key <= "9") return;
-    // Block anything else like e/E/+/-
-    e.preventDefault();
-  }, []);
-
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLInputElement>) => {
-    // Prevent value changes via scroll wheel which can cause accidental input changes
-    (e.currentTarget as HTMLInputElement).blur();
-  }, []);
 
   const [grossIncome, setGrossIncome] = useState("");
   const [filingStatus, setFilingStatus] = useState("single");
@@ -100,12 +52,11 @@ export const TaxCalculator = () => {
   const [state, setState] = useState("none");
   const [additionalIncome, setAdditionalIncome] = useState("");
 
-  const clampNonNegative = (n: number) => (Number.isFinite(n) && n > 0 ? n : 0);
-  const income = safeParseAmount(grossIncome);
-  const deductionAmount = safeParseAmount(deductions);
-  const credits = safeParseAmount(taxCredits);
-  const additional = safeParseAmount(additionalIncome);
-  const totalIncome = Math.min(income + additional, MAX_SAFE_INPUT);
+  const income = safeNumber(grossIncome, { min: 0, max: MAX_SAFE_INPUT }) || 0;
+  const deductionAmount = safeNumber(deductions, { min: 0, max: MAX_SAFE_INPUT }) || 0;
+  const credits = safeNumber(taxCredits, { min: 0, max: MAX_SAFE_INPUT }) || 0;
+  const additional = safeNumber(additionalIncome, { min: 0, max: MAX_SAFE_INPUT }) || 0;
+  const totalIncome = safeCalc(D => D(income).plus(additional)) || 0;
 
   // Fallback tax data (ensures tool never breaks)
   const fallbackTaxData: Record<string, {
@@ -261,13 +212,16 @@ export const TaxCalculator = () => {
     const brackets = activeData.federalBrackets[safeFiling] as Array<{ min: number; max: number; rate: number }>;
     const standardDeduction = activeData.standardDeductions[safeFiling] as number;
     const totalDeduction = Math.max(deductionAmount, standardDeduction);
-    const taxableIncome = Math.max(0, Math.min(totalIncome - totalDeduction, MAX_SAFE_INPUT));
+    const taxableIncome = Math.max(0, Math.min((safeCalc(D => D(totalIncome).minus(totalDeduction)) || 0), MAX_SAFE_INPUT));
     
     let tax = 0;
     for (const bracket of brackets.slice(0, MAX_BRACKETS)) {
       if (taxableIncome > bracket.min) {
         const incomeInBracket = Math.min(taxableIncome, bracket.max) - bracket.min;
-        if (incomeInBracket > 0) tax += incomeInBracket * bracket.rate;
+        if (incomeInBracket > 0) {
+          const bracketTax = safeCalc(D => D(incomeInBracket).mul(bracket.rate));
+          if (bracketTax !== null) tax += bracketTax;
+        }
       } else {
         break;
       }
@@ -292,18 +246,19 @@ export const TaxCalculator = () => {
     };
     
     const rate = stateRates[state] || 0;
-    return taxableIncome * rate;
+    return safeCalc(D => D(taxableIncome).mul(rate)) || 0;
   };
 
   const federalResult = calculateFederalTax();
   const stateTax = calculateStateTax(federalResult.taxableIncome);
   // Apply credits and never let tax go below zero
-  const totalTax = Math.max(0, federalResult.tax + stateTax - credits);
-  const netIncome = totalIncome - totalTax;
-  const effectiveRate = totalIncome > 0 ? (totalTax / totalIncome) * 100 : 0;
+  const totalTaxCalc = safeCalc(D => D(federalResult.tax).plus(stateTax).minus(credits));
+  const totalTax = Math.max(0, totalTaxCalc || 0);
+  const netIncome = safeCalc(D => D(totalIncome).minus(totalTax)) || 0;
+  const effectiveRate = totalIncome > 0 ? ((safeCalc(D => D(totalTax).div(totalIncome).mul(100)) || 0)) : 0;
 
   // Currency formatter
-  const fmt = (n: number) => Math.min(Math.max(0, n), MAX_SAFE_INPUT).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const fmt = (n: number) => formatCurrency(Math.min(Math.max(0, n), MAX_SAFE_INPUT));
 
   const clearAll = () => {
     setGrossIncome("");
@@ -337,18 +292,13 @@ export const TaxCalculator = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="gross-income">Gross Annual Income ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="gross-income"
-                type="number"
                 placeholder="0"
                 value={grossIncome}
-                onChange={(e) => setGrossIncome(sanitizeNumStr(e.target.value))}
-                onKeyDown={handleNumberKeyDown}
-                onWheel={handleWheel}
+                onChange={(sanitized) => setGrossIncome(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_SAFE_INPUT }}
                 inputMode="decimal"
-                min={0}
-                max={MAX_SAFE_INPUT}
-                autoComplete="off"
               />
             </div>
 
@@ -367,18 +317,13 @@ export const TaxCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="deductions">Itemized Deductions ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="deductions"
-                type="number"
                 placeholder="0"
                 value={deductions}
-                onChange={(e) => setDeductions(sanitizeNumStr(e.target.value))}
-                onKeyDown={handleNumberKeyDown}
-                onWheel={handleWheel}
+                onChange={(sanitized) => setDeductions(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_SAFE_INPUT }}
                 inputMode="decimal"
-                min={0}
-                max={MAX_SAFE_INPUT}
-                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
                 Leave blank to use standard deduction
@@ -387,18 +332,13 @@ export const TaxCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="tax-credits">Tax Credits ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="tax-credits"
-                type="number"
                 placeholder="0"
                 value={taxCredits}
-                onChange={(e) => setTaxCredits(sanitizeNumStr(e.target.value))}
-                onKeyDown={handleNumberKeyDown}
-                onWheel={handleWheel}
+                onChange={(sanitized) => setTaxCredits(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_SAFE_INPUT }}
                 inputMode="decimal"
-                min={0}
-                max={MAX_SAFE_INPUT}
-                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">Credits directly reduce total tax owed.</p>
             </div>
@@ -427,18 +367,13 @@ export const TaxCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="additional-income">Additional Income ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="additional-income"
-                type="number"
                 placeholder="0"
                 value={additionalIncome}
-                onChange={(e) => setAdditionalIncome(sanitizeNumStr(e.target.value))}
-                onKeyDown={handleNumberKeyDown}
-                onWheel={handleWheel}
+                onChange={(sanitized) => setAdditionalIncome(sanitized)}
+                sanitizeOptions={{ min: 0, max: MAX_SAFE_INPUT }}
                 inputMode="decimal"
-                min={0}
-                max={MAX_SAFE_INPUT}
-                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
                 Other income sources (investments, side jobs, etc.)

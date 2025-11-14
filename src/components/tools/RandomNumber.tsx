@@ -1,25 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
 import { RefreshCw } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
 
 const MAX_NUMBER = 1e12; // 1 trillion
 const MIN_NUMBER = -1e12;
 const MAX_COUNT = 10000;
-
-// Sanitize: strip non-numeric chars (keep minus sign and digits)
-const sanitizeInteger = (val: string): string => {
-  // Allow minus at start, then digits only
-  const cleaned = val.replace(/[^0-9-]/g, "");
-  // Ensure only one minus at the start
-  if (cleaned.startsWith("-")) {
-    return "-" + cleaned.substring(1).replace(/-/g, "");
-  }
-  return cleaned.replace(/-/g, "");
-};
 
 // Secure random integer in range [min, max]
 const secureRandomInRange = (min: number, max: number): number => {
@@ -43,33 +33,17 @@ export const RandomNumber = () => {
   };
 
   const generate = () => {
-    const minNum = parseInt(min);
-    const maxNum = parseInt(max);
-    const countNum = parseInt(count);
+    const minNum = safeNumber(min, { min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false });
+    const maxNum = safeNumber(max, { min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false });
+    const countNum = safeNumber(count, { min: 1, max: MAX_COUNT, allowDecimal: false });
 
-    if (isNaN(minNum) || isNaN(maxNum) || isNaN(countNum)) {
+    if (minNum === null || maxNum === null || countNum === null) {
       notify.error("Please enter valid numbers!");
-      return;
-    }
-
-    // Range validation
-    if (minNum < MIN_NUMBER || minNum > MAX_NUMBER) {
-      notify.error(`Min must be between ${MIN_NUMBER.toLocaleString()} and ${MAX_NUMBER.toLocaleString()}`);
-      return;
-    }
-
-    if (maxNum < MIN_NUMBER || maxNum > MAX_NUMBER) {
-      notify.error(`Max must be between ${MIN_NUMBER.toLocaleString()} and ${MAX_NUMBER.toLocaleString()}`);
       return;
     }
 
     if (minNum >= maxNum) {
       notify.error("Min must be less than Max!");
-      return;
-    }
-
-    if (countNum < 1 || countNum > MAX_COUNT) {
-      notify.error(`Count must be between 1 and ${MAX_COUNT.toLocaleString()}`);
       return;
     }
 
@@ -91,29 +65,29 @@ export const RandomNumber = () => {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Minimum</Label>
-              <Input
-                type="text"
-                inputMode="numeric"
+              <SafeNumberInput
                 value={min}
-                onChange={(e) => setMin(sanitizeInteger(e.target.value))}
+                onChange={(sanitized) => setMin(sanitized)}
+                sanitizeOptions={{ min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }}
+                inputMode="numeric"
               />
             </div>
             <div className="space-y-2">
               <Label>Maximum</Label>
-              <Input
-                type="text"
-                inputMode="numeric"
+              <SafeNumberInput
                 value={max}
-                onChange={(e) => setMax(sanitizeInteger(e.target.value))}
+                onChange={(sanitized) => setMax(sanitized)}
+                sanitizeOptions={{ min: MIN_NUMBER, max: MAX_NUMBER, allowDecimal: false }}
+                inputMode="numeric"
               />
             </div>
             <div className="space-y-2">
               <Label>Count</Label>
-              <Input
-                type="text"
-                inputMode="numeric"
+              <SafeNumberInput
                 value={count}
-                onChange={(e) => setCount(sanitizeInteger(e.target.value).replace(/-/g, ""))}
+                onChange={(sanitized) => setCount(sanitized)}
+                sanitizeOptions={{ min: 1, max: MAX_COUNT, allowDecimal: false }}
+                inputMode="numeric"
               />
             </div>
           </div>

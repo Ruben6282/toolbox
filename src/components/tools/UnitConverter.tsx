@@ -1,24 +1,12 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc } from "@/lib/safe-math";
 
 const MAX_INPUT_VALUE = 1e15;
-
-// Sanitize numeric input
-const sanitizeDecimal = (val: string): string => {
-  let out = "";
-  let dotSeen = false;
-  for (const ch of val.slice(0, 20)) {
-    if (ch >= "0" && ch <= "9") out += ch;
-    else if (ch === "." && !dotSeen) {
-      out += ch;
-      dotSeen = true;
-    } else if (ch === "-" && out === "") out += ch;
-  }
-  return out;
-};
 
 type Category = "length" | "weight" | "temperature";
 const ALLOWED_CATEGORIES: Category[] = ["length", "weight", "temperature"];
@@ -58,25 +46,39 @@ export const UnitConverter = () => {
   const [result, setResult] = useState<number | null>(null);
 
   const convert = (val: string, from: string, to: string, cat: string) => {
-    const sanitized = sanitizeDecimal(val);
-    const numVal = parseFloat(sanitized);
-    if (!isFinite(numVal) || isNaN(numVal) || Math.abs(numVal) > MAX_INPUT_VALUE) {
+    const numVal = safeNumber(val, { min: -MAX_INPUT_VALUE, max: MAX_INPUT_VALUE });
+    if (numVal === null) {
       setResult(null);
       return;
     }
 
     if (cat === "temperature") {
       let celsius = numVal;
-      if (from === "fahrenheit") celsius = (numVal - 32) * 5 / 9;
-      if (from === "kelvin") celsius = numVal - 273.15;
+      if (from === "fahrenheit") {
+        celsius = safeCalc(D => D(numVal).minus(32).mul(5).div(9)) || numVal;
+      }
+      if (from === "kelvin") {
+        celsius = safeCalc(D => D(numVal).minus(273.15)) || numVal;
+      }
 
       if (to === "celsius") setResult(celsius);
-      else if (to === "fahrenheit") setResult(celsius * 9 / 5 + 32);
-      else if (to === "kelvin") setResult(celsius + 273.15);
+      else if (to === "fahrenheit") {
+        const result = safeCalc(D => D(celsius).mul(9).div(5).plus(32));
+        setResult(result !== null ? result : 0);
+      }
+      else if (to === "kelvin") {
+        const result = safeCalc(D => D(celsius).plus(273.15));
+        setResult(result !== null ? result : 0);
+      }
     } else {
       const units = conversions[cat as keyof typeof conversions] as Record<string, number>;
-      const baseValue = numVal / units[from];
-      setResult(baseValue * units[to]);
+      const baseValue = safeCalc(D => D(numVal).div(units[from]));
+      if (baseValue !== null) {
+        const result = safeCalc(D => D(baseValue).mul(units[to]));
+        setResult(result !== null ? result : 0);
+      } else {
+        setResult(null);
+      }
     }
   };
 
@@ -120,15 +122,14 @@ export const UnitConverter = () => {
 
           <div className="space-y-2">
             <Label>Value</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
+            <SafeNumberInput
               value={value}
-              onChange={(e) => {
-                const sanitized = sanitizeDecimal(e.target.value);
+              onChange={(sanitized) => {
                 setValue(sanitized);
                 handleChange(sanitized);
               }}
+              sanitizeOptions={{ min: -MAX_INPUT_VALUE, max: MAX_INPUT_VALUE }}
+              inputMode="decimal"
             />
           </div>
 

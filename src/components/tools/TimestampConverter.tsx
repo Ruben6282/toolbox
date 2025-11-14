@@ -4,14 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { notify } from "@/lib/notify";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
+import { safeNumber } from "@/lib/safe-number";
 
 const MIN_TIMESTAMP = -62135596800000; // 0001-01-01 in ms
 const MAX_TIMESTAMP = 253402300799999; // 9999-12-31 in ms
-
-// Sanitize numeric input (digits only)
-const sanitizeDigits = (val: string): string => {
-  return val.replace(/[^\d]/g, "").slice(0, 20);
-};
 
 export const TimestampConverter = () => {
   // Helper to format a Date for an <input type="datetime-local"> using LOCAL time (no timezone)
@@ -30,9 +27,11 @@ export const TimestampConverter = () => {
 
   const timestampToDate = () => {
     try {
-      const sanitized = sanitizeDigits(timestamp);
-      const raw = Number(sanitized);
-      if (!Number.isFinite(raw)) throw new Error("Invalid timestamp");
+      const raw = safeNumber(timestamp, { min: MIN_TIMESTAMP, max: MAX_TIMESTAMP, allowDecimal: false });
+      if (raw === null) {
+        notify.error("Invalid timestamp!");
+        return;
+      }
       // Auto-detect seconds vs milliseconds: assume seconds if value looks like a 10-digit unix epoch
       const tsMs = raw < 1e12 ? raw * 1000 : raw;
       // Clamp to valid range
@@ -40,9 +39,9 @@ export const TimestampConverter = () => {
       const date = new Date(clamped);
       if (isNaN(date.getTime())) throw new Error("Invalid timestamp");
       setDateTime(formatLocalDateTimeForInput(date));
-  notify.success("Converted to date!");
+      notify.success("Converted to date!");
     } catch (e) {
-  notify.error("Invalid timestamp!");
+      notify.error("Invalid timestamp!");
     }
   };
 
@@ -78,11 +77,11 @@ export const TimestampConverter = () => {
         <CardContent className="space-y-3">
           <div className="space-y-2">
             <Label>Timestamp (milliseconds or seconds)</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
+            <SafeNumberInput
               value={timestamp}
-              onChange={(e) => setTimestamp(sanitizeDigits(e.target.value))}
+              onChange={(sanitized) => setTimestamp(sanitized)}
+              sanitizeOptions={{ min: MIN_TIMESTAMP, max: MAX_TIMESTAMP, allowDecimal: false }}
+              inputMode="numeric"
               placeholder="1234567890000"
             />
           </div>

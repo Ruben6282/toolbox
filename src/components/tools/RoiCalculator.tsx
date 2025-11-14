@@ -14,10 +14,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, TrendingUp, AlertCircle } from "lucide-react";
-import { sanitizeNumber } from "@/lib/security";
+import { RotateCcw, AlertCircle } from "lucide-react";
+import { safeNumber } from "@/lib/safe-number";
+import { safeCalc, formatCurrency } from "@/lib/safe-math";
+import { validateRange } from "@/lib/validators";
 
 // Security bounds
 const AMOUNT_MAX = 1e10; // $10,000,000,000
@@ -65,16 +67,13 @@ export function validateAndComputeRoi(params: {
     ): number | { error: string; errorField: RoiComputation["errorField"] } => {
       const trimmed = (rawStr || "").trim();
       if (trimmed === "") return 0; // treat empty as 0
-      if (/[eE]/.test(trimmed)) {
-        return { error: "Scientific notation not allowed.", errorField: field };
-      }
-      const san = sanitizeNumber(trimmed, 0, AMOUNT_MAX);
+      const san = safeNumber(trimmed, { min: 0, max: AMOUNT_MAX });
       if (san === null) {
-        const raw = parseFloat(trimmed);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid number.", errorField: field };
-        }
-        return { error: `Value must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`, errorField: field };
+        return { error: "Invalid number.", errorField: field };
+      }
+      const rangeError = validateRange(san, 0, AMOUNT_MAX);
+      if (rangeError !== true) {
+        return { error: typeof rangeError === 'string' ? rangeError : `Value must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`, errorField: field };
       }
       if (!allowZero && san === 0) {
         return { error: "Value must be greater than 0.", errorField: field };
@@ -97,32 +96,33 @@ export function validateAndComputeRoi(params: {
     const tTrim = (timePeriod || "").trim();
     let timeRaw = 0;
     if (tTrim !== "") {
-      if (/[eE]/.test(tTrim)) {
-        return { error: "Scientific notation not allowed.", errorField: "timePeriod" };
-      }
-      const sanTime = sanitizeNumber(tTrim, 0, TIME_YEARS_MAX * 365);
+      const sanTime = safeNumber(tTrim, { min: 0, max: TIME_YEARS_MAX * 365 });
       if (sanTime === null) {
-        const raw = parseFloat(tTrim);
-        if (isNaN(raw) || !isFinite(raw)) {
-          return { error: "Invalid time value.", errorField: "timePeriod" };
-        }
-        return { error: "Time value out of range.", errorField: "timePeriod" };
+        return { error: "Invalid time value.", errorField: "timePeriod" };
+      }
+      const rangeError = validateRange(sanTime, 0, TIME_YEARS_MAX * 365);
+      if (rangeError !== true) {
+        return { error: typeof rangeError === 'string' ? rangeError : "Time value out of range.", errorField: "timePeriod" };
       }
       timeRaw = sanTime;
     }
 
     // Convert to years
-    let timeYears = 0;
+    let timeYears: number | null = 0;
     switch (tu as TimeUnit) {
       case "years":
         timeYears = timeRaw;
         break;
       case "months":
-        timeYears = timeRaw / 12;
+        timeYears = safeCalc(D => D(timeRaw).div(12));
         break;
       case "days":
-        timeYears = timeRaw / 365;
+        timeYears = safeCalc(D => D(timeRaw).div(365));
         break;
+    }
+
+    if (timeYears === null) {
+      return { error: "Time conversion error.", errorField: "timePeriod" };
     }
 
     if (timeYears > TIME_YEARS_MAX) {
@@ -162,35 +162,43 @@ export function validateAndComputeRoi(params: {
       return { error: "Final value must be greater than 0.", errorField: "finalValue" };
     }
 
-    const totalInvested = Math.round((initialParsed + additionalParsed) * 100) / 100;
+    const totalInvested = safeCalc(D => D(initialParsed).plus(additionalParsed));
 
-    if (totalInvested <= 0) {
+    if (totalInvested === null || totalInvested <= 0) {
       return { error: "Total invested must be greater than 0.", errorField: "initialInvestment" };
     }
 
-    const totalReturn = Math.round((finalParsed - totalInvested) * 100) / 100;
-    let roiPercent = 0;
+    const totalReturn = safeCalc(D => D(finalParsed).minus(totalInvested));
+    if (totalReturn === null) {
+      return { error: "Calculation error: invalid numeric result.", errorField: null };
+    }
+
+    let roiPercent: number | null = 0;
     if (totalInvested > 0) {
-      roiPercent = ((finalParsed - totalInvested) / totalInvested) * 100;
+      roiPercent = safeCalc(D => D(finalParsed).minus(totalInvested).div(totalInvested).mul(100));
+    }
+
+    if (roiPercent === null) {
+      return { error: "Calculation error: invalid ROI result.", errorField: null };
     }
 
     // Annualized ROI only if timeYears > 0 and ratio > 0
-    let annualizedPercent = 0;
-    const ratio = finalParsed / totalInvested;
-    if (timeYears > 0 && ratio > 0) {
-      const ear = Math.pow(ratio, 1 / timeYears) - 1;
-      annualizedPercent = ear * 100;
+    let annualizedPercent: number | null = 0;
+    const ratio = safeCalc(D => D(finalParsed).div(totalInvested));
+    if (ratio === null) {
+      return { error: "Calculation error: invalid ratio.", errorField: null };
     }
 
-    // Round percents
-    const round2 = (x: number) => Math.round(x * 100) / 100;
-    roiPercent = round2(roiPercent);
-    annualizedPercent = round2(annualizedPercent);
+    if (timeYears > 0 && ratio > 0) {
+      const ear = safeCalc(D => D(ratio).pow(D(1).div(timeYears)).minus(1));
+      if (ear === null) {
+        return { error: "Calculation error: invalid annualized return.", errorField: null };
+      }
+      annualizedPercent = safeCalc(D => D(ear).mul(100));
+    }
 
-    // Finite checks
-    const numeric = [totalInvested, totalReturn, roiPercent, annualizedPercent];
-    if (numeric.some((n) => !Number.isFinite(n))) {
-      return { error: "Calculation error: invalid numeric result.", errorField: null };
+    if (annualizedPercent === null) {
+      return { error: "Calculation error: invalid annualized result.", errorField: null };
     }
 
     return {
@@ -218,6 +226,8 @@ export const RoiCalculator = () => {
   const [additionalInvestments, setAdditionalInvestments] = useState("");
   const [timePeriod, setTimePeriod] = useState("");
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("years");
+
+
 
   // Currency formatter
   const currencyFormatter = useMemo(
@@ -273,14 +283,13 @@ export const RoiCalculator = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="initial-investment">Initial Investment ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="initial-investment"
-                type="number"
                 placeholder="0"
                 value={initialInvestment}
-                onChange={(e) => setInitialInvestment(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setInitialInvestment(sanitized)}
+                sanitizeOptions={{ min: 0, max: AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "initialInvestment" ? "true" : "false"}
                 aria-describedby={calc.errorField === "initialInvestment" ? "roi-error" : undefined}
                 className={calc.errorField === "initialInvestment" ? "border-red-500" : ""}
@@ -290,14 +299,13 @@ export const RoiCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="final-value">Final Value ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="final-value"
-                type="number"
                 placeholder="0"
                 value={finalValue}
-                onChange={(e) => setFinalValue(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setFinalValue(sanitized)}
+                sanitizeOptions={{ min: 0, max: AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "finalValue" ? "true" : "false"}
                 aria-describedby={calc.errorField === "finalValue" ? "roi-error" : undefined}
                 className={calc.errorField === "finalValue" ? "border-red-500" : ""}
@@ -306,14 +314,13 @@ export const RoiCalculator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="additional-investments">Additional Investments ($)</Label>
-              <Input
+              <SafeNumberInput
                 id="additional-investments"
-                type="number"
                 placeholder="0"
                 value={additionalInvestments}
-                onChange={(e) => setAdditionalInvestments(e.target.value)}
-                min="0"
-                step="0.01"
+                onChange={(sanitized) => setAdditionalInvestments(sanitized)}
+                sanitizeOptions={{ min: 0, max: AMOUNT_MAX }}
+                inputMode="decimal"
                 aria-invalid={calc.errorField === "additionalInvestments" ? "true" : "false"}
                 aria-describedby={calc.errorField === "additionalInvestments" ? "roi-error" : undefined}
                 className={calc.errorField === "additionalInvestments" ? "border-red-500" : ""}
@@ -324,14 +331,13 @@ export const RoiCalculator = () => {
             <div className="space-y-2">
               <Label htmlFor="time-period">Time Period</Label>
               <div className="flex gap-2">
-                <Input
+                <SafeNumberInput
                   id="time-period"
-                  type="number"
                   placeholder="0"
                   value={timePeriod}
-                  onChange={(e) => setTimePeriod(e.target.value)}
-                  min="0"
-                  step="0.01"
+                  onChange={(sanitized) => setTimePeriod(sanitized)}
+                  sanitizeOptions={{ min: 0, max: TIME_YEARS_MAX * 365 }}
+                  inputMode="decimal"
                   aria-invalid={calc.errorField === "timePeriod" ? "true" : "false"}
                   aria-describedby={calc.errorField === "timePeriod" ? "roi-error" : undefined}
                   className={`${calc.errorField === "timePeriod" ? "border-red-500" : ""} flex-1`}
@@ -397,7 +403,7 @@ export const RoiCalculator = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="text-xl sm:text-2xl font-bold text-blue-600 break-all px-2" aria-live="polite" aria-atomic="true">
-                    {currencyFormatter.format(calc.totalInvested!)}
+                    {formatCurrency(calc.totalInvested!)}
                   </div>
                   <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Invested</div>
                 </div>
@@ -407,7 +413,7 @@ export const RoiCalculator = () => {
                     aria-live="polite"
                     aria-atomic="true"
                   >
-                    {calc.totalReturn! > 0 ? '+' : ''}{currencyFormatter.format(calc.totalReturn!)}
+                    {calc.totalReturn! > 0 ? '+' : ''}{formatCurrency(calc.totalReturn!)}
                   </div>
                   <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Return</div>
                 </div>
@@ -426,19 +432,19 @@ export const RoiCalculator = () => {
                     <div className="flex justify-between gap-2">
                       <span className="text-muted-foreground flex-shrink-0">Initial Investment:</span>
                       <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.initialInvestment!)}
+                        {formatCurrency(calc.initialInvestment!)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span className="text-muted-foreground flex-shrink-0">Additional Investments:</span>
                       <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.additionalInvestments!)}
+                        {formatCurrency(calc.additionalInvestments!)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span className="text-muted-foreground flex-shrink-0">Total Invested:</span>
                       <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.totalInvested!)}
+                        {formatCurrency(calc.totalInvested!)}
                       </span>
                     </div>
                   </div>
@@ -446,13 +452,13 @@ export const RoiCalculator = () => {
                     <div className="flex justify-between gap-2">
                       <span className="text-muted-foreground flex-shrink-0">Final Value:</span>
                       <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.finalValue!)}
+                        {formatCurrency(calc.finalValue!)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span className="text-muted-foreground flex-shrink-0">Total Return:</span>
                       <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {calc.totalReturn! > 0 ? '+' : ''}{currencyFormatter.format(calc.totalReturn!)}
+                        {calc.totalReturn! > 0 ? '+' : ''}{formatCurrency(calc.totalReturn!)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-2">
