@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,15 +16,43 @@ export const TwitterCharacterCounter = () => {
   const remainingChars = maxLength - currentLength;
   const isOverLimit = currentLength > maxLength;
   const isNearLimit = remainingChars <= 20 && remainingChars > 0;
+  const isAtLimit = remainingChars === 0;
+
+  const handleTextChange = (v: string) => {
+    // Enforce max length at UI level: block any characters beyond the limit
+    if (v.length > maxLength) {
+      setText(v.slice(0, maxLength))
+    } else {
+      setText(v)
+    }
+  }
+
+  const handlePaste: React.ClipboardEventHandler<HTMLTextAreaElement> = (e) => {
+    const paste = e.clipboardData.getData('text') || ''
+    const allowed = maxLength - text.length
+    if (paste.length > allowed) {
+      e.preventDefault()
+      const toInsert = paste.slice(0, Math.max(0, allowed))
+      // Insert trimmed paste at cursor position
+      const target = e.currentTarget
+      const start = target.selectionStart ?? text.length
+      const end = target.selectionEnd ?? text.length
+      const next = text.slice(0, start) + toInsert + text.slice(end)
+      setText(next.slice(0, maxLength))
+    }
+    // otherwise allow default paste which will be handled by onChange
+  }
 
   const getCharacterCountColor = () => {
     if (isOverLimit) return "text-red-600 dark:text-red-400";
+    if (isAtLimit) return "text-red-600 dark:text-red-400";
     if (isNearLimit) return "text-yellow-600 dark:text-yellow-400";
     return "text-green-600 dark:text-green-400";
   };
 
   const getCharacterCountBg = () => {
     if (isOverLimit) return "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800";
+    if (isAtLimit) return "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800";
     if (isNearLimit) return "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800";
     return "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800";
   };
@@ -32,13 +60,14 @@ export const TwitterCharacterCounter = () => {
   const copyToClipboard = async () => {
     try {
       // Modern approach - works on most browsers including mobile
+      const toCopy = text.slice(0, maxLength)
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(toCopy);
         notify.success("Tweet copied to clipboard!");
       } else {
         // Fallback for older browsers or when clipboard API is not available
         const textArea = document.createElement("textarea");
-        textArea.value = text;
+        textArea.value = toCopy;
         textArea.style.position = "fixed";
         textArea.style.left = "-999999px";
         textArea.style.top = "-999999px";
@@ -115,9 +144,12 @@ export const TwitterCharacterCounter = () => {
               id="tweet-text"
               placeholder="What's happening?"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => handleTextChange(e.target.value)}
+              onPaste={handlePaste}
               rows={4}
               className="resize-none"
+              maxLength={maxLength}
+              aria-describedby={"tweet-remaining"}
             />
           </div>
 
@@ -137,10 +169,13 @@ export const TwitterCharacterCounter = () => {
                 {isOverLimit && (
                   <Badge variant="destructive">Over Limit</Badge>
                 )}
-                {isNearLimit && !isOverLimit && (
+                {!isOverLimit && isAtLimit && (
+                  <Badge variant="destructive">Limit Reached</Badge>
+                )}
+                {isNearLimit && !isOverLimit && !isAtLimit && (
                   <Badge variant="secondary">Near Limit</Badge>
                 )}
-                {!isOverLimit && !isNearLimit && (
+                {!isOverLimit && !isNearLimit && !isAtLimit && (
                   <Badge variant="default" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100">
                     Good
                   </Badge>
@@ -150,13 +185,13 @@ export const TwitterCharacterCounter = () => {
 
             {remainingChars !== maxLength && (
               <div className="mt-2">
-                <div className="text-sm text-muted-foreground">
+                <div id="tweet-remaining" className="text-sm text-muted-foreground" aria-live="polite">
                   {isOverLimit ? (
                     <span className="text-red-600 dark:text-red-400">
                       {Math.abs(remainingChars)} characters over the limit
                     </span>
                   ) : (
-                    <span className={isNearLimit ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}>
+                    <span className={getCharacterCountColor()}>
                       {remainingChars} characters remaining
                     </span>
                   )}
@@ -166,7 +201,7 @@ export const TwitterCharacterCounter = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={copyToClipboard} disabled={!text.trim()} className="w-full sm:w-auto">
+            <Button onClick={copyToClipboard} disabled={!text.trim() || isOverLimit} className="w-full sm:w-auto">
               <Copy className="h-4 w-4 mr-2" />
               Copy Tweet
             </Button>
@@ -177,7 +212,7 @@ export const TwitterCharacterCounter = () => {
             <Button 
               onClick={() => setShowPreview(!showPreview)} 
               variant="outline"
-              disabled={!text.trim()}
+              disabled={!text.trim() || isOverLimit}
               className="w-full sm:w-auto"
             >
               {showPreview ? "Hide" : "Show"} Preview

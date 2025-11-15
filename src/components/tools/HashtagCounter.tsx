@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Copy, RotateCcw, Hash, TrendingUp, Users, MessageSquare } from "lucide-react";
 import { notify } from "@/lib/notify";
@@ -194,14 +195,8 @@ export const HashtagCounter = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="show-positions"
-              checked={showPositions}
-              onChange={(e) => setShowPositions(e.target.checked)}
-              className="rounded"
-            />
-            <Label htmlFor="show-positions">Show hashtag positions</Label>
+            <Checkbox id="show-positions" checked={showPositions} onCheckedChange={(c) => setShowPositions(!!c)} />
+            <Label htmlFor="show-positions" className="cursor-pointer">Show hashtag positions</Label>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
