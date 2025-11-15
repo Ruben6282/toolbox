@@ -1,26 +1,38 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { SafeNumberInput } from "@/components/ui/safe-number-input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, ArrowUpDown } from "lucide-react";
-import { notify } from "@/lib/notify";
-import { safeNumber } from "@/lib/safe-number";
-import { safeCalc } from "@/lib/safe-math";
+import { useEffect, useMemo, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { SafeNumberInput } from "@/components/ui/safe-number-input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { RotateCcw, ArrowUpDown, AlertCircle } from "lucide-react"
+import { notify } from "@/lib/notify"
+import { safeNumber } from "@/lib/safe-number"
+import { safeCalc } from "@/lib/safe-math"
+import { validateRange } from "@/lib/validators"
 
 interface ExchangeRates {
-  [key: string]: number;
+  [key: string]: number
 }
 
 interface CachedRates {
-  base: string;
-  rates: ExchangeRates;
-  date: string;
-  timestamp: number;
+  base: string
+  rates: ExchangeRates
+  date: string
+  timestamp: number
 }
 
-// 🪙 Default fallback exchange rates
+/* LIMITS */
+const MAX_AMOUNT = 1e12 // 1,000,000,000,000
+const MIN_AMOUNT = 0
+const MAX_AMOUNT_DIGITS = String(MAX_AMOUNT).length
+
+// 🪙 Default fallback exchange rates (USD-based)
 const defaultRates: ExchangeRates = {
   USD: 1,
   EUR: 0.85,
@@ -41,102 +53,171 @@ const defaultRates: ExchangeRates = {
   NOK: 8.8,
   DKK: 6.3,
   PLN: 3.9,
-};
+}
+
+type CurrencyErrors = {
+  amount?: string
+  rate?: string
+}
+
+type CurrencyResult = {
+  converted: number
+  input: number
+  inputRaw: string
+  from: string
+  to: string
+}
 
 export const CurrencyConverter = () => {
-  const [amount, setAmount] = useState("");
-  const [fromCurrency, setFromCurrency] = useState("USD");
-  const [toCurrency, setToCurrency] = useState("EUR");
-  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [amount, setAmount] = useState("")
+  const [fromCurrency, setFromCurrency] = useState("USD")
+  const [toCurrency, setToCurrency] = useState("EUR")
 
-  const currencies = [
-    { code: "USD", name: "US Dollar", symbol: "$" },
-    { code: "EUR", name: "Euro", symbol: "€" },
-    { code: "GBP", name: "British Pound", symbol: "£" },
-    { code: "JPY", name: "Japanese Yen", symbol: "¥" },
-    { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
-    { code: "AUD", name: "Australian Dollar", symbol: "A$" },
-    { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
-    { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
-    { code: "INR", name: "Indian Rupee", symbol: "₹" },
-    { code: "BRL", name: "Brazilian Real", symbol: "R$" },
-    { code: "KRW", name: "South Korean Won", symbol: "₩" },
-    { code: "MXN", name: "Mexican Peso", symbol: "$" },
-    { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
-    { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
-    { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
-    { code: "SEK", name: "Swedish Krona", symbol: "kr" },
-    { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
-    { code: "DKK", name: "Danish Krone", symbol: "kr" },
-    { code: "PLN", name: "Polish Zloty", symbol: "zł" },
-  ];
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({})
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Security caps and helpers
-  const MAX_AMOUNT = 1e12; // Cap input amount to avoid excessive values
-  const isAllowedCode = (v: string) => currencies.some(c => c.code === v);
-  const coerceCurrency = (v: string) => (isAllowedCode(v) ? v : "USD");
+  const [errors, setErrors] = useState<CurrencyErrors>({})
+  const [result, setResult] = useState<CurrencyResult | null>(null)
+  const [calculated, setCalculated] = useState(false)
 
-  const getSymbol = (code: string) => currencies.find(c => c.code === code)?.symbol || code;
-  const getName = (code: string) => currencies.find(c => c.code === code)?.name || code;
+  const currencies = useMemo(
+    () => [
+      { code: "USD", name: "US Dollar", symbol: "$" },
+      { code: "EUR", name: "Euro", symbol: "€" },
+      { code: "GBP", name: "British Pound", symbol: "£" },
+      { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+      { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+      { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+      { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+      { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+      { code: "INR", name: "Indian Rupee", symbol: "₹" },
+      { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+      { code: "KRW", name: "South Korean Won", symbol: "₩" },
+      { code: "MXN", name: "Mexican Peso", symbol: "$" },
+      { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
+      { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
+      { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
+      { code: "SEK", name: "Swedish Krona", symbol: "kr" },
+      { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
+      { code: "DKK", name: "Danish Krone", symbol: "kr" },
+      { code: "PLN", name: "Polish Zloty", symbol: "zł" },
+    ],
+    []
+  )
 
+  // Security helpers
+  const isAllowedCode = (v: string) => currencies.some((c) => c.code === v)
+  const coerceCurrency = (v: string) => (isAllowedCode(v) ? v : "USD")
+
+  const getSymbol = (code: string) =>
+    currencies.find((c) => c.code === code)?.symbol || code
+
+  const getName = (code: string) =>
+    currencies.find((c) => c.code === code)?.name || code
+
+  const formattedMaxAmount = useMemo(
+    () =>
+      MAX_AMOUNT.toLocaleString(undefined, {
+        maximumFractionDigits: 0,
+      }),
+    []
+  )
+
+  const hasError = Boolean(errors.amount || errors.rate)
+
+  // --- Fetch & cache rates for current base currency ---
   useEffect(() => {
     const fetchRates = async () => {
-      const allowed = new Set(currencies.map(c => c.code));
-      setIsLoading(true);
-      const cacheKey = `rates_${fromCurrency}`;
-      const cachedData = localStorage.getItem(cacheKey);
+      const allowed = new Set(currencies.map((c) => c.code))
+      setIsLoading(true)
+      setErrors((prev) => ({ ...prev, rate: undefined }))
 
-      if (cachedData) {
-        try {
-          const parsed: CachedRates = JSON.parse(cachedData);
-          const now = Date.now();
+      const cacheKey = `rates_${fromCurrency}`
 
-          if (
-            typeof parsed === "object" && parsed &&
-            typeof parsed.timestamp === "number" &&
-            parsed.rates && typeof parsed.rates === "object" &&
-            typeof parsed.date === "string" &&
-            now - parsed.timestamp < 24 * 60 * 60 * 1000
-          ) {
-            const safeRates: ExchangeRates = {};
-            Object.entries(parsed.rates).forEach(([k, v]) => {
-              if (allowed.has(k) && Number.isFinite(v)) safeRates[k] = v;
-            });
-            setExchangeRates(safeRates);
-            setLastUpdated(
-              new Date(parsed.date).toLocaleString(undefined, {
-                year: "numeric",
-                month: "numeric",
-                day: "numeric",
-                hour: "numeric",
-                minute: "numeric",
-                second: "numeric",
+      // Local storage only in browser
+      const hasWindow = typeof window !== "undefined"
+      const hasStorage = hasWindow && typeof window.localStorage !== "undefined"
+
+      if (hasStorage) {
+        const cachedData = window.localStorage.getItem(cacheKey)
+
+        if (cachedData) {
+          try {
+            const parsed: CachedRates = JSON.parse(cachedData)
+            const now = Date.now()
+
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              typeof parsed.timestamp === "number" &&
+              parsed.rates &&
+              typeof parsed.rates === "object" &&
+              typeof parsed.date === "string" &&
+              now - parsed.timestamp < 24 * 60 * 60 * 1000
+            ) {
+              const safeRates: ExchangeRates = {}
+              Object.entries(parsed.rates).forEach(([k, v]) => {
+                if (allowed.has(k) && Number.isFinite(v)) {
+                  safeRates[k] = v
+                }
               })
-            );
-            setIsLoading(false);
-            return;
+
+              setExchangeRates(safeRates)
+              setLastUpdated(
+                new Date(parsed.date).toLocaleString(undefined, {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                  second: "numeric",
+                })
+              )
+              setIsLoading(false)
+              return
+            }
+          } catch {
+            // Ignore corrupted cache
           }
-        } catch {
-          // Ignore corrupted cache
         }
       }
 
+      // Live fetch with timeout & robust fallback
       try {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 10000);
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(fromCurrency)}`, { signal: controller.signal });
-        window.clearTimeout(timeoutId);
-        if (!res.ok) throw new Error("Bad response");
-        const data = await res.json();
+        if (!hasWindow) {
+          throw new Error("No window context for fetch")
+        }
+
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 10000)
+
+        const res = await fetch(
+          `https://api.frankfurter.app/latest?from=${encodeURIComponent(
+            fromCurrency
+          )}`,
+          { signal: controller.signal }
+        )
+
+        window.clearTimeout(timeoutId)
+
+        if (!res.ok) {
+          throw new Error("Bad response from rate API")
+        }
+
+        const data = await res.json()
 
         if (data?.rates && typeof data.rates === "object") {
-          const safeRates: ExchangeRates = {};
-          Object.entries(data.rates as Record<string, number>).forEach(([k, v]) => {
-            if (allowed.has(k) && Number.isFinite(v)) safeRates[k] = v;
-          });
-          setExchangeRates(safeRates);
+          const safeRates: ExchangeRates = {}
+          Object.entries(data.rates as Record<string, number>).forEach(
+            ([k, v]) => {
+              if (allowed.has(k) && Number.isFinite(v)) {
+                safeRates[k] = v
+              }
+            }
+          )
+
+          setExchangeRates(safeRates)
           setLastUpdated(
             new Date(data.date).toLocaleString(undefined, {
               year: "numeric",
@@ -146,36 +227,38 @@ export const CurrencyConverter = () => {
               minute: "numeric",
               second: "numeric",
             })
-          );
+          )
 
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              base: fromCurrency,
-              rates: safeRates,
-              date: data.date,
-              timestamp: Date.now(),
-            })
-          );
+          if (hasStorage) {
+            window.localStorage.setItem(
+              cacheKey,
+              JSON.stringify({
+                base: fromCurrency,
+                rates: safeRates,
+                date: data.date,
+                timestamp: Date.now(),
+              })
+            )
+          }
         } else {
-          throw new Error("Invalid data");
+          throw new Error("Invalid data structure")
         }
       } catch {
-        console.warn("⚠️ Using fallback exchange rates.");
-        notify.warning("Using fallback exchange rates (offline data).");
-        
-        // Convert defaultRates (which are USD-based) to be relative to fromCurrency
-        const baseRate = defaultRates[fromCurrency] || 1;
-        const convertedRates: ExchangeRates = {};
-        
-        Object.keys(defaultRates).forEach(currency => {
+        console.warn("⚠️ Using fallback exchange rates.")
+        notify.warning("Using fallback exchange rates (offline data).")
+
+        // Convert USD-based defaultRates to be relative to fromCurrency
+        const baseRate = defaultRates[fromCurrency] || 1
+        const convertedRates: ExchangeRates = {}
+
+        Object.keys(defaultRates).forEach((currency) => {
           if (currency !== fromCurrency && allowed.has(currency)) {
-            // Convert from USD to fromCurrency: rate = (toCurrency/USD) / (fromCurrency/USD)
-            convertedRates[currency] = defaultRates[currency] / baseRate;
+            convertedRates[currency] =
+              defaultRates[currency] / baseRate
           }
-        });
-        
-        setExchangeRates(convertedRates);
+        })
+
+        setExchangeRates(convertedRates)
 
         const fallbackTime = new Date().toLocaleString(undefined, {
           year: "numeric",
@@ -184,46 +267,214 @@ export const CurrencyConverter = () => {
           hour: "numeric",
           minute: "numeric",
           second: "numeric",
-        });
-        setLastUpdated(`Offline data (updated manually on ${fallbackTime})`);
+        })
+        setLastUpdated(`Offline data (updated manually on ${fallbackTime})`)
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
+    }
 
-    fetchRates();
-  }, [fromCurrency]);
+    fetchRates()
+  }, [fromCurrency, currencies])
 
-  const convertedAmount = (() => {
-    // Parse amount with unified system
-    const value = safeNumber(amount, { min: 0, max: MAX_AMOUNT }) || 0;
-    if (fromCurrency === toCurrency) return value;
-    if (!exchangeRates[toCurrency]) return null; // No rate available
-    return safeCalc(D => D(value).mul(exchangeRates[toCurrency])) || 0;
-  })();
+  // --- Input handler (BMI-style: allow empty, clamp only max) ---
+  const handleAmountChange = (val: string) => {
+    const raw = val.trim()
+    const n = raw === "" ? null : Number(raw)
+
+    // Allow empty while typing
+    if (n === null || Number.isNaN(n)) {
+      setErrors((prev) => ({ ...prev, amount: undefined }))
+      setAmount(val)
+      return
+    }
+
+    // Clamp max only at UI level
+    if (n > MAX_AMOUNT) {
+      const msg = `Amount must be less than or equal to ${formattedMaxAmount}.`
+      setErrors((prev) => ({ ...prev, amount: msg }))
+      const clamped = String(MAX_AMOUNT)
+      setAmount(clamped)
+      return
+    }
+
+    // Disallow negative numbers at the UI level
+    if (n < MIN_AMOUNT) {
+      const msg = `Amount cannot be negative.`
+      setErrors((prev) => ({ ...prev, amount: msg }))
+      setAmount(String(MIN_AMOUNT))
+      return
+    }
+
+    // Within allowed max, don't enforce min while typing
+    // Preserve clamp/min error when the handler runs again with the clamped value to avoid flicker
+    const maxMsg = `Amount must be less than or equal to ${formattedMaxAmount}.`
+    const minMsg = `Amount cannot be negative.`
+    if (n === MAX_AMOUNT && errors.amount === maxMsg) {
+      setAmount(val)
+      return
+    }
+    if (n === MIN_AMOUNT && errors.amount === minMsg) {
+      setAmount(val)
+      return
+    }
+
+    setErrors((prev) => ({ ...prev, amount: undefined }))
+    setAmount(val)
+  }
 
   const swapCurrencies = () => {
-    // Swap both currencies in one go
-    const tempFrom = fromCurrency;
-    const tempTo = toCurrency;
-    setFromCurrency(tempTo);
-    setToCurrency(tempFrom);
-  };
+    const prevFrom = fromCurrency
+    const prevTo = toCurrency
+    setFromCurrency(prevTo)
+    setToCurrency(prevFrom)
+    // Keep displayed result until user explicitly converts again,
+    // but attempt to update the snapshot using available cached rates.
+    setErrors((prev) => ({ ...prev, rate: undefined }))
 
+    // Try to compute the swapped conversion using current cached rates
+    // exchangeRates are relative to the current `fromCurrency` (prevFrom).
+    // To compute prevTo -> prevFrom we can invert the prevFrom -> prevTo rate.
+    const amountNum = safeNumber(amount, { min: MIN_AMOUNT, max: MAX_AMOUNT })
+    if (amountNum === null) return
+
+    const rateForward = exchangeRates[prevTo]
+    if (rateForward === undefined || !Number.isFinite(rateForward)) {
+      // Can't compute swapped rate from cached data
+      setErrors((prev) => ({ ...prev, rate: "Exchange rate not available for the selected pair." }))
+      return
+    }
+
+    // Compute swapped conversion: amount (prevTo) -> prevFrom = amount / rateForward
+    let swapped: number | null = safeCalc((D) => D(amountNum).div(rateForward))
+    if (swapped === null || !Number.isFinite(swapped)) {
+      swapped = amountNum / rateForward
+      if (!Number.isFinite(swapped)) {
+        setErrors((prev) => ({ ...prev, rate: "Conversion failed. Please try a different amount." }))
+        return
+      }
+    }
+
+    setResult({
+      converted: swapped,
+      input: amountNum,
+      inputRaw: amount.trim(),
+      from: prevTo,
+      to: prevFrom,
+    })
+    setCalculated(true)
+  }
 
   const clearAll = () => {
-    setAmount("");
-    setFromCurrency("USD");
-    setToCurrency("EUR");
-  };
+    setAmount("")
+    setFromCurrency("USD")
+    setToCurrency("EUR")
+    setResult(null)
+    setCalculated(false)
+    setErrors({})
+  }
 
-  const getDisplayAmount = () => {
-    return amount || "0";
-  };
+  const getDisplayAmount = () => (amount.trim() === "" ? "0" : amount.trim())
 
-  const formattedConverted = convertedAmount !== null 
-    ? convertedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
-    : "0.00";
+  const onConvert = () => {
+    setCalculated(false)
+    setResult(null)
+    setErrors({})
+
+    // Required check
+    if (!amount.trim()) {
+      setErrors({ amount: "Amount is required." })
+      notify.error("Please enter an amount before converting.")
+      return
+    }
+
+    // Parse with safeNumber & validate range
+    const amountNum = safeNumber(amount, {
+      min: MIN_AMOUNT,
+      max: MAX_AMOUNT,
+    })
+
+    const newErrors: CurrencyErrors = {}
+
+    if (amountNum === null) {
+      newErrors.amount = `Amount must be between ${MIN_AMOUNT.toLocaleString()} and ${formattedMaxAmount}.`
+    } else {
+      const rangeCheck = validateRange(amountNum, MIN_AMOUNT, MAX_AMOUNT)
+      if (rangeCheck !== true) {
+        newErrors.amount =
+          typeof rangeCheck === "string"
+            ? rangeCheck
+            : `Amount must be between ${MIN_AMOUNT.toLocaleString()} and ${formattedMaxAmount}.`
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      notify.error("Please fix the highlighted fields before converting.")
+      return
+    }
+
+    const safeAmount = amountNum!
+
+    // If same currency, conversion is trivial
+    if (fromCurrency === toCurrency) {
+      setResult({
+        converted: safeAmount,
+        input: safeAmount,
+        inputRaw: amount.trim(),
+        from: fromCurrency,
+        to: toCurrency,
+      })
+      setCalculated(true)
+      return
+    }
+
+    // Ensure rate exists and is finite
+    const rate = exchangeRates[toCurrency]
+    if (rate === undefined || !Number.isFinite(rate)) {
+      setErrors({
+        rate: "Exchange rate not available for the selected pair.",
+      })
+      notify.error("Exchange rate not available. Please try again later.")
+      return
+    }
+
+    // Perform conversion with safeCalc; guard against failure
+    let converted: number | null = safeCalc((D) =>
+      D(safeAmount).mul(rate)
+    )
+
+    if (converted === null || !Number.isFinite(converted)) {
+      // Fallback to plain JS arithmetic as a last resort
+      converted = safeAmount * rate
+      if (!Number.isFinite(converted)) {
+        setErrors({
+          rate:
+            "Conversion failed due to an unexpected numeric error. Please adjust the amount.",
+        })
+        notify.error("Conversion failed. Please try a smaller amount.")
+        return
+      }
+    }
+
+    setErrors({})
+    setResult({
+      converted: converted,
+      input: safeAmount,
+      inputRaw: amount.trim(),
+      from: fromCurrency,
+      to: toCurrency,
+    })
+    setCalculated(true)
+  }
+
+  const formattedConverted =
+    calculated && result !== null
+      ? result.converted.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 6,
+        })
+      : "0.00"
 
   return (
     <div className="space-y-6">
@@ -233,72 +484,148 @@ export const CurrencyConverter = () => {
           <CardTitle>Currency Converter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Amount */}
           <div className="space-y-2">
             <Label htmlFor="amount">Amount</Label>
             <SafeNumberInput
               id="amount"
               placeholder="0.00"
               value={amount}
-              onChange={(sanitized) => setAmount(sanitized)}
-              sanitizeOptions={{ min: 0, max: MAX_AMOUNT }}
+              onChange={handleAmountChange}
+              sanitizeOptions={{
+                max: MAX_AMOUNT,
+                maxLength: MAX_AMOUNT_DIGITS,
+                allowDecimal: true,
+              }}
               inputMode="decimal"
+              aria-invalid={errors.amount ? "true" : "false"}
+              aria-describedby={errors.amount ? "cc-amount-error" : undefined}
+              className={errors.amount ? "border-red-500" : ""}
             />
+            <p className="text-xs text-muted-foreground">
+              Min: {MIN_AMOUNT.toLocaleString()} • Max: {formattedMaxAmount}
+            </p>
           </div>
 
+          {/* From / To selects */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {["From", "To"].map((label, i) => {
-              const currency = i === 0 ? fromCurrency : toCurrency;
-              const setCurrency = i === 0 ? setFromCurrency : setToCurrency;
+            {/* From */}
+            <div className="space-y-2">
+              <Label>From</Label>
+              <Select
+                value={fromCurrency}
+                onValueChange={(v) => {
+                    setFromCurrency(coerceCurrency(v))
+                    setErrors((prev) => ({ ...prev, rate: undefined }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.symbol} {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              return (
-                <div key={label} className="space-y-2">
-                  <Label>{label}</Label>
-                  <Select value={currency} onValueChange={(v) => setCurrency(coerceCurrency(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {currencies.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.symbol} {c.name} ({c.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              );
-            })}
+            {/* To */}
+            <div className="space-y-2">
+              <Label>To</Label>
+              <Select
+                value={toCurrency}
+                onValueChange={(v) => {
+                    setToCurrency(coerceCurrency(v))
+                    setErrors((prev) => ({ ...prev, rate: undefined }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.symbol} {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={swapCurrencies} variant="outline">
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={onConvert}
+              disabled={isLoading}
+              className="flex-1 sm:flex-none"
+            >
+              Convert
+            </Button>
+            <Button
+              onClick={swapCurrencies}
+              variant="outline"
+              disabled={isLoading}
+            >
               <ArrowUpDown className="h-4 w-4" />
             </Button>
             <Button onClick={clearAll} variant="outline">
               <RotateCcw className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Error display */}
+          {hasError && (
+            <div
+              className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
+              role="alert"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                {errors.amount && (
+                  <div id="cc-amount-error">{errors.amount}</div>
+                )}
+                {errors.rate && <div id="cc-rate-error">{errors.rate}</div>}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Conversion Result - Always visible */}
+      {/* Conversion Result */}
       <Card>
         <CardHeader>
           <CardTitle>Conversion Result</CardTitle>
         </CardHeader>
-        <CardContent className="text-center">
+        <CardContent className="text-center" aria-live="polite">
           {isLoading ? (
             <div className="py-4">
-              <div className="text-lg text-muted-foreground mb-2">Loading exchange rates...</div>
+              <div className="text-lg text-muted-foreground mb-2">
+                Loading exchange rates...
+              </div>
               <div className="text-sm text-muted-foreground">Please wait</div>
             </div>
-          ) : (
+          ) : calculated && !hasError && result !== null ? (
             <>
-              <div className="text-2xl font-bold mb-2">
-                {getSymbol(toCurrency)}{formattedConverted}
+              <div className="text-2xl sm:text-3xl font-bold mb-2 break-all px-2">
+                {getSymbol(result.to)}
+                {formattedConverted}
               </div>
-              <p className="text-muted-foreground">
-                {getDisplayAmount()} {getName(fromCurrency)} = {formattedConverted} {getName(toCurrency)}
+              <p className="text-muted-foreground break-words px-2">
+                {result.inputRaw} {getName(result.from)} ={" "}
+                {formattedConverted} {getName(result.to)}
               </p>
             </>
+          ) : (
+            <p className="py-4 text-sm text-muted-foreground">
+              Enter an amount and click <strong>Convert</strong> to see the
+              result.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -324,14 +651,21 @@ export const CurrencyConverter = () => {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Exchange rates fluctuate constantly throughout the day</li>
-            <li>• Banks and currency exchange services may charge fees</li>
-            <li>• Consider using credit cards with no foreign transaction fees when traveling</li>
-            <li>• Some currencies have different rates for buying and selling</li>
-            <li>• Always check the current rate before making large exchanges</li>
+            <li>• Exchange rates fluctuate constantly throughout the day.</li>
+            <li>• Banks and currency exchange services may charge fees.</li>
+            <li>
+              • Consider using credit cards with no foreign transaction fees
+              when traveling.
+            </li>
+            <li>
+              • Some currencies have different rates for buying and selling.
+            </li>
+            <li>
+              • Always check the current rate before making large exchanges.
+            </li>
           </ul>
         </CardContent>
       </Card>
     </div>
-  );
-};
+  )
+}

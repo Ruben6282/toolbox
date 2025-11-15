@@ -1,253 +1,58 @@
-/**
- * DiscountCalculator - Enterprise-grade discount calculation tool
- *
- * Security & UX Features:
- * - Explicit Range Validation: Price, discount, and tax are rejected when out of bounds
- * - Input Sanitization: All inputs trimmed and validated with sanitizeNumber()
- * - NaN/Infinity Guards: Verifies all derived numbers are finite before rendering
- * - Error Handling UI: Role alert banner with aria-live announcements
- * - Accessibility: aria-invalid + aria-describedby on invalid fields; targeted aria-live regions
- * - Localization: Intl.NumberFormat for currency-safe, locale-aware formatting
- * - Robustness: Percentage and amount discounts validated; discount cannot exceed price
- * - Precision: All monetary values rounded to 2 decimal places
- * 
- * IMPORTANT SECURITY NOTES:
- * - This is CLIENT-SIDE validation only. Backend MUST re-validate all inputs
- * - Deploy with Content-Security-Policy headers to prevent XSS
- * - Consider rate limiting on backend if this data is submitted to a server
- * - All calculations are synchronous and run on every input change (no debouncing
- *   to avoid race conditions between validation display and calculations)
- */
-
-import { useCallback, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
+  SelectTrigger,
   SelectContent,
   SelectItem,
-  SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { safeNumber } from "@/lib/safe-number";
 import { safeCalc, formatCurrency } from "@/lib/safe-math";
 import { validateRange } from "@/lib/validators";
+import { notify } from "@/lib/notify";
 
+/* LIMITS */
 const PRICE_MAX = 1e9; // $1,000,000,000
 const DISCOUNT_PERCENT_MIN = 0;
 const DISCOUNT_PERCENT_MAX = 100;
 const TAX_MIN = 0;
 const TAX_MAX = 100;
 
-export type DiscountComputation = {
-  error: string | null;
-  errorField: "price" | "discount" | "tax" | null;
-  price?: number;
-  discountAmount?: number;
-  discountedPrice?: number;
-  taxRate?: number;
-  taxAmount?: number;
-  finalPrice?: number;
-  savings?: number;
-  effectivePercent?: number;
+/* TYPES */
+type DiscountErrors = {
+  price?: string;
+  discount?: string;
+  tax?: string;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function validateAndComputeDiscount(params: {
-  originalPrice: string;
-  discountType: "percentage" | "amount";
-  discountValue: string;
-  taxRate: string;
-}): DiscountComputation {
-  try {
-    const { originalPrice, discountType, discountValue, taxRate } = params;
-
-    // --- Original Price Validation ---
-    let price = 0;
-
-    const trimmedPrice = originalPrice.trim();
-    if (trimmedPrice !== "") {
-      const sanP = safeNumber(trimmedPrice, { min: 0, max: PRICE_MAX });
-      
-      if (sanP === null) {
-        return {
-          error: "Invalid original price. Please enter a valid number.",
-          errorField: "price",
-        };
-      }
-
-      const rangeError = validateRange(sanP, 0, PRICE_MAX);
-      if (rangeError !== true) {
-        return {
-          error: typeof rangeError === 'string' ? rangeError : `Original price must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
-          errorField: "price",
-        };
-      }
-
-      price = sanP;
-    }
-
-  // --- Discount Validation ---
-  let discountNumeric = 0;
-
-  const trimmedDiscount = discountValue.trim();
-  if (trimmedDiscount !== "") {
-    if (discountType === "percentage") {
-      const sanD = safeNumber(trimmedDiscount, { min: DISCOUNT_PERCENT_MIN, max: DISCOUNT_PERCENT_MAX });
-      
-      if (sanD === null) {
-        return {
-          error: "Invalid discount percentage. Please enter a valid number between 0% and 100%.",
-          errorField: "discount",
-        };
-      }
-
-      const rangeError = validateRange(sanD, DISCOUNT_PERCENT_MIN, DISCOUNT_PERCENT_MAX);
-      if (rangeError !== true) {
-        return {
-          error: typeof rangeError === 'string' ? rangeError : `Discount percentage must be between ${DISCOUNT_PERCENT_MIN}% and ${DISCOUNT_PERCENT_MAX}%.`,
-          errorField: "discount",
-        };
-      }
-      discountNumeric = sanD;
-    } else {
-      // Fixed amount
-      const sanD = safeNumber(trimmedDiscount, { min: 0, max: PRICE_MAX });
-      
-      if (sanD === null) {
-        return {
-          error: "Invalid discount amount. Please enter a valid number.",
-          errorField: "discount",
-        };
-      }
-
-      const rangeError = validateRange(sanD, 0, PRICE_MAX);
-      if (rangeError !== true) {
-        return {
-          error: typeof rangeError === 'string' ? rangeError : `Discount amount must be between $0 and $${PRICE_MAX.toLocaleString()}.`,
-          errorField: "discount",
-        };
-      }
-      discountNumeric = sanD;
-
-      // Prevent discount > price when price is set
-      if (price > 0 && discountNumeric > price) {
-        return {
-          error: "Discount amount cannot exceed the original price.",
-          errorField: "discount",
-        };
-      }
-    }
-  } else {
-    // No discount input -> treat as 0 discount
-    discountNumeric = 0;
-  }
-
-  // --- Tax Validation ---
-  let taxRateNum = 0;
-
-  const trimmedTax = taxRate.trim();
-  if (trimmedTax !== "") {
-    const sanT = safeNumber(trimmedTax, { min: TAX_MIN, max: TAX_MAX });
-    
-    if (sanT === null) {
-      return {
-        error: "Invalid tax rate. Please enter a valid number between 0% and 100%.",
-        errorField: "tax",
-      };
-    }
-
-    const rangeError = validateRange(sanT, TAX_MIN, TAX_MAX);
-    if (rangeError !== true) {
-      return {
-        error: typeof rangeError === 'string' ? rangeError : `Tax rate must be between ${TAX_MIN}% and ${TAX_MAX}%.`,
-        errorField: "tax",
-      };
-    }
-
-    taxRateNum = sanT;
-  }
-
-  // --- Computation using safeCalc ---
-  let discountAmount: number | null;
-  let effectivePercent: number | null;
-
-  if (discountType === "percentage") {
-    discountAmount = safeCalc(D => D(price).mul(discountNumeric).div(100));
-    effectivePercent = discountNumeric;
-  } else {
-    discountAmount = discountNumeric;
-    effectivePercent = price > 0 
-      ? safeCalc(D => D(discountNumeric).div(price).mul(100))
-      : 0;
-  }
-
-  if (discountAmount === null || effectivePercent === null) {
-    return {
-      error: "Calculation error. Please check your inputs.",
-      errorField: null,
-    };
-  }
-
-  const discountedPrice = safeCalc(D => D(price).minus(discountAmount!));
-  const taxAmount = safeCalc(D => D(discountedPrice ?? 0).mul(taxRateNum).div(100));
-  const finalPrice = safeCalc(D => D(discountedPrice ?? 0).plus(taxAmount ?? 0));
-  const savings = safeCalc(D => D(price).minus(discountedPrice ?? 0));
-
-  if (
-    discountedPrice === null ||
-    taxAmount === null ||
-    finalPrice === null ||
-    savings === null
-  ) {
-    return {
-      error: "Calculation error. Please check your inputs.",
-      errorField: null,
-    };
-  }
-
-  return {
-    error: null,
-    errorField: null,
-    price,
-    discountAmount,
-    discountedPrice,
-    taxRate: taxRateNum,
-    taxAmount,
-    finalPrice,
-    savings,
-    effectivePercent,
-  };
-  } catch (error) {
-    // Catch any unexpected errors to prevent component crash
-    // In production, this should be logged to monitoring service
-    console.error("DiscountCalculator: Unexpected error in validateAndComputeDiscount", error);
-    return {
-      error: "An unexpected error occurred. Please refresh and try again.",
-      errorField: null,
-    };
-  }
-}
+type DiscountResult = {
+  price: number;
+  discountAmount: number;
+  discountedPrice: number;
+  taxRate: number;
+  taxAmount: number;
+  finalPrice: number;
+  savings: number;
+  effectivePercent: number;
+};
 
 export const DiscountCalculator = () => {
   const [originalPrice, setOriginalPrice] = useState("");
-  const [discountType, setDiscountType] = useState<"percentage" | "amount">(
-    "percentage"
-  );
+  const [discountType, setDiscountType] =
+    useState<"percentage" | "amount">("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [taxRate, setTaxRate] = useState("");
 
+  const [errors, setErrors] = useState<DiscountErrors>({});
+  const [result, setResult] = useState<DiscountResult | null>(null);
+  const [calculated, setCalculated] = useState(false);
 
-
-  const coerceDiscountType = (v: string): "percentage" | "amount" =>
-    v === "percentage" || v === "amount" ? v : "percentage";
-
-  // Locale-aware currency formatter (default locale, USD)
-  // Note: Currency is hardcoded to USD for consistency. For multi-currency support,
-  // add a currency selector and pass the selected currency here.
+  /* Currency formatter */
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
@@ -259,32 +64,297 @@ export const DiscountCalculator = () => {
     []
   );
 
-  // Calculate directly from inputs to avoid race conditions
-  // Note: Removed debouncing as it created race conditions between
-  // displayed validation errors and actual calculations
-  const calc = useMemo(
-    () =>
-      validateAndComputeDiscount({
-        originalPrice,
-        discountType,
-        discountValue,
-        taxRate,
-      }),
-    [originalPrice, discountType, discountValue, taxRate]
-  );
+  const clearFieldError = (field: keyof DiscountErrors) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev, [field]: undefined };
+      if (!next.price && !next.discount && !next.tax) return {};
+      return next;
+    });
+  };
 
-  const clearAll = useCallback(() => {
+  /* INPUT HANDLERS WITH UI-CLAMP LOGIC */
+
+  const handlePriceChange = (val: string) => {
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    if (n !== null && !Number.isNaN(n)) {
+      if (n > PRICE_MAX) {
+        const msg = `Original price cannot exceed ${currencyFormatter.format(
+          PRICE_MAX
+        )}`;
+        setErrors({ price: msg });
+        setOriginalPrice(String(PRICE_MAX));
+        return;
+      }
+      if (n < 0) {
+        const msg = "Original price cannot be negative.";
+        setErrors({ price: msg });
+        setOriginalPrice("0");
+        return;
+      }
+    }
+
+    // Preserve clamp error when value equals the max we just applied to avoid flicker
+    const priceMaxMsg = `Original price cannot exceed ${currencyFormatter.format(
+      PRICE_MAX
+    )}`;
+    if (n === PRICE_MAX && errors.price === priceMaxMsg) {
+      setOriginalPrice(val);
+      return;
+    }
+
+    setErrors({});
+    setOriginalPrice(val);
+  };
+
+  const handleDiscountChange = (val: string) => {
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    if (discountType === "percentage") {
+      if (n !== null && !Number.isNaN(n)) {
+        if (n > DISCOUNT_PERCENT_MAX) {
+          const msg = `Discount percentage cannot exceed ${DISCOUNT_PERCENT_MAX}%`;
+          setErrors({ discount: msg });
+          setDiscountValue(String(DISCOUNT_PERCENT_MAX));
+          return;
+        }
+        if (n < DISCOUNT_PERCENT_MIN) {
+          const msg = `Discount percentage cannot be less than ${DISCOUNT_PERCENT_MIN}%`;
+          setErrors({ discount: msg });
+          setDiscountValue(String(DISCOUNT_PERCENT_MIN));
+          return;
+        }
+      }
+    } else {
+      // Fixed amount
+      if (n !== null && !Number.isNaN(n)) {
+        if (n > PRICE_MAX) {
+          const msg = `Discount amount cannot exceed ${currencyFormatter.format(
+            PRICE_MAX
+          )}`;
+          setErrors({ discount: msg });
+          setDiscountValue(String(PRICE_MAX));
+          return;
+        }
+        if (n < 0) {
+          const msg = "Discount amount cannot be negative.";
+          setErrors({ discount: msg });
+          setDiscountValue("0");
+          return;
+        }
+      }
+    }
+
+    // Preserve clamp error when value equals the max/min we just applied to avoid flicker
+    if (discountType === "percentage") {
+      const maxMsg = `Discount percentage cannot exceed ${DISCOUNT_PERCENT_MAX}%`;
+      const minMsg = `Discount percentage cannot be less than ${DISCOUNT_PERCENT_MIN}%`;
+      if (n === DISCOUNT_PERCENT_MAX && errors.discount === maxMsg) {
+        setDiscountValue(val);
+        return;
+      }
+      if (n === DISCOUNT_PERCENT_MIN && errors.discount === minMsg) {
+        setDiscountValue(val);
+        return;
+      }
+    } else {
+      const maxMsg = `Discount amount cannot exceed ${currencyFormatter.format(
+        PRICE_MAX
+      )}`;
+      const minMsg = "Discount amount cannot be negative.";
+      if (n === PRICE_MAX && errors.discount === maxMsg) {
+        setDiscountValue(val);
+        return;
+      }
+      if (n === 0 && errors.discount === minMsg) {
+        setDiscountValue(val);
+        return;
+      }
+    }
+
+    setErrors({});
+    setDiscountValue(val);
+  };
+
+  const handleTaxChange = (val: string) => {
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    if (n !== null && !Number.isNaN(n)) {
+      if (n > TAX_MAX) {
+        const msg = `Tax rate cannot exceed ${TAX_MAX}%`;
+        setErrors({ tax: msg });
+        setTaxRate(String(TAX_MAX));
+        return;
+      }
+      if (n < TAX_MIN) {
+        const msg = `Tax rate cannot be less than ${TAX_MIN}%`;
+        setErrors({ tax: msg });
+        setTaxRate(String(TAX_MIN));
+        return;
+      }
+    }
+
+    // Preserve clamp error when value equals the max/min we just applied to avoid flicker
+    const taxMaxMsg = `Tax rate cannot exceed ${TAX_MAX}%`;
+    const taxMinMsg = `Tax rate cannot be less than ${TAX_MIN}%`;
+    if (n === TAX_MAX && errors.tax === taxMaxMsg) {
+      setTaxRate(val);
+      return;
+    }
+    if (n === TAX_MIN && errors.tax === taxMinMsg) {
+      setTaxRate(val);
+      return;
+    }
+
+    setErrors({});
+    setTaxRate(val);
+  };
+
+  /* MAIN CALCULATE BUTTON HANDLER */
+
+  const onCalculate = () => {
+    setCalculated(false);
+    setResult(null);
+
+    const newErrors: DiscountErrors = {};
+
+    // Empty checks first
+    if (!originalPrice.trim()) newErrors.price = "Original price is required.";
+    if (!discountValue.trim())
+      newErrors.discount = "Discount value is required.";
+    if (!taxRate.trim()) newErrors.tax = "Tax rate is required.";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      notify.error("Please fix the highlighted fields before calculating.");
+      return;
+    }
+
+    // Parse with safeNumber
+    const priceNum = safeNumber(originalPrice, { min: 0, max: PRICE_MAX });
+    const taxNum = safeNumber(taxRate, { min: TAX_MIN, max: TAX_MAX });
+
+    const discountNum = safeNumber(discountValue, {
+      min: 0,
+      max:
+        discountType === "percentage" ? DISCOUNT_PERCENT_MAX : PRICE_MAX,
+    });
+
+    if (priceNum === null) {
+      newErrors.price = `Original price must be between 0 and ${currencyFormatter.format(
+        PRICE_MAX
+      )}`;
+    } else {
+      const priceRange = validateRange(priceNum, 0, PRICE_MAX);
+      if (priceRange !== true) {
+        newErrors.price =
+          typeof priceRange === "string"
+            ? priceRange
+            : `Original price must be between 0 and ${currencyFormatter.format(
+                PRICE_MAX
+              )}`;
+      }
+    }
+
+    if (discountNum === null) {
+      newErrors.discount =
+        discountType === "percentage"
+          ? `Discount percentage must be between ${DISCOUNT_PERCENT_MIN}% and ${DISCOUNT_PERCENT_MAX}%`
+          : `Discount amount must be between 0 and ${currencyFormatter.format(
+              PRICE_MAX
+            )}`;
+    }
+
+    if (taxNum === null) {
+      newErrors.tax = `Tax rate must be between ${TAX_MIN}% and ${TAX_MAX}%`;
+    }
+
+    // Additional check: fixed discount cannot exceed price
+    if (
+      discountType === "amount" &&
+      priceNum !== null &&
+      discountNum !== null &&
+      discountNum > priceNum
+    ) {
+      newErrors.discount =
+        "Discount amount cannot exceed the original price.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      notify.error("Please fix the highlighted fields before calculating.");
+      return;
+    }
+
+    // Now safe and valid
+    const price = priceNum!;
+    const taxRateValue = taxNum!;
+    const discValue = discountNum!;
+
+    let discountAmount = 0;
+    let effectivePercent = 0;
+
+    if (discountType === "percentage") {
+      discountAmount = safeCalc((D) =>
+        D(price).mul(discValue).div(100)
+      )!;
+      effectivePercent = discValue;
+    } else {
+      discountAmount = discValue;
+      effectivePercent = price
+        ? safeCalc((D) =>
+            D(discountAmount).div(price).mul(100)
+          )!
+        : 0;
+    }
+
+    const discountedPrice = safeCalc((D) =>
+      D(price).minus(discountAmount)
+    )!;
+
+    const taxAmount = safeCalc((D) =>
+      D(discountedPrice).mul(taxRateValue).div(100)
+    )!;
+
+    const finalPrice = safeCalc((D) =>
+      D(discountedPrice).plus(taxAmount)
+    )!;
+
+    const savings = safeCalc((D) =>
+      D(price).minus(discountedPrice)
+    )!;
+
+    setErrors({});
+    setResult({
+      price,
+      discountAmount,
+      discountedPrice,
+      taxRate: taxRateValue,
+      taxAmount,
+      finalPrice,
+      savings,
+      effectivePercent,
+    });
+
+    setCalculated(true);
+    notify.success("Discount calculation completed.");
+  };
+
+  const onClear = () => {
     setOriginalPrice("");
     setDiscountType("percentage");
     setDiscountValue("");
     setTaxRate("");
-  }, []);
+    setErrors({});
+    setCalculated(false);
+    setResult(null);
+  };
 
-  const hasResults =
-    !calc.error &&
-    typeof calc.price === "number" &&
-    calc.price > 0 &&
-    typeof calc.discountAmount === "number";
+  const hasError = Boolean(errors.price || errors.discount || errors.tax);
 
   return (
     <div className="space-y-6">
@@ -292,227 +362,218 @@ export const DiscountCalculator = () => {
         <CardHeader>
           <CardTitle>Discount Calculator</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          {/* Original Price */}
+          {/* ORIGINAL PRICE */}
           <div className="space-y-2">
-            <Label htmlFor="original-price">Original Price</Label>
+            <Label htmlFor="orig">Original Price</Label>
             <SafeNumberInput
-              id="original-price"
+              id="orig"
               placeholder="0.00"
               value={originalPrice}
-              onChange={(sanitized) => setOriginalPrice(sanitized)}
-              sanitizeOptions={{ min: 0, max: PRICE_MAX }}
-              inputMode="decimal"
-              aria-invalid={calc.errorField === "price" ? "true" : "false"}
-              aria-describedby={
-                calc.errorField === "price" ? "discount-error" : undefined
-              }
-              className={calc.errorField === "price" ? "border-red-500" : ""}
+              onChange={handlePriceChange}
+              sanitizeOptions={{
+                min: 0,
+                max: PRICE_MAX,
+                allowDecimal: true,
+                maxLength: String(PRICE_MAX).length,
+              }}
+              aria-invalid={errors.price ? "true" : "false"}
+              aria-describedby={errors.price ? "disc-price-err" : undefined}
+              className={errors.price ? "border-red-500" : ""}
             />
             <p className="text-xs text-muted-foreground">
               Max: {currencyFormatter.format(PRICE_MAX)}
             </p>
           </div>
 
-          {/* Discount Type + Value */}
+          {/* DISCOUNT TYPE + VALUE */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Discount Type</Label>
               <Select
                 value={discountType}
-                onValueChange={(val) =>
-                  setDiscountType(coerceDiscountType(val))
+                onValueChange={(v) =>
+                  setDiscountType(
+                    v === "percentage" || v === "amount"
+                      ? v
+                      : "percentage"
+                  )
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select discount type" />
+                  <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="percentage">Percentage (%)</SelectItem>
-                  <SelectItem value="amount">Fixed Amount</SelectItem>
+                  <SelectItem value="amount">Amount ($)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="discount-value">
+              <Label htmlFor="disc-val">
                 {discountType === "percentage"
-                  ? "Discount Percentage (%)"
+                  ? "Discount (%)"
                   : "Discount Amount"}
               </Label>
               <SafeNumberInput
-                id="discount-value"
+                id="disc-val"
                 placeholder={discountType === "percentage" ? "0" : "0.00"}
                 value={discountValue}
-                onChange={(sanitized) => setDiscountValue(sanitized)}
-                sanitizeOptions={{ 
-                  min: 0, 
-                  max: discountType === "percentage" ? DISCOUNT_PERCENT_MAX : PRICE_MAX 
+                onChange={handleDiscountChange}
+                sanitizeOptions={{
+                  min: 0,
+                  max:
+                    discountType === "percentage"
+                      ? DISCOUNT_PERCENT_MAX
+                      : PRICE_MAX,
+                  allowDecimal: true,
+                  maxLength:
+                    discountType === "percentage"
+                      ? 5
+                      : String(PRICE_MAX).length,
                 }}
-                inputMode="decimal"
-                aria-invalid={calc.errorField === "discount" ? "true" : "false"}
+                aria-invalid={errors.discount ? "true" : "false"}
                 aria-describedby={
-                  calc.errorField === "discount" ? "discount-error" : undefined
+                  errors.discount ? "disc-discount-err" : undefined
                 }
-                className={
-                  calc.errorField === "discount" ? "border-red-500" : ""
-                }
+                className={errors.discount ? "border-red-500" : ""}
               />
             </div>
           </div>
 
-          {/* Tax Rate */}
+          {/* TAX RATE */}
           <div className="space-y-2">
-            <Label htmlFor="tax-rate">Tax Rate (%) (Optional)</Label>
+            <Label htmlFor="tax">Tax Rate (%)</Label>
             <SafeNumberInput
-              id="tax-rate"
+              id="tax"
               placeholder="0"
               value={taxRate}
-              onChange={(sanitized) => setTaxRate(sanitized)}
-              sanitizeOptions={{ min: TAX_MIN, max: TAX_MAX }}
-              inputMode="decimal"
-              aria-invalid={calc.errorField === "tax" ? "true" : "false"}
-              aria-describedby={
-                calc.errorField === "tax" ? "discount-error" : undefined
-              }
-              className={calc.errorField === "tax" ? "border-red-500" : ""}
+              onChange={handleTaxChange}
+              sanitizeOptions={{
+                min: TAX_MIN,
+                max: TAX_MAX,
+                allowDecimal: true,
+                maxLength: 5,
+              }}
+              aria-invalid={errors.tax ? "true" : "false"}
+              aria-describedby={errors.tax ? "disc-tax-err" : undefined}
+              className={errors.tax ? "border-red-500" : ""}
             />
             <p className="text-xs text-muted-foreground">
-              Range: {TAX_MIN}% to {TAX_MAX}% (0% means no tax)
+              Range: {TAX_MIN}% – {TAX_MAX}%
             </p>
           </div>
 
-          <Button
-            onClick={clearAll}
-            variant="outline"
-            className="w-full"
-            aria-label="Clear all fields"
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Clear All
-          </Button>
-
-          {/* Error Banner */}
-          {calc.error && (
+          {/* ERRORS */}
+          {(errors.price || errors.discount || errors.tax) && (
             <div
-              id="discount-error"
-              className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
+              className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
               role="alert"
               aria-live="polite"
               aria-atomic="true"
             >
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <span>{calc.error}</span>
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              <div className="space-y-1">
+                {errors.price && (
+                  <div id="disc-price-err">{errors.price}</div>
+                )}
+                {errors.discount && (
+                  <div id="disc-discount-err">{errors.discount}</div>
+                )}
+                {errors.tax && <div id="disc-tax-err">{errors.tax}</div>}
+              </div>
             </div>
           )}
+
+          {/* ACTIONS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button onClick={onCalculate} className="w-full">
+              Calculate
+            </Button>
+            <Button
+              onClick={onClear}
+              variant="outline"
+              className="w-full"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear All
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Results */}
-      {hasResults && (
+      {/* RESULTS */}
+      {calculated && result && !hasError && (
         <Card>
           <CardHeader>
             <CardTitle>Calculation Results</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex justify-between text-xs sm:text-sm gap-2">
-                <span className="text-muted-foreground">Original Price:</span>
-                <span 
-                  className="font-medium break-words text-right"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {formatCurrency(calc.price!)}
-                </span>
-              </div>
+          <CardContent className="space-y-4" aria-live="polite">
+            <div className="flex justify-between text-sm">
+              <span>Original Price:</span>
+              <span className="font-medium">
+                {formatCurrency(result.price)}
+              </span>
+            </div>
 
-              <div className="flex justify-between text-xs sm:text-sm gap-2">
-                <span className="text-muted-foreground">Discount Amount:</span>
-                <span 
-                  className="font-medium text-green-600 break-words text-right"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  –{formatCurrency(calc.discountAmount!)}
-                </span>
-              </div>
+            <div className="flex justify-between text-sm">
+              <span>Discount Amount:</span>
+              <span className="font-medium text-green-600">
+                –{formatCurrency(result.discountAmount)}
+              </span>
+            </div>
 
-              <div className="flex justify-between text-xs sm:text-sm gap-2">
-                <span className="text-muted-foreground">Discounted Price:</span>
-                <span 
-                  className="font-medium break-words text-right"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {formatCurrency(calc.discountedPrice!)}
-                </span>
-              </div>
+            <div className="flex justify-between text-sm">
+              <span>Discounted Price:</span>
+              <span className="font-medium">
+                {formatCurrency(result.discountedPrice)}
+              </span>
+            </div>
 
-              {typeof calc.taxRate === "number" && calc.taxRate > 0 && (
-                <>
-                  <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground">
-                      Tax ({calc.taxRate.toFixed(2)}%):
-                    </span>
-                    <span 
-                      className="font-medium break-words text-right"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      +{formatCurrency(calc.taxAmount!)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between border-t pt-2 text-xs sm:text-sm gap-2">
-                    <span className="font-semibold">Final Price:</span>
-                    <span 
-                      className="font-bold text-base sm:text-lg break-words text-right"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      {formatCurrency(calc.finalPrice!)}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-green-800 font-medium text-xs sm:text-sm">
-                    You Save:
-                  </span>
-                  <span 
-                    className="text-green-800 font-bold text-base sm:text-lg break-words"
-                    aria-live="polite"
-                    aria-atomic="true"
-                  >
-                    {formatCurrency(calc.savings!)}
+            {result.taxRate > 0 && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span>Tax ({result.taxRate.toFixed(2)}%):</span>
+                  <span className="font-medium">
+                    +{formatCurrency(result.taxAmount)}
                   </span>
                 </div>
-                <div className="text-xs sm:text-sm text-green-700 mt-1">
-                  {(calc.effectivePercent ?? 0).toFixed(2)}% off
+
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span className="font-semibold">Final Price:</span>
+                  <span className="font-bold text-lg">
+                    {formatCurrency(result.finalPrice)}
+                  </span>
                 </div>
+              </>
+            )}
+
+            <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+              <div className="flex justify-between font-medium text-green-700 mb-1">
+                <span>You Save:</span>
+                <span>{formatCurrency(result.savings)}</span>
+              </div>
+              <div className="text-xs text-green-600">
+                Effective Discount: {result.effectivePercent.toFixed(2)}%
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* TIPS SECTION */}
       <Card>
         <CardHeader>
           <CardTitle>Discount Tips</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>
-              • Compare prices before applying discounts to ensure you're
-              getting the best deal.
-            </li>
-            <li>• Check if discounts can be combined with other offers.</li>
-            <li>• Consider shipping costs when calculating final price.</li>
-            <li>• Some discounts may have minimum purchase requirements.</li>
-            <li>• Don't forget to factor in taxes and fees.</li>
+            <li>• Compare prices before applying discounts.</li>
+            <li>• Check if discounts stack with other offers.</li>
+            <li>• Remember shipping costs.</li>
+            <li>• Look for minimum purchase requirements.</li>
+            <li>• Factor in taxes when calculating final price.</li>
           </ul>
         </CardContent>
       </Card>

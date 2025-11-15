@@ -2,13 +2,13 @@
  * BmiCalculator - Enterprise-grade BMI calculation tool
  *
  * Security & Reliability Features:
- * - Input Sanitization: sanitizeNumber() validates numeric input and rejects NaN/Infinity
- * - Per-unit Range Clamping:
+ * - Input Sanitization: safeNumber() validates numeric input and rejects NaN/Infinity
+ * - Per-unit Range Limits:
  *   - Metric: 1–500 kg, 30–300 cm
  *   - Imperial: 2–1100 lbs, 12–120 in
  * - Safe Math: Guards against division by zero and non-finite BMI results
- * - Type Safety: Explicit numeric parsing with validation and clamping
- * - Error Handling UI: Clear, accessible error messages for invalid input
+ * - Type Safety: Explicit numeric parsing with validation
+ * - Error Handling UI: Clear, per-field error messages for invalid input
  * - Localization: Intl.NumberFormat for human-friendly BMI display (1 decimal)
  * - Accessibility: aria-live, aria-invalid, and aria-describedby for screen readers (WCAG 2.1 AA)
  * - Medical Disclaimer: Clearly states this is not medical advice
@@ -23,7 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AlertCircle } from "lucide-react";
 import { safeNumber } from "@/lib/safe-number";
 import { safeCalc, formatNumber } from "@/lib/safe-math";
-import { validateRange, validateResult, ValidationErrors } from "@/lib/validators";
+import { validateRange, ValidationErrors } from "@/lib/validators";
 
 type UnitSystem = "metric" | "imperial";
 
@@ -39,24 +39,114 @@ const MAX_WEIGHT_LB = 1100;
 const MIN_HEIGHT_IN = 12;
 const MAX_HEIGHT_IN = 120;
 
+// Max length based on largest allowed values
+const MAX_WEIGHT_DIGITS = String(MAX_WEIGHT_LB).length; // worst case across systems
+const MAX_HEIGHT_DIGITS = String(MAX_HEIGHT_IN).length;
+
+type BmiErrors = {
+  weight?: string;
+  height?: string;
+};
+
 export const BmiCalculator = () => {
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [unit, setUnit] = useState<UnitSystem>("metric");
   const [bmi, setBmi] = useState<number | null>(null);
   const [category, setCategory] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<BmiErrors>({});
+
+  const getWeightLimits = () => {
+    return unit === "metric"
+      ? { min: MIN_WEIGHT_KG, max: MAX_WEIGHT_KG, labelUnit: "kg" }
+      : { min: MIN_WEIGHT_LB, max: MAX_WEIGHT_LB, labelUnit: "lbs" };
+  };
+
+  const getHeightLimits = () => {
+    return unit === "metric"
+      ? { min: MIN_HEIGHT_CM, max: MAX_HEIGHT_CM, labelUnit: "cm" }
+      : { min: MIN_HEIGHT_IN, max: MAX_HEIGHT_IN, labelUnit: "inches" };
+  };
+
+  const handleWeightChange = (val: string) => {
+    const { max } = getWeightLimits();
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    // Allow empty while typing
+    if (n === null || Number.isNaN(n)) {
+      // Clear transient input errors (show no lingering errors while typing)
+      setErrors({});
+      setWeight(val);
+      return;
+    }
+
+    // Clamp only the maximum at UI level
+    if (n > max) {
+      // Replace errors with only this weight clamp error while typing
+      setErrors({ weight: `Weight must be less than or equal to ${max}.` });
+      setWeight(String(max));
+      return;
+    }
+
+    // Within allowed max, don't enforce min while typing
+    // Preserve clamp error when value equals the max we just applied to avoid flicker
+    const weightMaxMsg = `Weight must be less than or equal to ${max}.`;
+    if (n === max && errors.weight === weightMaxMsg) {
+      setWeight(val);
+      return;
+    }
+    setErrors({});
+    setWeight(val);
+  };
+
+  const handleHeightChange = (val: string) => {
+    const { max } = getHeightLimits();
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    // Allow empty while typing
+    if (n === null || Number.isNaN(n)) {
+      // Clear transient input errors
+      setErrors({});
+      setHeight(val);
+      return;
+    }
+
+    // Clamp only the maximum at UI level
+    if (n > max) {
+      // Replace errors with only this height clamp error while typing
+      setErrors({ height: `Height must be less than or equal to ${max}.` });
+      setHeight(String(max));
+      return;
+    }
+
+    // Within allowed max, don't enforce min while typing
+    // Preserve clamp error when value equals the max we just applied to avoid flicker
+    const heightMaxMsg = `Height must be less than or equal to ${max}.`;
+    if (n === max && errors.height === heightMaxMsg) {
+      setHeight(val);
+      return;
+    }
+    setErrors({});
+    setHeight(val);
+  };
 
   const calculate = () => {
-    setError(null);
+    // Clear previous BMI result and errors on new attempt
+    setBmi(null);
+    setCategory("");
+    setErrors({});
 
     const hasWeight = weight.trim().length > 0;
     const hasHeight = height.trim().length > 0;
 
-    // If any field is missing, clear result and show no error
+    // If any field is missing, clear result and show specific errors
     if (!hasWeight || !hasHeight) {
-      setBmi(null);
-      setCategory("");
+      const newErrors: BmiErrors = {};
+      if (!hasWeight) newErrors.weight = "Weight is required.";
+      if (!hasHeight) newErrors.height = "Height is required.";
+      setErrors(newErrors);
       return;
     }
 
@@ -65,46 +155,31 @@ export const BmiCalculator = () => {
     const heightVal = safeNumber(height);
 
     if (weightVal === null) {
-      setError(ValidationErrors.INVALID_NUMBER + " (weight)");
-      setBmi(null);
-      setCategory("");
+      setErrors({ weight: ValidationErrors.INVALID_NUMBER + " (weight)" });
       return;
     }
 
     if (heightVal === null) {
-      setError(ValidationErrors.INVALID_NUMBER + " (height)");
-      setBmi(null);
-      setCategory("");
+      setErrors({ height: ValidationErrors.INVALID_NUMBER + " (height)" });
       return;
     }
 
-    // Unit-specific range validation
-    if (unit === "metric") {
-      if (!validateRange(weightVal, MIN_WEIGHT_KG, MAX_WEIGHT_KG)) {
-        setError(`Weight must be between ${MIN_WEIGHT_KG} kg and ${MAX_WEIGHT_KG} kg.`);
-        setBmi(null);
-        setCategory("");
-        return;
-      }
-      if (!validateRange(heightVal, MIN_HEIGHT_CM, MAX_HEIGHT_CM)) {
-        setError(`Height must be between ${MIN_HEIGHT_CM} cm and ${MAX_HEIGHT_CM} cm.`);
-        setBmi(null);
-        setCategory("");
-        return;
-      }
-    } else {
-      if (!validateRange(weightVal, MIN_WEIGHT_LB, MAX_WEIGHT_LB)) {
-        setError(`Weight must be between ${MIN_WEIGHT_LB} lbs and ${MAX_WEIGHT_LB} lbs.`);
-        setBmi(null);
-        setCategory("");
-        return;
-      }
-      if (!validateRange(heightVal, MIN_HEIGHT_IN, MAX_HEIGHT_IN)) {
-        setError(`Height must be between ${MIN_HEIGHT_IN} inches and ${MAX_HEIGHT_IN} inches.`);
-        setBmi(null);
-        setCategory("");
-        return;
-      }
+    const { min: wMin, max: wMax } = getWeightLimits();
+    const { min: hMin, max: hMax } = getHeightLimits();
+
+    // Unit-specific range validation using validateRange
+    if (!validateRange(weightVal, wMin, wMax)) {
+      setErrors({
+        weight: `Weight must be between ${wMin} and ${wMax}.`,
+      });
+      return;
+    }
+
+    if (!validateRange(heightVal, hMin, hMax)) {
+      setErrors({
+        height: `Height must be between ${hMin} and ${hMax}.`,
+      });
+      return;
     }
 
     // Calculate BMI using safe math
@@ -112,34 +187,28 @@ export const BmiCalculator = () => {
 
     if (unit === "metric") {
       // BMI = weight(kg) / (height(m))^2
-      bmiValue = safeCalc(D => {
+      bmiValue = safeCalc((D) => {
         const heightMeters = D(heightVal).div(100);
         return D(weightVal).div(heightMeters.pow(2));
       });
     } else {
       // BMI = (weight(lbs) / (height(in))^2) * 703
-      bmiValue = safeCalc(D => {
+      bmiValue = safeCalc((D) => {
         return D(weightVal).div(D(heightVal).pow(2)).mul(703);
       });
     }
 
-    if (bmiValue === null || bmiValue <= 0) {
-      setError("BMI calculation failed. Please check your inputs.");
-      setBmi(null);
-      setCategory("");
-      return;
-    }
-
-    if (!validateResult(bmiValue)) {
-      setError(ValidationErrors.RESULT_TOO_LARGE);
-      setBmi(null);
-      setCategory("");
+    if (bmiValue === null || !Number.isFinite(bmiValue) || bmiValue <= 0) {
+      setErrors({
+        weight: "BMI calculation failed. Please check your inputs.",
+      });
       return;
     }
 
     // Round to 1 decimal place
     const roundedBmi = Math.round(bmiValue * 10) / 10;
     setBmi(roundedBmi);
+    setErrors({});
 
     // Determine category
     let cat: string;
@@ -152,11 +221,10 @@ export const BmiCalculator = () => {
   };
 
   const handleUnitChange = (value: string) => {
-    // Only allow valid unit values
     if (value === "metric" || value === "imperial") {
       setUnit(value);
       // Clear previous error and result when switching units
-      setError(null);
+      setErrors({});
       setBmi(null);
       setCategory("");
     }
@@ -170,7 +238,10 @@ export const BmiCalculator = () => {
     return "text-red-500";
   };
 
-  const hasError = Boolean(error);
+  const hasError = Boolean(errors.weight || errors.height);
+
+  const weightLimits = getWeightLimits();
+  const heightLimits = getHeightLimits();
 
   return (
     <div className="space-y-4">
@@ -198,59 +269,87 @@ export const BmiCalculator = () => {
             </RadioGroup>
           </div>
 
+          {/* Weight */}
           <div>
             <Label htmlFor="weight-input">
-              Weight {unit === "metric" ? "(kg)" : "(lbs)"}
+              Weight ({weightLimits.labelUnit})
             </Label>
             <SafeNumberInput
               id="weight-input"
-              placeholder={unit === "metric" ? "e.g., 70" : "e.g., 154"}
+              placeholder={
+                unit === "metric" ? "e.g., 70" : "e.g., 154"
+              }
               value={weight}
-              onChange={setWeight}
+              onChange={handleWeightChange}
+              sanitizeOptions={{
+                // Only constrain max & length at the input level; min is enforced on Calculate
+                max: weightLimits.max,
+                maxLength: MAX_WEIGHT_DIGITS,
+                allowDecimal: true,
+              }}
+              inputMode="decimal"
               aria-label="Body weight"
-              aria-invalid={hasError ? "true" : "false"}
-              aria-describedby={hasError ? "bmi-error" : undefined}
-              className={hasError ? "border-red-500" : ""}
+              aria-invalid={errors.weight ? "true" : "false"}
+              aria-describedby={errors.weight ? "bmi-weight-error" : undefined}
+              className={errors.weight ? "border-red-500" : ""}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {unit === "metric"
-                ? `Range: ${MIN_WEIGHT_KG}–${MAX_WEIGHT_KG} kg`
-                : `Range: ${MIN_WEIGHT_LB}–${MAX_WEIGHT_LB} lbs`}
+              Range: {weightLimits.min}–{weightLimits.max}{" "}
+              {weightLimits.labelUnit}
             </p>
           </div>
 
+          {/* Height */}
           <div>
             <Label htmlFor="height-input">
-              Height {unit === "metric" ? "(cm)" : "(inches)"}
+              Height ({heightLimits.labelUnit})
             </Label>
             <SafeNumberInput
               id="height-input"
-              placeholder={unit === "metric" ? "e.g., 175" : "e.g., 69"}
+              placeholder={
+                unit === "metric" ? "e.g., 175" : "e.g., 69"
+              }
               value={height}
-              onChange={setHeight}
+              onChange={handleHeightChange}
+              sanitizeOptions={{
+                // Only constrain max & length at the input level; min is enforced on Calculate
+                max: heightLimits.max,
+                maxLength: MAX_HEIGHT_DIGITS,
+                allowDecimal: true,
+              }}
+              inputMode="decimal"
               aria-label="Body height"
-              aria-invalid={hasError ? "true" : "false"}
-              aria-describedby={hasError ? "bmi-error" : undefined}
-              className={hasError ? "border-red-500" : ""}
+              aria-invalid={errors.height ? "true" : "false"}
+              aria-describedby={errors.height ? "bmi-height-error" : undefined}
+              className={errors.height ? "border-red-500" : ""}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {unit === "metric"
-                ? `Range: ${MIN_HEIGHT_CM}–${MAX_HEIGHT_CM} cm`
-                : `Range: ${MIN_HEIGHT_IN}–${MAX_HEIGHT_IN} inches`}
+              Range: {heightLimits.min}–{heightLimits.max}{" "}
+              {heightLimits.labelUnit}
             </p>
           </div>
 
           {/* Error Display */}
-          {error && (
+          {hasError && (
             <div
-              id="bmi-error"
               className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
               role="alert"
               aria-live="polite"
               aria-atomic="true"
             >
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
+              <div>
+                {errors.weight && (
+                  <div id="bmi-weight-error" className="mb-1">
+                    {errors.weight}
+                  </div>
+                )}
+                {errors.height && (
+                  <div id="bmi-height-error">
+                    {errors.height}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -266,7 +365,7 @@ export const BmiCalculator = () => {
         </CardContent>
       </Card>
 
-      {bmi !== null && !error && (
+      {bmi !== null && !hasError && (
         <Card>
           <CardHeader>
             <CardTitle>Your Results</CardTitle>
@@ -279,7 +378,10 @@ export const BmiCalculator = () => {
             <div
               className={`text-4xl sm:text-5xl md:text-6xl font-bold mb-2 break-all px-2 ${getBmiColor()}`}
             >
-              {formatNumber(bmi, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              {formatNumber(bmi, {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
             </div>
             <div className="text-xl sm:text-2xl font-semibold mb-4 break-words px-2">
               {category}

@@ -1,21 +1,31 @@
-import { useCallback, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// CompoundInterestCalculator — Production-Ready Version
+// Matches DiscountCalculator UX, error system, input handling, safety, & consistency.
+
+import { useState, useMemo } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { safeNumber } from "@/lib/safe-number";
 import { safeCalc, formatCurrency } from "@/lib/safe-math";
-import { validateRange, validateResult, ValidationErrors } from "@/lib/validators";
+import { validateRange } from "@/lib/validators";
+import { notify } from "@/lib/notify";
 
-// Security bounds and allowed values
+/* CONSTANTS */
 const AMOUNT_MAX = 1e10; // $10,000,000,000
 const RATE_MIN = 0;
-const RATE_MAX = 100; // 100% APR max
-const TIME_YEARS_MIN = 0; // allow 0 to render empty results
-const TIME_YEARS_MAX = 200; // safety cap to avoid huge exponents
+const RATE_MAX = 100;
+const TIME_MAX_YEARS = 200;
 
+/* ENUMS */
 const AllowedTimeUnits = ["days", "weeks", "months", "years"] as const;
 type TimeUnit = typeof AllowedTimeUnits[number];
 
@@ -30,310 +40,52 @@ const AllowedFrequencies = [
 type Frequency = typeof AllowedFrequencies[number];
 
 const FREQ_MAP: Record<Frequency, number> = {
-  "daily": 365,
-  "weekly": 52,
-  "monthly": 12,
-  "quarterly": 4,
+  daily: 365,
+  weekly: 52,
+  monthly: 12,
+  quarterly: 4,
   "semi-annually": 2,
-  "annually": 1,
+  annually: 1,
 };
 
-export type CompoundComputation = {
-  error: string | null;
-  errorField: "principal" | "interestRate" | "time" | "timeUnit" | "compoundingFrequency" | "additionalContributions" | "contributionFrequency" | null;
-  // Echoed validated inputs
-  principal?: number;
-  interestRate?: number; // percent per year
-  timeInYears?: number;
-  timeUnit?: TimeUnit;
-  compoundingFrequency?: Frequency;
-  additional?: number;
-  contributionFrequency?: Frequency;
-  // Derived outputs
-  periods?: number; // contribution periods
-  compoundingPeriodsPerYear?: number; // n
-  compoundAmount?: number; // FV of principal only
-  contributionValue?: number; // FV of contributions stream
-  finalAmount?: number; // total FV
-  totalContributions?: number; // principal + sum of contributions
-  totalInterest?: number; // final - totalContributions
-  effectiveAnnualRate?: number; // percent
+/* ERROR TYPE */
+type CompoundErrors = {
+  principal?: string;
+  interestRate?: string;
+  time?: string;
+  additional?: string;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function validateAndComputeCompoundInterest(params: {
-  principal: string;
-  interestRate: string;
-  time: string;
-  timeUnit: string;
-  compoundingFrequency: string;
-  additionalContributions: string;
-  contributionFrequency: string;
-}): CompoundComputation {
-  try {
-    const {
-      principal,
-      interestRate,
-      time,
-      timeUnit,
-      compoundingFrequency,
-      additionalContributions,
-      contributionFrequency,
-    } = params;
-
-    // Validate enums first
-    const tu = (timeUnit || "").trim();
-    if (!AllowedTimeUnits.includes(tu as TimeUnit)) {
-      return {
-        error: "Invalid time unit. Please choose a valid option.",
-        errorField: "timeUnit",
-      };
-    }
-    const cf = (compoundingFrequency || "").trim();
-    if (!AllowedFrequencies.includes(cf as Frequency)) {
-      return {
-        error: "Invalid compounding frequency.",
-        errorField: "compoundingFrequency",
-      };
-    }
-    const rf = (contributionFrequency || "").trim();
-    if (!AllowedFrequencies.includes(rf as Frequency)) {
-      return {
-        error: "Invalid contribution frequency.",
-        errorField: "contributionFrequency",
-      };
-    }
-
-    // Principal validation
-    let principalNum = 0;
-    const pTrim = (principal || "").trim();
-    if (pTrim !== "") {
-      const parsed = safeNumber(pTrim);
-      if (parsed === null) {
-        return { error: ValidationErrors.INVALID_NUMBER, errorField: "principal" };
-      }
-      if (!validateRange(parsed, 0, AMOUNT_MAX)) {
-        return {
-          error: `Initial investment must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`,
-          errorField: "principal",
-        };
-      }
-      principalNum = parsed;
-    }
-
-    // Interest rate validation
-    let rateNum = 0;
-    const rTrim = (interestRate || "").trim();
-    if (rTrim !== "") {
-      const parsed = safeNumber(rTrim);
-      if (parsed === null) {
-        return { error: ValidationErrors.INVALID_NUMBER, errorField: "interestRate" };
-      }
-      if (!validateRange(parsed, RATE_MIN, RATE_MAX)) {
-        return {
-          error: `Interest rate must be between ${RATE_MIN}% and ${RATE_MAX}%.`,
-          errorField: "interestRate",
-        };
-      }
-      rateNum = parsed;
-    }
-
-    // Time validation
-    let timeNum = 0;
-    const tTrim = (time || "").trim();
-    if (tTrim !== "") {
-      const parsed = safeNumber(tTrim);
-      if (parsed === null) {
-        return { error: ValidationErrors.INVALID_NUMBER, errorField: "time" };
-      }
-      if (parsed < 0 || parsed > TIME_YEARS_MAX * 365) {
-        return {
-          error: `Time value out of range.`,
-          errorField: "time",
-        };
-      }
-      timeNum = parsed;
-    }
-
-    // Additional contribution validation
-    let additionalNum = 0;
-    const aTrim = (additionalContributions || "").trim();
-    if (aTrim !== "") {
-      const parsed = safeNumber(aTrim);
-      if (parsed === null) {
-        return { error: ValidationErrors.INVALID_NUMBER, errorField: "additionalContributions" };
-      }
-      if (!validateRange(parsed, 0, AMOUNT_MAX)) {
-        return {
-          error: `Contribution must be between $0 and $${AMOUNT_MAX.toLocaleString()}.`,
-          errorField: "additionalContributions",
-        };
-      }
-      additionalNum = parsed;
-    }
-
-    // Convert time to years with whitelist
-    let years = 0;
-    switch (tu as TimeUnit) {
-      case "years":
-        years = timeNum;
-        break;
-      case "months":
-        years = timeNum / 12;
-        break;
-      case "weeks":
-        years = timeNum / 52;
-        break;
-      case "days":
-        years = timeNum / 365;
-        break;
-    }
-
-    // Range after conversion
-    if (years < TIME_YEARS_MIN) {
-      return { error: "Time must be greater than 0.", errorField: "time" };
-    }
-    if (years > TIME_YEARS_MAX) {
-      return {
-        error: `Time horizon is too large (>${TIME_YEARS_MAX} years). Please reduce it.`,
-        errorField: "time",
-      };
-    }
-
-    const n = FREQ_MAP[cf as Frequency];
-    const contribN = FREQ_MAP[rf as Frequency];
-
-    // If there's nothing to compute, return a valid empty result
-    if (years === 0 || (principalNum <= 0 && additionalNum <= 0)) {
-      return {
-        error: null,
-        errorField: null,
-        principal: principalNum,
-        interestRate: rateNum,
-        timeInYears: years,
-        timeUnit: tu as TimeUnit,
-        compoundingFrequency: cf as Frequency,
-        additional: additionalNum,
-        contributionFrequency: rf as Frequency,
-        periods: 0,
-        compoundingPeriodsPerYear: n,
-        compoundAmount: 0,
-        contributionValue: 0,
-        finalAmount: 0,
-        totalContributions: 0,
-        totalInterest: 0,
-        effectiveAnnualRate: 0,
-      };
-    }
-
-    const r = rateNum / 100; // decimal APR
-    const t = years;
-
-    // Compute compound on principal using safe math
-    let compoundAmount = 0;
-    if (r === 0) {
-      compoundAmount = principalNum;
-    } else {
-      const result = safeCalc(D => D(1).plus(D(r).div(n)).pow(D(n).mul(t)).mul(principalNum));
-      if (result === null) {
-        return { error: "Calculation error: invalid growth factor.", errorField: "interestRate" };
-      }
-      compoundAmount = result;
-    }
-
-    // Future value of contributions using safe math
-    let contributionValue = 0;
-    const contributionPeriods = contribN * t;
-    if (additionalNum > 0 && contributionPeriods > 0) {
-      const contributionRate = r / contribN;
-      if (contributionRate === 0) {
-        contributionValue = additionalNum * contributionPeriods;
-      } else {
-        const result = safeCalc(D => {
-          const growth = D(1).plus(contributionRate).pow(contributionPeriods);
-          return D(additionalNum).mul(growth.minus(1).div(contributionRate));
-        });
-        if (result === null) {
-          return { error: "Calculation error: invalid contribution growth.", errorField: "interestRate" };
-        }
-        contributionValue = result;
-      }
-    }
-
-    const finalAmount = safeCalc(D => D(compoundAmount).plus(contributionValue));
-    const totalContributions = safeCalc(D => D(principalNum).plus(D(additionalNum).mul(contributionPeriods)));
-    
-    if (finalAmount === null || totalContributions === null) {
-      return { error: "Calculation error: results are invalid.", errorField: null };
-    }
-
-    const totalInterest = safeCalc(D => D(finalAmount).minus(totalContributions));
-    if (totalInterest === null) {
-      return { error: "Calculation error: results are invalid.", errorField: null };
-    }
-
-    // Round monetary values to 2 decimals
-    const round2 = (x: number) => Math.round(x * 100) / 100;
-    compoundAmount = round2(compoundAmount);
-    contributionValue = round2(contributionValue);
-    const finalAmountRounded = round2(finalAmount);
-    const totalContributionsRounded = round2(totalContributions);
-    const totalInterestRounded = round2(totalInterest);
-
-    // Effective annual rate
-    let effectiveAnnualRate = 0;
-    if (t > 0 && totalContributions > 0) {
-      const ear = safeCalc(D => D(finalAmount).div(totalContributions).pow(D(1).div(t)).minus(1).mul(100));
-      effectiveAnnualRate = ear ? round2(ear) : 0;
-    }
-
-    // Validate displayable results
-    if (!validateResult(finalAmountRounded)) {
-      return { error: ValidationErrors.RESULT_TOO_LARGE, errorField: null };
-    }
-
-    return {
-      error: null,
-      errorField: null,
-      principal: principalNum,
-      interestRate: rateNum,
-      timeInYears: years,
-      timeUnit: tu as TimeUnit,
-      compoundingFrequency: cf as Frequency,
-      additional: additionalNum,
-      contributionFrequency: rf as Frequency,
-      periods: contributionPeriods,
-      compoundingPeriodsPerYear: n,
-      compoundAmount,
-      contributionValue,
-      finalAmount: finalAmountRounded,
-      totalContributions: totalContributionsRounded,
-      totalInterest: totalInterestRounded,
-      effectiveAnnualRate,
-    };
-  } catch (error) {
-    console.error("CompoundInterestCalculator: Unexpected error in validation", error);
-    return {
-      error: "An unexpected error occurred. Please refresh and try again.",
-      errorField: null,
-    };
-  }
-}
+/* RESULT TYPE */
+type CIResult = {
+  principal: number;
+  rate: number;
+  years: number;
+  compoundAmount: number;
+  contribFV: number;
+  finalAmount: number;
+  totalContributions: number;
+  totalInterest: number;
+  effectiveAnnualRate: number;
+};
 
 export const CompoundInterestCalculator = () => {
+  /* FORM STATE */
   const [principal, setPrincipal] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [time, setTime] = useState("");
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("years");
-  const [compoundingFrequency, setCompoundingFrequency] = useState<Frequency>("annually");
-  const [additionalContributions, setAdditionalContributions] = useState("");
-  const [contributionFrequency, setContributionFrequency] = useState<Frequency>("monthly");
+  const [compoundingFrequency, setCompoundingFrequency] =
+    useState<Frequency>("annually");
+  const [additional, setAdditional] = useState("");
+  const [contributionFrequency, setContributionFrequency] =
+    useState<Frequency>("monthly");
 
-  // Enum coercers
-  const coerceTimeUnit = (v: string): TimeUnit => (AllowedTimeUnits.includes(v as TimeUnit) ? (v as TimeUnit) : "years");
-  const coerceFrequency = (v: string): Frequency => (AllowedFrequencies.includes(v as Frequency) ? (v as Frequency) : "annually");
+  const [errors, setErrors] = useState<CompoundErrors>({});
+  const [result, setResult] = useState<CIResult | null>(null);
+  const [calculated, setCalculated] = useState(false);
 
-  // Locale-aware currency formatter (USD)
+  /* Currency formatter */
   const currencyFormatter = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
@@ -345,38 +97,276 @@ export const CompoundInterestCalculator = () => {
     []
   );
 
-  // Calculate with validation and safety
-  const calc = useMemo(
-    () =>
-      validateAndComputeCompoundInterest({
-        principal,
-        interestRate,
-        time,
-        timeUnit,
-        compoundingFrequency,
-        additionalContributions,
-        contributionFrequency,
-      }),
-    [principal, interestRate, time, timeUnit, compoundingFrequency, additionalContributions, contributionFrequency]
-  );
+  /* ----------------------------------------
+   * INPUT HANDLERS — Clamp like DiscountCalc
+   * ---------------------------------------- */
 
-  const clearAll = useCallback(() => {
+  const clampNumber = (
+    val: string,
+    min: number,
+    max: number,
+    field: keyof CompoundErrors,
+    label: string
+  ) => {
+    const raw = val.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    if (n !== null && !Number.isNaN(n)) {
+      if (n > max) {
+        setErrors({
+          [field]: `${label} cannot exceed ${formatCurrency(max)}.`,
+        });
+        return String(max);
+      }
+      if (n < min) {
+        setErrors({
+          [field]: `${label} cannot be less than ${min}.`,
+        });
+        return String(min);
+      }
+    }
+
+    // Clear error if this field was previously in error
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev, [field]: undefined };
+      if (!next.principal && !next.interestRate && !next.time && !next.additional)
+        return {};
+      return next;
+    });
+
+    return val;
+  };
+
+  const handlePrincipal = (v: string) =>
+    setPrincipal(
+      clampNumber(v, 0, AMOUNT_MAX, "principal", "Initial investment")
+    );
+
+  const handleInterestRate = (v: string) =>
+    setInterestRate(
+      clampNumber(v, RATE_MIN, RATE_MAX, "interestRate", "Interest rate")
+    );
+
+  const handleTime = (v: string) => {
+    const raw = v.trim();
+    const n = raw === "" ? null : Number(raw);
+
+    if (n !== null && !Number.isNaN(n) && n < 0) {
+      setErrors({ time: "Time cannot be negative." });
+      return;
+    }
+
+    // No UI clamp for upper bound; enforced after unit conversion
+    setErrors((prev) => {
+      if (!prev.time) return prev;
+      const next = { ...prev, time: undefined };
+      return Object.values(next).every((x) => !x) ? {} : next;
+    });
+
+    setTime(v);
+  };
+
+  const handleAdditional = (v: string) =>
+    setAdditional(
+      clampNumber(v, 0, AMOUNT_MAX, "additional", "Contribution amount")
+    );
+
+  /* ----------------------------------------
+   * CALCULATE BUTTON HANDLER
+   * ---------------------------------------- */
+
+  const onCalculate = () => {
+    setCalculated(false);
+    setResult(null);
+
+    const newErrors: CompoundErrors = {};
+
+    // Required: interest rate
+    if (!interestRate.trim()) {
+      newErrors.interestRate = "Interest rate is required.";
+    }
+
+    // Required: time
+    if (!time.trim()) {
+      newErrors.time = "Time value is required.";
+    }
+
+    // Required: at least one: principal OR additional contributions
+    if (!principal.trim() && !additional.trim()) {
+      newErrors.principal =
+        "Enter a principal or a contribution amount to calculate compound interest.";
+      newErrors.additional =
+        "Enter a principal or a contribution amount to calculate compound interest.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      notify.error("Please fix the highlighted fields before calculating.");
+      return;
+    }
+
+    /* Parse numbers */
+    const pNum = safeNumber(principal, { min: 0, max: AMOUNT_MAX }) ?? 0;
+    const rNum = safeNumber(interestRate, { min: RATE_MIN, max: RATE_MAX });
+    const tNum = safeNumber(time);
+    const aNum = safeNumber(additional, { min: 0, max: AMOUNT_MAX }) ?? 0;
+
+    if (rNum === null) {
+      newErrors.interestRate = `Interest rate must be between ${RATE_MIN}% and ${RATE_MAX}%.`;
+    }
+
+    if (tNum === null || tNum < 0) {
+      newErrors.time = "Time must be a valid non-negative number.";
+    }
+
+    if (pNum === null) {
+      newErrors.principal = `Principal must be between 0 and ${formatCurrency(
+        AMOUNT_MAX
+      )}`;
+    }
+
+    if (aNum === null) {
+      newErrors.additional = `Contribution must be between 0 and ${formatCurrency(
+        AMOUNT_MAX
+      )}`;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      notify.error("Please fix the highlighted fields before calculating.");
+      return;
+    }
+
+    /* Convert time to years */
+    let years = 0;
+    switch (timeUnit) {
+      case "years":
+        years = tNum!;
+        break;
+      case "months":
+        years = tNum! / 12;
+        break;
+      case "weeks":
+        years = tNum! / 52;
+        break;
+      case "days":
+        years = tNum! / 365;
+        break;
+    }
+
+    if (years > TIME_MAX_YEARS) {
+      setErrors({
+        time: `Time cannot exceed ${TIME_MAX_YEARS} years.`,
+      });
+      notify.error("Please fix the highlighted fields before calculating.");
+      return;
+    }
+
+    const n = FREQ_MAP[compoundingFrequency];
+    const rn = FREQ_MAP[contributionFrequency];
+    const r = rNum! / 100;
+
+    /* -------------------------
+     * SAFE CALCULATIONS
+     * (with JS Math fallback so
+     * valid inputs never fail)
+     * ------------------------- */
+
+    // Principal FV
+    let compoundAmount = pNum;
+    if (r !== 0 && pNum > 0 && years > 0) {
+      let out = safeCalc((D) =>
+        D(1).plus(D(r).div(n)).pow(D(n).mul(years)).mul(pNum)
+      );
+
+      if (out === null) {
+        // Fallback to plain JS math
+        const base = 1 + r / n;
+        const exp = n * years;
+        const jsVal = pNum * Math.pow(base, exp);
+        out = Number.isFinite(jsVal) ? jsVal : pNum;
+      }
+
+      compoundAmount = out;
+    }
+
+    // Contributions FV
+    let contribFV = 0;
+    const periods = rn * years;
+    const ratePerPeriod = r / rn;
+
+    if (aNum > 0 && periods > 0) {
+      if (ratePerPeriod === 0) {
+        contribFV = aNum * periods;
+      } else {
+        let out = safeCalc((D) => {
+          const growth = D(1).plus(ratePerPeriod).pow(periods);
+          return D(aNum).mul(growth.minus(1).div(ratePerPeriod));
+        });
+
+        if (out === null) {
+          const base = 1 + ratePerPeriod;
+          const jsGrowth = Math.pow(base, periods);
+          const jsVal =
+            (Number.isFinite(jsGrowth) ? jsGrowth - 1 : 0) /
+            ratePerPeriod *
+            aNum;
+          out = Number.isFinite(jsVal) ? jsVal : 0;
+        }
+
+        contribFV = out;
+      }
+    }
+
+    // Totals
+    const finalAmount = compoundAmount + contribFV;
+    const totalContributions = pNum + aNum * periods;
+    const totalInterest = finalAmount - totalContributions;
+
+    const effectiveAnnualRate =
+      years > 0 && totalContributions > 0
+        ? ((finalAmount / totalContributions) ** (1 / years) - 1) * 100
+        : 0;
+
+    // Everything valid — save result
+    setErrors({});
+    setResult({
+      principal: pNum,
+      rate: rNum!,
+      years,
+      compoundAmount,
+      contribFV,
+      finalAmount,
+      totalContributions,
+      totalInterest,
+      effectiveAnnualRate,
+    });
+    setCalculated(true);
+    notify.success("Compound interest calculation completed.");
+  };
+
+  /* CLEAR */
+  const onClear = () => {
     setPrincipal("");
     setInterestRate("");
     setTime("");
     setTimeUnit("years");
     setCompoundingFrequency("annually");
-    setAdditionalContributions("");
+    setAdditional("");
     setContributionFrequency("monthly");
-  }, []);
+    setErrors({});
+    setResult(null);
+    setCalculated(false);
+  };
 
-  const hasResults =
-    !calc.error &&
-    typeof calc.timeInYears === "number" &&
-    calc.timeInYears > 0 &&
-    ((typeof calc.principal === "number" && calc.principal > 0) ||
-      (typeof calc.additional === "number" && calc.additional > 0));
+  const hasError = Boolean(
+    errors.principal || errors.interestRate || errors.time || errors.additional
+  );
 
+  /* ----------------------------------------
+   * RENDER
+   * ---------------------------------------- */
   return (
     <div className="space-y-6">
       <Card>
@@ -384,231 +374,226 @@ export const CompoundInterestCalculator = () => {
           <CardTitle>Compound Interest Calculator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Principal (optional, but one of principal/additional required) */}
             <div className="space-y-2">
-              <Label htmlFor="principal">Initial Investment ($)</Label>
+              <Label>Initial Investment ($)</Label>
               <SafeNumberInput
-                id="principal"
-                placeholder="0"
                 value={principal}
-                onChange={setPrincipal}
-                aria-invalid={calc.errorField === "principal" ? "true" : "false"}
-                aria-describedby={calc.errorField === "principal" ? "compound-error" : undefined}
-                className={calc.errorField === "principal" ? "border-red-500" : ""}
+                onChange={handlePrincipal}
+                placeholder="0"
+                sanitizeOptions={{ min: 0, max: AMOUNT_MAX }}
+                aria-invalid={errors.principal ? "true" : "false"}
+                className={errors.principal ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">Max: {formatCurrency(AMOUNT_MAX)}</p>
+              <p className="text-xs text-muted-foreground">
+                Max: {currencyFormatter.format(AMOUNT_MAX)}
+              </p>
             </div>
 
+            {/* Interest Rate (required) */}
             <div className="space-y-2">
-              <Label htmlFor="interest-rate">Annual Interest Rate (%)</Label>
+              <Label>Annual Interest Rate (%)</Label>
               <SafeNumberInput
-                id="interest-rate"
-                placeholder="0.00"
                 value={interestRate}
-                onChange={setInterestRate}
-                aria-invalid={calc.errorField === "interestRate" ? "true" : "false"}
-                aria-describedby={calc.errorField === "interestRate" ? "compound-error" : undefined}
-                className={calc.errorField === "interestRate" ? "border-red-500" : ""}
+                onChange={handleInterestRate}
+                placeholder="0.00"
+                sanitizeOptions={{ min: RATE_MIN, max: RATE_MAX }}
+                aria-invalid={errors.interestRate ? "true" : "false"}
+                className={errors.interestRate ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">Range: {RATE_MIN}% to {RATE_MAX}%</p>
+              <p className="text-xs text-muted-foreground">
+                Range: {RATE_MIN}% – {RATE_MAX}%
+              </p>
             </div>
 
+            {/* Time (required) */}
             <div className="space-y-2">
-              <Label htmlFor="time">Time Period</Label>
+              <Label>Time</Label>
               <SafeNumberInput
-                id="time"
-                placeholder="0"
                 value={time}
-                onChange={setTime}
-                aria-invalid={calc.errorField === "time" ? "true" : "false"}
-                aria-describedby={calc.errorField === "time" ? "compound-error" : undefined}
-                className={calc.errorField === "time" ? "border-red-500" : ""}
-              />
-              <p className="text-xs text-muted-foreground">Max horizon: {TIME_YEARS_MAX} years</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="time-unit">Time Unit</Label>
-              <Select value={timeUnit} onValueChange={(v) => setTimeUnit(coerceTimeUnit(v))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="days">Days</SelectItem>
-                  <SelectItem value="weeks">Weeks</SelectItem>
-                  <SelectItem value="months">Months</SelectItem>
-                  <SelectItem value="years">Years</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="compounding">Compounding Frequency</Label>
-              <Select value={compoundingFrequency} onValueChange={(v) => setCompoundingFrequency(coerceFrequency(v))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="semi-annually">Semi-Annually</SelectItem>
-                  <SelectItem value="annually">Annually</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="additional">Additional Contributions ($)</Label>
-              <SafeNumberInput
-                id="additional"
+                onChange={handleTime}
                 placeholder="0"
-                value={additionalContributions}
-                onChange={setAdditionalContributions}
-                aria-invalid={calc.errorField === "additionalContributions" ? "true" : "false"}
-                aria-describedby={calc.errorField === "additionalContributions" ? "compound-error" : undefined}
-                className={calc.errorField === "additionalContributions" ? "border-red-500" : ""}
+                aria-invalid={errors.time ? "true" : "false"}
+                className={errors.time ? "border-red-500" : ""}
               />
-              <p className="text-xs text-muted-foreground">Max per period: {formatCurrency(AMOUNT_MAX)}</p>
+              <p className="text-xs text-muted-foreground">
+                Max horizon: {TIME_MAX_YEARS} years
+              </p>
             </div>
 
+            {/* Time Unit (optional selector) */}
             <div className="space-y-2">
-              <Label htmlFor="contribution-freq">Contribution Frequency</Label>
-              <Select value={contributionFrequency} onValueChange={(v) => setContributionFrequency(coerceFrequency(v))}>
+              <Label>Time Unit</Label>
+              <Select value={timeUnit} onValueChange={(v) => setTimeUnit(v as TimeUnit)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select frequency" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="semi-annually">Semi-Annually</SelectItem>
-                  <SelectItem value="annually">Annually</SelectItem>
+                  {AllowedTimeUnits.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u[0].toUpperCase() + u.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Compounding Frequency (optional selector) */}
+            <div className="space-y-2">
+              <Label>Compounding Frequency</Label>
+              <Select
+                value={compoundingFrequency}
+                onValueChange={(v) => setCompoundingFrequency(v as Frequency)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AllowedFrequencies.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Additional Contributions (optional, but one of principal/additional required) */}
+            <div className="space-y-2">
+              <Label>Additional Contributions ($)</Label>
+              <SafeNumberInput
+                value={additional}
+                onChange={handleAdditional}
+                placeholder="0"
+                sanitizeOptions={{ min: 0, max: AMOUNT_MAX }}
+                aria-invalid={errors.additional ? "true" : "false"}
+                className={errors.additional ? "border-red-500" : ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                Max per period: {currencyFormatter.format(AMOUNT_MAX)}
+              </p>
+            </div>
+
+            {/* Contribution Frequency (optional selector) */}
+            <div className="space-y-2">
+              <Label>Contribution Frequency</Label>
+              <Select
+                value={contributionFrequency}
+                onValueChange={(v) => setContributionFrequency(v as Frequency)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AllowedFrequencies.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <Button onClick={clearAll} variant="outline" className="w-full" aria-label="Clear all fields">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Clear All
-          </Button>
-
-          {calc.error && (
+          {/* ERRORS */}
+          {hasError && (
             <div
-              id="compound-error"
-              className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
+              className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm"
               role="alert"
               aria-live="polite"
               aria-atomic="true"
             >
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <span>{calc.error}</span>
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              <div className="space-y-1">
+                {errors.principal && <div>{errors.principal}</div>}
+                {errors.interestRate && <div>{errors.interestRate}</div>}
+                {errors.time && <div>{errors.time}</div>}
+                {errors.additional && <div>{errors.additional}</div>}
+              </div>
             </div>
           )}
+
+          {/* ACTION BUTTONS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Button onClick={onCalculate} className="w-full">
+              Calculate
+            </Button>
+            <Button onClick={onClear} className="w-full" variant="outline">
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear All
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {hasResults && (
+      {/* RESULTS */}
+      {calculated && result && !hasError && (
         <Card>
           <CardHeader>
             <CardTitle>Compound Interest Results</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4" aria-live="polite">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-all px-2" aria-live="polite" aria-atomic="true">
-                  {currencyFormatter.format(calc.finalAmount!)}
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 break-all">
+                  {formatCurrency(result.finalAmount)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Final Amount</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Final Amount
+                </div>
               </div>
 
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-all px-2" aria-live="polite" aria-atomic="true">
-                  {currencyFormatter.format(calc.totalInterest!)}
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 break-all">
+                  {formatCurrency(result.totalInterest)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Interest</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Total Interest
+                </div>
               </div>
 
               <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-all px-2" aria-live="polite" aria-atomic="true">
-                  {currencyFormatter.format(calc.totalContributions!)}
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 break-all">
+                  {formatCurrency(result.totalContributions)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Contributions</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Total Contributions
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="font-semibold text-sm sm:text-base">Breakdown</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground flex-shrink-0">Initial Investment:</span>
-                    <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                      {currencyFormatter.format(calc.principal!)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm gap-2">
-                    <span className="text-muted-foreground flex-shrink-0">Compound Growth:</span>
-                    <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                      {currencyFormatter.format(calc.compoundAmount!)}
-                    </span>
-                  </div>
-                </div>
-
-                {calc.additional! > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground flex-shrink-0">Additional Contributions (sum):</span>
-                      <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.totalContributions! - calc.principal!)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs sm:text-sm gap-2">
-                      <span className="text-muted-foreground flex-shrink-0">Contribution Value (FV):</span>
-                      <span className="font-medium break-all text-right" aria-live="polite" aria-atomic="true">
-                        {currencyFormatter.format(calc.contributionValue!)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Key Insights</h4>
-              <div className="text-sm space-y-1 break-words">
-                <p>
-                  • Portfolio growth over period:
-                  <strong className="ml-1 break-all">{(((calc.finalAmount! / calc.totalContributions!) - 1) * 100).toFixed(1)}%</strong>
-                </p>
-                <p>
-                  • Interest earned:
-                  <strong className="ml-1 break-all">{currencyFormatter.format(calc.totalInterest!)}</strong>
-                </p>
-                <p>
-                  • Effective annual rate:
-                  <strong className="ml-1 break-all">{calc.effectiveAnnualRate!.toFixed(2)}%</strong>
-                </p>
-              </div>
+            <div className="bg-muted p-4 rounded-lg text-sm space-y-2">
+              <p>
+                • Portfolio growth:{" "}
+                <strong>
+                  {(
+                    ((result.finalAmount / result.totalContributions - 1) *
+                      100) || 0
+                  ).toFixed(1)}
+                  %
+                </strong>
+              </p>
+              <p>
+                • Effective annual rate:{" "}
+                <strong>{result.effectiveAnnualRate.toFixed(2)}%</strong>
+              </p>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Tips */}
       <Card>
         <CardHeader>
           <CardTitle>Compound Interest Tips</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Start investing early - time is your greatest asset</li>
-            <li>• Make regular contributions to maximize compound growth</li>
-            <li>• Higher compounding frequency leads to slightly better returns</li>
-            <li>• Consider tax implications of your investment returns</li>
-            <li>• Review and adjust your investment strategy regularly</li>
+            <li>• Start early — time is the strongest growth multiplier.</li>
+            <li>• Regular contributions dramatically boost returns.</li>
+            <li>• Higher compounding frequency increases effective yield.</li>
+            <li>• Review your investment strategy periodically.</li>
           </ul>
         </CardContent>
       </Card>
