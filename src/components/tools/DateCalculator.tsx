@@ -1,168 +1,255 @@
 import { useState } from "react";
+import {
+  differenceInYears,
+  differenceInMonths,
+  differenceInDays,
+  differenceInHours,
+  differenceInMinutes,
+  differenceInSeconds,
+  addYears,
+  addMonths,
+  addDays,
+  addHours,
+  addMinutes,
+  addSeconds,
+} from "date-fns";
+
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { notify } from "@/lib/notify";
+
+/**
+ * FULL PRODUCTION VERSION
+ * - Supports full datetime-local range (0001 → 9999)
+ * - Button-triggered calculation only (no auto-updates)
+ * - DST-safe: step-through (Years → Months → Days → Hours → Minutes → Seconds)
+ * - Uses strict validation to avoid browser inconsistencies
+ * - Fully symmetric (absolute difference)
+ */
+
+// Strict validation for datetime-local
+const RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+// HTML datetime-local min/max constraints
+const MIN = "0001-01-01T00:00";
+const MAX = "9999-12-31T23:59";
+
+// Sync date-local string → Date
+const parseDate = (v: string): Date | null => {
+  if (!RE.test(v)) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// Format JS Date → datetime-local (YYYY-MM-DDTHH:mm)
+const fmt = (date: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(
+    date.getDate()
+  )}T${p(date.getHours())}:${p(date.getMinutes())}`;
+};
 
 export const DateCalculator = () => {
-  // Format datetime for datetime-local input (YYYY-MM-DDTHH:mm)
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 86400000);
 
-  // Guardrails
-  const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-  const MIN_DATE = new Date('1900-01-01T00:00');
-  const MAX_DATE = new Date('2100-12-31T23:59');
-  const clampDate = (d: Date) => {
-    if (d < MIN_DATE) return new Date(MIN_DATE);
-    if (d > MAX_DATE) return new Date(MAX_DATE);
-    return d;
-  };
-  const parseDateSafe = (val: string): Date | null => {
-    if (!val || !DATETIME_RE.test(val)) return null;
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return null;
-    return clampDate(d);
-  };
+  // Inputs
+  const [date1, setDate1] = useState(fmt(now));
+  const [date2, setDate2] = useState(fmt(tomorrow));
 
-  const [date1, setDate1] = useState(formatDateTime(new Date()));
-  const [date2, setDate2] = useState(formatDateTime(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)));
+  // Output data (only updated on button click)
+  const [result, setResult] = useState<null | {
+    years: number;
+    months: number;
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalHours: number;
+    totalMinutes: number;
+    totalSeconds: number;
+  }>(null);
 
-  const calculateDifference = () => {
-    const d1 = parseDateSafe(date1);
-    const d2 = parseDateSafe(date2);
-    if (!d1 || !d2) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0, totalHours: 0, totalMinutes: 0, totalSeconds: 0, weeks: 0, months: 0, years: 0 };
+  const calculate = () => {
+    const start = parseDate(date1);
+    const end = parseDate(date2);
+
+    if (!start || !end) {
+      notify.error("Please enter valid date/time values.");
+      setResult(null);
+      return;
     }
-    const diff = Math.abs(d2.getTime() - d1.getTime());
 
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    const totalHours = Math.floor(diff / (1000 * 60 * 60));
-    const totalMinutes = Math.floor(diff / (1000 * 60));
-    const totalSeconds = Math.floor(diff / 1000);
-    const weeks = Math.floor(days / 7);
-    const months = Math.floor(days / 30);
-    const years = Math.floor(days / 365);
+    // Normalize order for absolute difference
+    const A = start < end ? start : end;
+    const B = start < end ? end : start;
 
-    return { days, hours, minutes, seconds, totalHours, totalMinutes, totalSeconds, weeks, months, years };
+    if (start > end) {
+      notify.info("Note: second date is earlier. Showing absolute difference.");
+    }
+
+    let cursor = A;
+
+    // STEP 1 — YEARS
+    let years = differenceInYears(B, cursor);
+    cursor = addYears(cursor, years);
+
+    if (cursor > B) {
+      years--;
+      cursor = addYears(A, years);
+    }
+
+    // STEP 2 — MONTHS
+    let months = differenceInMonths(B, cursor);
+    cursor = addMonths(cursor, months);
+
+    // Correct overshoot using proper baseline
+    if (cursor > B) {
+      months--;
+      cursor = addMonths(addYears(A, years), months);
+    }
+
+    // STEP 3 — DAYS
+    const days = differenceInDays(B, cursor);
+    cursor = addDays(cursor, days);
+
+    // STEP 4 — HOURS
+    const hours = differenceInHours(B, cursor);
+    cursor = addHours(cursor, hours);
+
+    // STEP 5 — MINUTES
+    const minutes = differenceInMinutes(B, cursor);
+    cursor = addMinutes(cursor, minutes);
+
+    // STEP 6 — SECONDS
+    let seconds = differenceInSeconds(B, cursor);
+    cursor = addSeconds(cursor, seconds);
+
+    // DST safety correction
+    if (cursor > B) {
+      seconds--;
+    }
+
+    // TOTALS (exact elapsed units)
+    const totalSeconds = Math.floor((B.getTime() - A.getTime()) / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalSeconds / 3600);
+
+    setResult({
+      years,
+      months,
+      days,
+      hours,
+      minutes,
+      seconds,
+      totalHours,
+      totalMinutes,
+      totalSeconds,
+    });
+
+    notify.success("Date difference calculated!");
   };
-
-  const diff = calculateDifference();
 
   return (
     <div className="space-y-4">
+      {/* INPUT CARD */}
       <Card>
         <CardHeader>
-          <CardTitle>Date Calculator</CardTitle>
+          <CardTitle>Date Difference Calculator</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
+          {/* First date */}
           <div className="space-y-2">
             <Label>First Date & Time</Label>
             <Input
               type="datetime-local"
               value={date1}
-              min="1900-01-01T00:00"
-              max="2100-12-31T23:59"
+              min={MIN}
+              max={MAX}
               onChange={(e) => setDate1(e.target.value)}
             />
           </div>
+
+          {/* Second date */}
           <div className="space-y-2">
             <Label>Second Date & Time</Label>
             <Input
               type="datetime-local"
               value={date2}
-              min="1900-01-01T00:00"
-              max="2100-12-31T23:59"
+              min={MIN}
+              max={MAX}
               onChange={(e) => setDate2(e.target.value)}
             />
           </div>
+
+          <Button className="w-full" onClick={calculate}>
+            Calculate Difference
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Primary metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Time Difference</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-primary">{diff.days}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Days</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-primary">{diff.hours}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Hours</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-primary">{diff.minutes}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Minutes</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* RESULTS */}
+      {result && (
+        <>
+          {/* CALENDAR DIFFERENCE */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Calendar Difference</CardTitle>
+            </CardHeader>
 
-      {/* Alternative measurements */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Alternative Measurements</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.years}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Years</div>
-            </div>
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.months}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Months</div>
-            </div>
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.weeks}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Weeks</div>
-            </div>
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.totalHours.toLocaleString()}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Hours</div>
-            </div>
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.totalMinutes.toLocaleString()}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Minutes</div>
-            </div>
-            <div className="text-center p-3 border rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-primary break-words">{diff.totalSeconds.toLocaleString()}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total Seconds</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                {[
+                  ["Years", result.years],
+                  ["Months", result.months],
+                  ["Days", result.days],
+                  ["Hours", result.hours],
+                  ["Minutes", result.minutes],
+                  ["Seconds", result.seconds],
+                ].map(([label, value]) => (
+                  <div key={label} className="text-center p-3 border rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-primary">
+                      {value as number}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* How to Use */}
-      <Card>
-        <CardHeader>
-          <CardTitle>How to Use</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Pick the first and second date & time using the inputs above</li>
-            <li>• Time Difference shows full days plus remaining hours and minutes between the two moments</li>
-            <li>• Alternative measurements include the same span as total hours, minutes, and seconds, plus weeks, months, and years</li>
-            <li>• Weeks are 7-day blocks; months are approximated as 30 days; years as 365 days</li>
-            <li>• The result is an absolute difference (order doesn’t matter) and uses your device’s timezone/clock</li>
-          </ul>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Note: “Days” are counted as 24-hour blocks. Around daylight saving time changes, a calendar day can be 23 or 25 hours, so the breakdown reflects exact elapsed time, not calendar date boundaries.
-          </p>
-        </CardContent>
-      </Card>
+          {/* TOTALS */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Total Elapsed Time</CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  ["Total Hours", result.totalHours.toLocaleString()],
+                  ["Total Minutes", result.totalMinutes.toLocaleString()],
+                  ["Total Seconds", result.totalSeconds.toLocaleString()],
+                ].map(([label, value]) => (
+                  <div key={label} className="text-center p-3 border rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-primary break-all">
+                      {value as string}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };

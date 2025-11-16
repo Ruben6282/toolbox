@@ -1,222 +1,216 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Play, Pause, Square, RotateCcw, Flag } from "lucide-react";
+import { Play, Pause, RotateCcw, Flag } from "lucide-react";
 
 export const StopwatchTimer = () => {
-  const [time, setTime] = useState(0);
+  /* ---------------------------------------------
+     STATE (timestamp-based stopwatch — no drift)
+  ---------------------------------------------- */
+  const [elapsed, setElapsed] = useState(0);        // total ms accumulated
   const [isRunning, setIsRunning] = useState(false);
-  const [laps, setLaps] = useState<number[]>([]);
-  const [lapTimes, setLapTimes] = useState<number[]>([]);
-  const [lastLapTime, setLastLapTime] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [laps, setLaps] = useState<number[]>([]);  // accumulated times
+  const [lastLapStart, setLastLapStart] = useState(0);
 
+  const intervalRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);    // timestamp when started
+
+  /* ---------------------------------------------
+     EFFECT — precise high-resolution stopwatch
+  ---------------------------------------------- */
+ // Interval effect (must NOT depend on `elapsed`)
   useEffect(() => {
     if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTime(prev => prev + 10);
-      }, 10);
+      startRef.current = performance.now() - elapsed;
+
+      intervalRef.current = window.setInterval(() => {
+        const now = performance.now();
+        setElapsed(now - (startRef.current ?? now));
+      }, 16);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
 
     return () => {
-      const id = intervalRef.current;
-      if (id) {
-        clearInterval(id);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
-  const startStop = () => {
-    setIsRunning(!isRunning);
-  };
+  /* ---------------------------------------------
+     ACTIONS
+  ---------------------------------------------- */
+  const start = () => setIsRunning(true);
+  const pause = () => setIsRunning(false);
 
   const reset = () => {
-    setTime(0);
-    setIsRunning(false);
+    pause();
+    setElapsed(0);
     setLaps([]);
-    setLapTimes([]);
-    setLastLapTime(0);
+    setLastLapStart(0);
   };
 
-  const lap = () => {
-    if (isRunning) {
-      const currentLapTime = time - lastLapTime;
-      setLaps(prev => [...prev, time]);
-      setLapTimes(prev => [...prev, currentLapTime]);
-      setLastLapTime(time);
-    }
+  const addLap = () => {
+    if (!isRunning) return;
+    const lapTime = elapsed - lastLapStart;
+    setLaps((prev) => [...prev, lapTime]);
+    setLastLapStart(elapsed);
   };
 
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
+  /* ---------------------------------------------
+     FORMATTER
+  ---------------------------------------------- */
+  const format = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    const ms = Math.floor((milliseconds % 1000) / 10);
-    
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+    const millis = Math.floor((ms % 1000) / 10);
+
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+      2,
+      "0"
+    )}.${String(millis).padStart(2, "0")}`;
   };
 
-  const getFastestLap = () => {
-    if (lapTimes.length === 0) return null;
-    return Math.min(...lapTimes);
-  };
+  /* ---------------------------------------------
+     LAP STATISTICS (memoized)
+  ---------------------------------------------- */
+  const stats = useMemo(() => {
+    if (laps.length === 0) return null;
 
-  const getSlowestLap = () => {
-    if (lapTimes.length === 0) return null;
-    return Math.max(...lapTimes);
-  };
+    const fastest = Math.min(...laps);
+    const slowest = Math.max(...laps);
+    const average = laps.reduce((a, b) => a + b, 0) / laps.length;
 
-  const getAverageLap = () => {
-    if (lapTimes.length === 0) return null;
-    return lapTimes.reduce((sum, lap) => sum + lap, 0) / lapTimes.length;
-  };
+    return { fastest, slowest, average };
+  }, [laps]);
 
-  const fastestLap = getFastestLap();
-  const slowestLap = getSlowestLap();
-  const averageLap = getAverageLap();
-
+  /* ---------------------------------------------
+     RENDER
+  ---------------------------------------------- */
   return (
     <div className="space-y-6 px-2 sm:px-0">
       <Card>
         <CardHeader>
           <CardTitle>Stopwatch Timer</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center">
-            <div className="text-4xl sm:text-5xl md:text-6xl font-mono font-bold text-blue-600 mb-4 break-all">
-              {formatTime(time)}
-            </div>
-            
-            <div className="flex flex-col sm:flex-row justify-center gap-2 w-full">
-              <Button
-                onClick={startStop}
-                variant={isRunning ? "destructive" : "default"}
-                size="lg"
-                className="flex items-center gap-2 w-full sm:w-auto"
-              >
-                {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {isRunning ? "Pause" : "Start"}
+
+        <CardContent className="space-y-4 text-center">
+          <div className="text-5xl sm:text-6xl font-mono font-bold text-blue-600 mb-4">
+            {format(elapsed)}
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-2">
+            {!isRunning ? (
+              <Button onClick={start} size="lg" className="w-full sm:w-auto">
+                <Play className="h-4 w-4 mr-2" /> Start
               </Button>
-              
+            ) : (
               <Button
-                onClick={lap}
-                variant="outline"
+                onClick={pause}
+                variant="destructive"
                 size="lg"
-                disabled={!isRunning}
-                className="flex items-center gap-2 w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
-                <Flag className="h-4 w-4" />
-                Lap
+                <Pause className="h-4 w-4 mr-2" /> Pause
               </Button>
-              
-              <Button
-                onClick={reset}
-                variant="outline"
-                size="lg"
-                className="flex items-center gap-2 w-full sm:w-auto"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset
-              </Button>
-            </div>
+            )}
+
+            <Button
+              onClick={addLap}
+              variant="outline"
+              size="lg"
+              disabled={!isRunning}
+              className="w-full sm:w-auto"
+            >
+              <Flag className="h-4 w-4 mr-2" /> Lap
+            </Button>
+
+            <Button
+              onClick={reset}
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" /> Reset
+            </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Lap list */}
       {laps.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Lap Times</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {[...Array(laps.length)].map((_, idx) => {
-                const i = laps.length - 1 - idx;
-                const lapNumber = i + 1;
-                const lapDuration = lapTimes[i];
-                const isFastest = fastestLap === lapDuration;
-                const isSlowest = slowestLap === lapDuration;
 
-                return (
-                  <div
-                    key={i}
-                    className={`flex flex-col xs:flex-row justify-between items-start xs:items-center p-3 rounded-lg border gap-2 ${
-                      isFastest ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' :
-                      isSlowest ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' :
-                      'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm sm:text-base">Lap {lapNumber}</span>
-                      {isFastest && <span className="text-green-600 dark:text-green-400 text-xs">Fastest</span>}
-                      {isSlowest && <span className="text-red-600 dark:text-red-400 text-xs">Slowest</span>}
-                    </div>
-                    <div className="font-mono text-base sm:text-lg break-all">
-                      {formatTime(lapDuration)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+            {[...laps].reverse().map((lap, i) => {
+              const index = laps.length - i;
+              const isFastest = stats?.fastest === lap;
+              const isSlowest = stats?.slowest === lap;
+
+              return (
+                <div
+                  key={index}
+                  className={`flex justify-between p-3 rounded-lg border ${
+                    isFastest
+                      ? "bg-green-50 border-green-200"
+                      : isSlowest
+                      ? "bg-red-50 border-red-200"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
+                >
+                  <span className="font-medium">Lap {index}</span>
+                  <span className="font-mono text-lg">{format(lap)}</span>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
 
-      {laps.length > 0 && (
+      {/* Stats */}
+      {stats && (
         <Card>
           <CardHeader>
             <CardTitle>Lap Statistics</CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-green-600 break-all">
-                  {fastestLap ? formatTime(fastestLap) : "N/A"}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-green-600">
+                  {format(stats.fastest)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Fastest Lap</div>
+                <div className="text-xs text-muted-foreground">Fastest</div>
               </div>
-              
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-red-600 break-all">
-                  {slowestLap ? formatTime(slowestLap) : "N/A"}
+
+              <div>
+                <div className="text-2xl font-bold text-red-600">
+                  {format(stats.slowest)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Slowest Lap</div>
+                <div className="text-xs text-muted-foreground">Slowest</div>
               </div>
-              
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-all">
-                  {averageLap ? formatTime(averageLap) : "N/A"}
+
+              <div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {format(stats.average)}
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Average Lap</div>
+                <div className="text-xs text-muted-foreground">Average</div>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Stopwatch Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-            <li>• Click "Start" to begin timing</li>
-            <li>• Click "Lap" to record lap times while running</li>
-            <li>• Click "Pause" to temporarily stop the timer</li>
-            <li>• Click "Reset" to clear all times and start over</li>
-            <li>• Lap times are highlighted: green for fastest, red for slowest</li>
-            <li>• Use for timing workouts, races, or any timed activities</li>
-            <li>• The timer shows minutes:seconds.milliseconds format</li>
-            <li>• All lap data is cleared when you reset the stopwatch</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 };

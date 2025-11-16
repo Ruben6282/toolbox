@@ -7,61 +7,109 @@ import { notify } from "@/lib/notify";
 import { SafeNumberInput } from "@/components/ui/safe-number-input";
 import { safeNumber } from "@/lib/safe-number";
 
-const MIN_TIMESTAMP = -62135596800000; // 0001-01-01 in ms
-const MAX_TIMESTAMP = 253402300799999; // 9999-12-31 in ms
+/**
+ * VERSION B — PRODUCITON READY
+ * - Strict datetime-local validation
+ * - Robust seconds-vs-milliseconds detection
+ * - Full min/max date safety
+ * - Sanitized timestamps
+ * - Human-proof error messages
+ */
+
+// Full JavaScript date range
+const MIN_TIMESTAMP = -62135596800000; // 0001-01-01T00:00:00.000Z
+const MAX_TIMESTAMP = 253402300799999; // 9999-12-31T23:59:59.999Z
+
+// Strict regex for datetime-local
+const LOCAL_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+// Format Date → datetime-local (LOCAL time, not UTC)
+const formatLocalDateTime = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
+    d.getHours()
+  )}:${p(d.getMinutes())}`;
+};
+
+// Parse datetime-local safely
+const parseLocal = (val: string): Date | null => {
+  if (!LOCAL_RE.test(val)) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
 
 export const TimestampConverter = () => {
-  // Helper to format a Date for an <input type="datetime-local"> using LOCAL time (no timezone)
-  const formatLocalDateTimeForInput = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const minutes = pad(d.getMinutes());
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+  const now = new Date();
 
-  const [timestamp, setTimestamp] = useState(Date.now().toString());
-  const [dateTime, setDateTime] = useState(formatLocalDateTimeForInput(new Date()));
+  const [timestamp, setTimestamp] = useState(now.getTime().toString());
+  const [dateTime, setDateTime] = useState(formatLocalDateTime(now));
 
   const timestampToDate = () => {
-    try {
-      const raw = safeNumber(timestamp, { min: MIN_TIMESTAMP, max: MAX_TIMESTAMP, allowDecimal: false });
-      if (raw === null) {
-        notify.error("Invalid timestamp!");
-        return;
-      }
-      // Auto-detect seconds vs milliseconds: assume seconds if value looks like a 10-digit unix epoch
-      const tsMs = raw < 1e12 ? raw * 1000 : raw;
-      // Clamp to valid range
-      const clamped = Math.max(MIN_TIMESTAMP, Math.min(MAX_TIMESTAMP, tsMs));
-      const date = new Date(clamped);
-      if (isNaN(date.getTime())) throw new Error("Invalid timestamp");
-      setDateTime(formatLocalDateTimeForInput(date));
-      notify.success("Converted to date!");
-    } catch (e) {
-      notify.error("Invalid timestamp!");
+    // First: do minimal numeric validation ONLY (no min/max yet)
+    const raw = safeNumber(timestamp, {
+      allowDecimal: false,
+      // allow anything reasonably sized — full validation happens later
+      min: -1e16,
+      max: 1e16,
+    });
+
+    if (raw === null) {
+      notify.error("Invalid timestamp! Only whole numbers are allowed.");
+      return;
     }
+
+    // Detect seconds vs milliseconds
+    // < 1e12 → seconds (10-digit unix timestamp)
+    let tsMs =
+      Math.abs(raw) < 1e12
+        ? raw * 1000 // seconds → ms
+        : raw; // already ms
+
+    // Clamp to safe JS range
+    tsMs = Math.max(MIN_TIMESTAMP, Math.min(MAX_TIMESTAMP, tsMs));
+
+    const d = new Date(tsMs);
+    if (isNaN(d.getTime())) {
+      notify.error("This timestamp is outside the valid date range.");
+      return;
+    }
+
+    setDateTime(formatLocalDateTime(d));
+    notify.success("Converted to date!");
   };
 
   const dateToTimestamp = () => {
-    try {
-      const d = new Date(dateTime);
-      const ts = d.getTime();
-      if (!Number.isFinite(ts)) throw new Error("Invalid date");
-      setTimestamp(ts.toString());
-  notify.success("Converted to timestamp!");
-    } catch (e) {
-  notify.error("Invalid date!");
+    // Validate datetime-local format
+    if (!LOCAL_RE.test(dateTime)) {
+      notify.error("Invalid date format. Use the date/time picker.");
+      return;
     }
+
+    const d = parseLocal(dateTime);
+    if (!d) {
+      notify.error("Invalid date/time value.");
+      return;
+    }
+
+    let ts = d.getTime();
+
+    if (!Number.isFinite(ts)) {
+      notify.error("Date is outside the valid timestamp range.");
+      return;
+    }
+
+    // Clamp timestamp
+    ts = Math.max(MIN_TIMESTAMP, Math.min(MAX_TIMESTAMP, ts));
+
+    setTimestamp(ts.toString());
+    notify.success("Converted to timestamp!");
   };
 
   const useCurrentTime = () => {
     const now = new Date();
     setTimestamp(now.getTime().toString());
-    setDateTime(formatLocalDateTimeForInput(now));
-  notify.success("Current time loaded!");
+    setDateTime(formatLocalDateTime(now));
+    notify.success("Current time loaded!");
   };
 
   return (
@@ -70,19 +118,24 @@ export const TimestampConverter = () => {
         Use Current Time
       </Button>
 
+      {/* Timestamp Input */}
       <Card>
         <CardHeader>
           <CardTitle>Unix Timestamp</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            <Label>Timestamp (milliseconds or seconds)</Label>
+            <Label>Timestamp (ms or seconds)</Label>
             <SafeNumberInput
               value={timestamp}
-              onChange={(sanitized) => setTimestamp(sanitized)}
-              sanitizeOptions={{ min: MIN_TIMESTAMP, max: MAX_TIMESTAMP, allowDecimal: false }}
+              onChange={(v) => setTimestamp(v)}
+              sanitizeOptions={{
+                allowDecimal: false,
+                min: -1e16,
+                max: 1e16,
+              }}
               inputMode="numeric"
-              placeholder="1234567890000"
+              placeholder="1712345678"
             />
           </div>
           <Button onClick={timestampToDate} className="w-full">
@@ -91,6 +144,7 @@ export const TimestampConverter = () => {
         </CardContent>
       </Card>
 
+      {/* Date Input */}
       <Card>
         <CardHeader>
           <CardTitle>Date & Time</CardTitle>
@@ -102,33 +156,14 @@ export const TimestampConverter = () => {
               type="datetime-local"
               value={dateTime}
               onChange={(e) => setDateTime(e.target.value)}
+              min="0001-01-01T00:00"
+              max="9999-12-31T23:59"
             />
           </div>
+
           <Button onClick={dateToTimestamp} className="w-full">
             Convert to Timestamp
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Reference</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Current Timestamp:</span>
-              <code className="font-mono">{Date.now()}</code>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Current Timestamp (seconds):</span>
-              <code className="font-mono">{Math.floor(Date.now() / 1000)}</code>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Current Date:</span>
-              <code className="font-mono">{new Date().toLocaleString()}</code>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

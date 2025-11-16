@@ -7,135 +7,165 @@ import { Badge } from "@/components/ui/badge";
 import { Play, Pause, RotateCcw, Clock, Bell } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+const HOURS_MAX = 23;
+const MINSEC_MAX = 59;
+
+type IntervalId = number | null;
+
+// Sanitize numeric input into integer within [min, max]
+const sanitizeIntRange = (value: string, min: number, max: number): number => {
+  const cleaned = value.replace(/[^0-9-]/g, "");
+  const n = parseInt(cleaned, 10);
+  if (Number.isNaN(n)) return min;
+  return Math.max(min, Math.min(max, n));
+};
+
 export const CountdownTimer = () => {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [seconds, setSeconds] = useState(0);
+
   const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [totalDuration, setTotalDuration] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0); // seconds
+  const [totalDuration, setTotalDuration] = useState(0); // seconds
+
   const [showAlert, setShowAlert] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const intervalRef = useRef<number | null>(null);
-  const HOURS_MAX = 23;
-  const MINSEC_MAX = 59;
 
-  const sanitizeIntRange = (value: string, min: number, max: number) => {
-    const n = parseInt(value.replace(/[^0-9-]/g, ""), 10);
-    if (isNaN(n)) return min;
-    return Math.max(min, Math.min(max, n));
+  const intervalRef = useRef<IntervalId>(null);
+
+  const clearTimerInterval = () => {
+    if (intervalRef.current !== null) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   };
 
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      if (intervalRef.current !== null) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      intervalRef.current = window.setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            setShowAlert(true);
-            if (soundEnabled) {
-              playAlertSound();
-            }
-            notify.success("Time's up!");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current !== null) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (intervalRef.current !== null) {
-        window.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isRunning, timeLeft, soundEnabled]);
-
+  // Simple beep using Web Audio API with safe guards
   const playAlertSound = () => {
-    // Create a simple beep sound using Web Audio API with a typed fallback for older browsers
-    const AudioCtx = (
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    ) as typeof AudioContext | undefined;
+    const AudioCtx =
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext || window.AudioContext;
 
     if (!AudioCtx) {
-      // Web Audio API not supported
+      // Web Audio not supported; silently skip
       return;
     }
 
-    const audioContext = new AudioCtx();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    try {
+      const audioContext = new AudioCtx();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
 
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
+      oscillator.frequency.value = 800;
+      oscillator.type = "sine";
 
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      const now = audioContext.currentTime;
+      gainNode.gain.setValueAtTime(0.3, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
 
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
+      // Ensure context is running (required on some browsers)
+      void audioContext.resume?.();
 
-    // Clean up and close context shortly after
-    setTimeout(() => {
-      try {
-        oscillator.disconnect();
-        gainNode.disconnect();
-        void audioContext.close();
-      } catch {
-        // ignore
-      }
-    }, 700);
+      oscillator.start(now);
+      oscillator.stop(now + 0.5);
+
+      // Cleanup
+      window.setTimeout(() => {
+        try {
+          oscillator.disconnect();
+          gainNode.disconnect();
+          void audioContext.close();
+        } catch {
+          // ignore cleanup errors
+        }
+      }, 700);
+    } catch {
+      // If anything goes wrong, don't crash the app
+    }
   };
 
-  const startTimer = () => {
-    const inputTotalSeconds = hours * 3600 + minutes * 60 + seconds;
+  // Interval management: only depends on isRunning & soundEnabled
+  useEffect(() => {
+    if (!isRunning) {
+      clearTimerInterval();
+      return;
+    }
 
-    // Resume if paused and there is remaining time
-    if (!isRunning && timeLeft > 0) {
-      // If inputs were changed to a different value, start a fresh countdown
-      if (inputTotalSeconds > 0 && inputTotalSeconds !== totalDuration) {
-        setTimeLeft(inputTotalSeconds);
-        setTotalDuration(inputTotalSeconds);
-      }
+    // Avoid creating multiple intervals
+    if (intervalRef.current !== null) return;
+
+    intervalRef.current = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearTimerInterval();
+          setIsRunning(false);
+          setShowAlert(true);
+
+          if (soundEnabled) {
+            playAlertSound();
+          }
+
+          notify.success("Time's up!");
+          return 0;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearTimerInterval();
+    };
+  }, [isRunning, soundEnabled]);
+
+  const computeTotalSecondsFromInputs = () =>
+    hours * 3600 + minutes * 60 + seconds;
+
+  const startTimer = () => {
+    const inputTotalSeconds = computeTotalSecondsFromInputs();
+
+    // If inputs are zero and no remaining time, don't start
+    if (!isRunning && timeLeft === 0 && inputTotalSeconds <= 0) {
+      notify.error("Please set a valid time!");
+      return;
+    }
+
+    // Resume from pause if timeLeft > 0 and user didn't change duration
+    if (!isRunning && timeLeft > 0 && inputTotalSeconds === totalDuration) {
+      setIsRunning(true);
+      setShowAlert(false);
+      notify.success("Timer resumed!");
+      return;
+    }
+
+    // If inputs changed or we are starting fresh
+    if (inputTotalSeconds > 0) {
+      clearTimerInterval();
+      setTimeLeft(inputTotalSeconds);
+      setTotalDuration(inputTotalSeconds);
       setIsRunning(true);
       setShowAlert(false);
       notify.success("Timer started!");
       return;
     }
 
-    // Start new countdown
-    if (inputTotalSeconds <= 0) {
-      notify.error("Please set a valid time!");
-      return;
-    }
-    setTimeLeft(inputTotalSeconds);
-    setTotalDuration(inputTotalSeconds);
-    setIsRunning(true);
-    setShowAlert(false);
-    notify.success("Timer started!");
+    notify.error("Please set a valid time!");
   };
 
   const pauseTimer = () => {
+    if (!isRunning) return;
     setIsRunning(false);
+    clearTimerInterval();
     notify.success("Timer paused!");
   };
 
   const resetTimer = () => {
     setIsRunning(false);
+    clearTimerInterval();
     setTimeLeft(0);
     setTotalDuration(0);
     setShowAlert(false);
@@ -146,16 +176,34 @@ export const CountdownTimer = () => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
   const getProgressPercentage = () => {
-    if (totalDuration === 0) return 0;
-    return ((totalDuration - timeLeft) / totalDuration) * 100;
+    if (totalDuration <= 0) return 0;
+    const completed = totalDuration - timeLeft;
+    return Math.min(100, Math.max(0, (completed / totalDuration) * 100));
   };
+
+  const presets = [
+    { label: "1 min", h: 0, m: 1, s: 0 },
+    { label: "5 min", h: 0, m: 5, s: 0 },
+    { label: "10 min", h: 0, m: 10, s: 0 },
+    { label: "15 min", h: 0, m: 15, s: 0 },
+    { label: "30 min", h: 0, m: 30, s: 0 },
+    { label: "1 hour", h: 1, m: 0, s: 0 },
+    { label: "2 hours", h: 2, m: 0, s: 0 },
+    { label: "Pomodoro", h: 0, m: 25, s: 0 },
+  ] as const;
+
+  const disableStart = !isRunning && computeTotalSecondsFromInputs() <= 0 && timeLeft === 0;
 
   return (
     <div className="space-y-6 px-2 sm:px-0">
+      {/* Input + Controls */}
       <Card>
         <CardHeader>
           <CardTitle>Countdown Timer</CardTitle>
@@ -163,42 +211,61 @@ export const CountdownTimer = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="hours" className="text-xs sm:text-sm">Hours</Label>
+              <Label htmlFor="hours" className="text-xs sm:text-sm">
+                Hours
+              </Label>
               <Input
                 id="hours"
                 type="number"
-                min="0"
-                max={String(HOURS_MAX)}
+                min={0}
+                max={HOURS_MAX}
                 inputMode="numeric"
                 value={hours}
-                onChange={(e) => setHours(sanitizeIntRange(e.target.value, 0, HOURS_MAX))}
+                onChange={(e) =>
+                  setHours(sanitizeIntRange(e.target.value, 0, HOURS_MAX))
+                }
                 disabled={isRunning}
+                maxLength={2}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minutes" className="text-xs sm:text-sm">Minutes</Label>
+              <Label htmlFor="minutes" className="text-xs sm:text-sm">
+                Minutes
+              </Label>
               <Input
                 id="minutes"
                 type="number"
-                min="0"
-                max={String(MINSEC_MAX)}
+                min={0}
+                max={MINSEC_MAX}
                 inputMode="numeric"
                 value={minutes}
-                onChange={(e) => setMinutes(sanitizeIntRange(e.target.value, 0, MINSEC_MAX))}
+                onChange={(e) =>
+                  setMinutes(
+                    sanitizeIntRange(e.target.value, 0, MINSEC_MAX)
+                  )
+                }
                 disabled={isRunning}
+                maxLength={2}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="seconds" className="text-xs sm:text-sm">Seconds</Label>
+              <Label htmlFor="seconds" className="text-xs sm:text-sm">
+                Seconds
+              </Label>
               <Input
                 id="seconds"
                 type="number"
-                min="0"
-                max={String(MINSEC_MAX)}
+                min={0}
+                max={MINSEC_MAX}
                 inputMode="numeric"
                 value={seconds}
-                onChange={(e) => setSeconds(sanitizeIntRange(e.target.value, 0, MINSEC_MAX))}
+                onChange={(e) =>
+                  setSeconds(
+                    sanitizeIntRange(e.target.value, 0, MINSEC_MAX)
+                  )
+                }
                 disabled={isRunning}
+                maxLength={2}
               />
             </div>
           </div>
@@ -210,23 +277,44 @@ export const CountdownTimer = () => {
               checked={soundEnabled}
               onChange={(e) => setSoundEnabled(e.target.checked)}
               className="rounded"
+              aria-label="Enable sound alert when timer finishes"
             />
-            <Label htmlFor="sound-enabled" className="text-xs sm:text-sm">Enable sound alert</Label>
+            <Label
+              htmlFor="sound-enabled"
+              className="text-xs sm:text-sm cursor-pointer"
+            >
+              Enable sound alert
+            </Label>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full">
             {!isRunning ? (
-              <Button onClick={startTimer} className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                onClick={startTimer}
+                className="flex items-center gap-2 w-full sm:w-auto"
+                disabled={disableStart}
+              >
                 <Play className="h-4 w-4" />
-                {timeLeft > 0 ? 'Resume' : 'Start Timer'}
+                {timeLeft > 0 && computeTotalSecondsFromInputs() === totalDuration
+                  ? "Resume"
+                  : "Start Timer"}
               </Button>
             ) : (
-              <Button onClick={pauseTimer} variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                onClick={pauseTimer}
+                variant="outline"
+                className="flex items-center gap-2 w-full sm:w-auto"
+              >
                 <Pause className="h-4 w-4" />
                 Pause
               </Button>
             )}
-            <Button onClick={resetTimer} variant="outline" className="w-full sm:w-auto">
+
+            <Button
+              onClick={resetTimer}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset
             </Button>
@@ -234,6 +322,7 @@ export const CountdownTimer = () => {
         </CardContent>
       </Card>
 
+      {/* Timer Display */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -243,14 +332,18 @@ export const CountdownTimer = () => {
         </CardHeader>
         <CardContent>
           <div className="text-center space-y-4">
-            <div className={`text-4xl sm:text-5xl md:text-6xl font-mono font-bold break-all ${showAlert ? 'text-red-500 animate-pulse' : 'text-primary'}`}>
+            <div
+              className={`text-4xl sm:text-5xl md:text-6xl font-mono font-bold break-all ${
+                showAlert ? "text-red-500 animate-pulse" : "text-primary"
+              }`}
+            >
               {formatTime(timeLeft)}
             </div>
-            
+
             {isRunning && (
               <div className="space-y-2">
                 <div className="w-full bg-muted rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-primary h-2 rounded-full transition-all duration-1000"
                     style={{ width: `${getProgressPercentage()}%` }}
                   />
@@ -263,15 +356,21 @@ export const CountdownTimer = () => {
 
             <div className="flex flex-wrap justify-center gap-2">
               {isRunning && (
-                <Badge variant="outline" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1">
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1"
+                >
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   Running
                 </Badge>
               )}
               {showAlert && (
-                <Badge variant="destructive" className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1">
+                <Badge
+                  variant="destructive"
+                  className="flex items-center gap-1 text-xs sm:text-sm px-2 py-1"
+                >
                   <Bell className="h-3 w-3" />
-                  Time's Up!
+                  Time&apos;s Up!
                 </Badge>
               )}
             </div>
@@ -279,35 +378,30 @@ export const CountdownTimer = () => {
         </CardContent>
       </Card>
 
+      {/* Presets */}
       <Card>
         <CardHeader>
           <CardTitle>Quick Presets</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {[
-              { label: "1 min", h: 0, m: 1, s: 0 },
-              { label: "5 min", h: 0, m: 5, s: 0 },
-              { label: "10 min", h: 0, m: 10, s: 0 },
-              { label: "15 min", h: 0, m: 15, s: 0 },
-              { label: "30 min", h: 0, m: 30, s: 0 },
-              { label: "1 hour", h: 1, m: 0, s: 0 },
-              { label: "2 hours", h: 2, m: 0, s: 0 },
-              { label: "Pomodoro", h: 0, m: 25, s: 0 }
-            ].map((preset) => (
+            {presets.map((preset) => (
               <Button
                 key={preset.label}
                 variant="outline"
                 size="sm"
+                disabled={isRunning}
                 onClick={() => {
                   if (!isRunning) {
                     setHours(preset.h);
                     setMinutes(preset.m);
                     setSeconds(preset.s);
+                    setTimeLeft(0);
+                    setTotalDuration(0);
+                    setShowAlert(false);
                     notify.success(`Preset ${preset.label} selected!`);
                   }
                 }}
-                disabled={isRunning}
                 className="text-xs sm:text-sm"
               >
                 {preset.label}

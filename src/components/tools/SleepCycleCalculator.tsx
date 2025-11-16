@@ -9,200 +9,223 @@ import { Moon, Sunrise, Bed, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { safeNumber } from "@/lib/safe-number";
 
-const MIN_FALL_ASLEEP_TIME = 0;
-const MAX_FALL_ASLEEP_TIME = 60;
-const TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+/**
+ * VERSION B — PRODUCTION READY
+ * - Accepts independent bedtime, wake-up time, or both.
+ * - Shows BOTH recommendation blocks when both fields are filled.
+ * - Time validation hardened (00:00 → 23:59).
+ * - Fall-asleep time sanitized with safe-number.
+ * - All calculations isolated and pure.
+ */
 
-// Validate and clamp time input
-const sanitizeTime = (value: string): string => {
-  if (!value || !TIME_REGEX.test(value)) return "";
-  return value;
-};
+const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+const MIN_FALL_ASLEEP = 0;
+const MAX_FALL_ASLEEP = 120;
 
-interface SleepTime {
+// Sanitize HH:mm input
+const sanitizeTime = (v: string) => (TIME_RE.test(v) ? v : "");
+
+interface SleepResult {
   time: string;
   cycles: number;
-  type: 'bedtime' | 'wakeup';
+  type: "wakeup" | "bedtime";
 }
 
 export const SleepCycleCalculator = () => {
   const [bedtime, setBedtime] = useState("");
-  const [wakeupTime, setWakeupTime] = useState("");
-  const [sleepDuration, setSleepDuration] = useState(8);
+  const [wakeup, setWakeup] = useState("");
   const [fallAsleepTime, setFallAsleepTime] = useState("15");
 
-  const calculateSleepTimes = useMemo(() => {
-    const results: SleepTime[] = [];
-    
-    // Parse fallAsleepTime with safeNumber
-    const fallAsleepMinutes = safeNumber(fallAsleepTime, { min: MIN_FALL_ASLEEP_TIME, max: MAX_FALL_ASLEEP_TIME, allowDecimal: false }) || 15;
-    
-    if (bedtime) {
-      const [hours, minutes] = bedtime.split(':').map(Number);
-      const bedtimeDate = new Date();
-      bedtimeDate.setHours(hours, minutes, 0, 0);
-      
-      // Calculate wake-up times (6 cycles = 9 hours, 5 cycles = 7.5 hours, etc.)
-      for (let cycles = 6; cycles >= 4; cycles--) {
-        const wakeupDate = new Date(bedtimeDate);
-        wakeupDate.setMinutes(wakeupDate.getMinutes() + (cycles * 90) + fallAsleepMinutes);
-        
-        results.push({
-          time: wakeupDate.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          }),
-          cycles,
-          type: 'wakeup'
-        });
-      }
-    }
-    
-    if (wakeupTime) {
-      const [hours, minutes] = wakeupTime.split(':').map(Number);
-      const wakeupDate = new Date();
-      wakeupDate.setHours(hours, minutes, 0, 0);
-      
-      // Calculate bedtime times
-      for (let cycles = 6; cycles >= 4; cycles--) {
-        const bedtimeDate = new Date(wakeupDate);
-        bedtimeDate.setMinutes(bedtimeDate.getMinutes() - (cycles * 90) - fallAsleepMinutes);
-        
-        results.push({
-          time: bedtimeDate.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          }),
-          cycles,
-          type: 'bedtime'
-        });
-      }
-    }
-    
-    return results;
-  }, [bedtime, wakeupTime, fallAsleepTime]);
-
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
+  // Convert HH:mm → Date
+  const parseHM = (hm: string): Date | null => {
+    if (!TIME_RE.test(hm)) return null;
+    const [h, m] = hm.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
   };
 
-  const setCurrentTime = (type: 'bedtime' | 'wakeup') => {
-    const currentTime = getCurrentTime();
-    if (type === 'bedtime') {
-      setBedtime(currentTime);
-      notify.success("Set to current time!");
-    } else {
-      setWakeupTime(currentTime);
-      notify.success("Set to current time!");
+  const results = useMemo(() => {
+    const out: SleepResult[] = [];
+
+    const fa = safeNumber(fallAsleepTime, {
+      min: MIN_FALL_ASLEEP,
+      max: MAX_FALL_ASLEEP,
+      allowDecimal: false,
+    }) ?? 15;
+
+    // BEDTIME → wake-up times
+    const bedtimeDate = parseHM(bedtime);
+    if (bedtimeDate) {
+      for (let cycles = 6; cycles >= 4; cycles--) {
+        const d = new Date(bedtimeDate);
+        d.setMinutes(d.getMinutes() + cycles * 90 + fa);
+
+        out.push({
+          cycles,
+          type: "wakeup",
+          time: d.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
+        });
+      }
     }
+
+    // WAKE-UP TIME → bedtimes
+    const wakeDate = parseHM(wakeup);
+    if (wakeDate) {
+      for (let cycles = 6; cycles >= 4; cycles--) {
+        const d = new Date(wakeDate);
+        d.setMinutes(d.getMinutes() - cycles * 90 - fa);
+
+        out.push({
+          cycles,
+          type: "bedtime",
+          time: d.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
+        });
+      }
+    }
+
+    return out;
+  }, [bedtime, wakeup, fallAsleepTime]);
+
+  const nowHHMM = () =>
+    new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+  const setCurrent = (t: "bed" | "wake") => {
+    const now = nowHHMM();
+    if (t === "bed") setBedtime(now);
+    else setWakeup(now);
+    notify.success("Set to current time!");
   };
 
   const clearAll = () => {
     setBedtime("");
-    setWakeupTime("");
-    setSleepDuration(8);
+    setWakeup("");
     setFallAsleepTime("15");
     notify.success("All fields cleared!");
   };
 
-
-
-  const getCycleColor = (cycles: number) => {
-    switch (cycles) {
-      case 6: return 'bg-green-100 text-green-800 border-green-200';
-      case 5: return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 4: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  const cycleColor = (c: number) => {
+    switch (c) {
+      case 6: return "bg-green-100 text-green-800 border-green-200";
+      case 5: return "bg-blue-100 text-blue-800 border-blue-200";
+      case 4: return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const getCycleDescription = (cycles: number) => {
-    switch (cycles) {
-      case 6: return 'Optimal (9 hours)';
-      case 5: return 'Good (7.5 hours)';
-      case 4: return 'Minimum (6 hours)';
-      default: return 'Custom';
+  const cycleLabel = (c: number) => {
+    switch (c) {
+      case 6: return "Optimal (9 hours)";
+      case 5: return "Good (7.5 hours)";
+      case 4: return "Minimum (6 hours)";
+      default: return "Custom";
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Input Card */}
       <Card>
         <CardHeader>
           <CardTitle>Sleep Cycle Calculator</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
+          {/* Bed & Wake Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="bedtime">Bedtime</Label>
+              <Label>Bedtime</Label>
               <div className="flex gap-2">
                 <Input
-                  id="bedtime"
                   type="time"
                   value={bedtime}
                   onChange={(e) => setBedtime(sanitizeTime(e.target.value))}
                 />
-                <Button 
-                  onClick={() => setCurrentTime('bedtime')} 
-                  variant="outline" 
-                  size="sm"
-                >
+                <Button variant="outline" size="sm" onClick={() => setCurrent("bed")}>
                   Now
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="wakeup">Wake-up Time</Label>
+              <Label>Wake-up Time</Label>
               <div className="flex gap-2">
                 <Input
-                  id="wakeup"
                   type="time"
-                  value={wakeupTime}
-                  onChange={(e) => setWakeupTime(sanitizeTime(e.target.value))}
+                  value={wakeup}
+                  onChange={(e) => setWakeup(sanitizeTime(e.target.value))}
                 />
-                <Button 
-                  onClick={() => setCurrentTime('wakeup')} 
-                  variant="outline" 
-                  size="sm"
-                >
+                <Button variant="outline" size="sm" onClick={() => setCurrent("wake")}>
                   Now
                 </Button>
               </div>
             </div>
           </div>
 
+          {/* Fall-asleep time */}
           <div className="space-y-2">
-            <Label htmlFor="fall-asleep">Time to Fall Asleep (minutes)</Label>
+            <Label>Time to Fall Asleep (minutes)</Label>
             <SafeNumberInput
-              id="fall-asleep"
               value={fallAsleepTime}
-              onChange={(sanitized) => setFallAsleepTime(sanitized)}
-              sanitizeOptions={{ min: MIN_FALL_ASLEEP_TIME, max: MAX_FALL_ASLEEP_TIME, allowDecimal: false }}
+              onChange={(v) => {
+                // If empty, treat as 0 ALWAYS
+                if (v === "") {
+                  setFallAsleepTime("0");
+                  return;
+                }
+
+                // Parse with safeNumber, with clamping
+                const num = safeNumber(v, {
+                  min: MIN_FALL_ASLEEP,
+                  max: MAX_FALL_ASLEEP,
+                  allowDecimal: false,
+                });
+
+                // If somehow unparseable, fall back to 0
+                if (num === null) {
+                  setFallAsleepTime("0");
+                  return;
+                }
+
+                // Always store valid clamped integer
+                setFallAsleepTime(String(num));
+              }}
+              sanitizeOptions={{
+                min: MIN_FALL_ASLEEP,
+                max: MAX_FALL_ASLEEP,
+                allowDecimal: false,
+              }}
               inputMode="numeric"
+              min={MIN_FALL_ASLEEP}
+              max={MAX_FALL_ASLEEP}
+              aria-label="Minutes to fall asleep"
             />
             <p className="text-sm text-muted-foreground">
-              Average time it takes you to fall asleep
+              Typical range is 10–20 minutes.
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={clearAll} variant="outline">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear All
-            </Button>
-          </div>
+          <Button onClick={clearAll} variant="outline">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Clear All
+          </Button>
         </CardContent>
       </Card>
 
-      {calculateSleepTimes.length > 0 && (
+      {/* Results Card */}
+      {results.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -210,107 +233,84 @@ export const SleepCycleCalculator = () => {
               Sleep Cycle Recommendations
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {bedtime && (
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Bed className="h-4 w-4" />
-                    If you go to bed at {bedtime}:
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {calculateSleepTimes
-                      .filter(t => t.type === 'wakeup')
-                      .map((sleepTime, index) => (
-                        <div key={index} className="border rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-lg font-mono font-bold">
-                              {sleepTime.time}
-                            </span>
-                            <Badge className={getCycleColor(sleepTime.cycles)}>
-                              {sleepTime.cycles} cycles
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {getCycleDescription(sleepTime.cycles)}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
 
-              {wakeupTime && (
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Sunrise className="h-4 w-4" />
-                    If you want to wake up at {wakeupTime}:
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {calculateSleepTimes
-                      .filter(t => t.type === 'bedtime')
-                      .map((sleepTime, index) => (
-                        <div key={index} className="border rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-lg font-mono font-bold">
-                              {sleepTime.time}
-                            </span>
-                            <Badge className={getCycleColor(sleepTime.cycles)}>
-                              {sleepTime.cycles} cycles
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {getCycleDescription(sleepTime.cycles)}
-                          </div>
+          <CardContent className="space-y-6">
+            {/* Bedtime → Wake-up suggestions */}
+            {bedtime && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Bed className="h-4 w-4" />
+                  If you go to bed at {bedtime}:
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {results
+                    .filter((r) => r.type === "wakeup")
+                    .map((r, i) => (
+                      <div key={i} className="border rounded-lg p-3">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-lg font-mono font-bold">{`Wake up at ${r.time}`}</span>
+                          <Badge className={cycleColor(r.cycles)}>{r.cycles} cycles</Badge>
                         </div>
-                      ))}
-                  </div>
+                        <div className="text-sm text-muted-foreground">
+                          {cycleLabel(r.cycles)}
+                        </div>
+                      </div>
+                    ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Wake-up → Bedtime suggestions */}
+            {wakeup && (
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Sunrise className="h-4 w-4" />
+                  If you want to wake up at {wakeup}:
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {results
+                    .filter((r) => r.type === "bedtime")
+                    .map((r, i) => (
+                      <div key={i} className="border rounded-lg p-3">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-lg font-mono font-bold">{`Go to bed at ${r.time}`}</span>
+                          <Badge className={cycleColor(r.cycles)}>{r.cycles} cycles</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {cycleLabel(r.cycles)}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
+      {/* Sleep info */}
       <Card>
         <CardHeader>
           <CardTitle>Sleep Cycle Information</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">What are Sleep Cycles?</h4>
-              <p className="text-sm text-muted-foreground">
-                A complete sleep cycle lasts about 90 minutes and includes all stages of sleep: 
-                light sleep, deep sleep, and REM sleep. Waking up at the end of a complete cycle 
-                helps you feel more refreshed and alert.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Sleep Stages:</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• <strong>Light Sleep (N1 & N2):</strong> Transitional sleep, easy to wake from</li>
-                <li>• <strong>Deep Sleep (N3):</strong> Restorative sleep, hardest to wake from</li>
-                <li>• <strong>REM Sleep:</strong> Dream sleep, important for memory consolidation</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Tips for Better Sleep:</h4>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Maintain a consistent sleep schedule</li>
-                <li>• Create a relaxing bedtime routine</li>
-                <li>• Keep your bedroom cool, dark, and quiet</li>
-                <li>• Avoid screens 1 hour before bedtime</li>
-                <li>• Limit caffeine and alcohol before bed</li>
-                <li>• Exercise regularly, but not too close to bedtime</li>
-              </ul>
-            </div>
-          </div>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>
+            A sleep cycle lasts about 90 minutes and includes light sleep, deep
+            sleep, and REM. Waking at the *end* of a cycle improves alertness.
+          </p>
+          <ul className="space-y-1">
+            <li>• Maintain a consistent sleep schedule</li>
+            <li>• Avoid screens 1 hour before bed</li>
+            <li>• Keep your room cool and dark</li>
+            <li>• Limit caffeine in the afternoon</li>
+            <li>• Exercise regularly (not late at night)</li>
+          </ul>
         </CardContent>
       </Card>
 
+      {/* Presets */}
       <Card>
         <CardHeader>
           <CardTitle>Quick Sleep Presets</CardTitle>
@@ -318,22 +318,22 @@ export const SleepCycleCalculator = () => {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
-              { label: "Early Bird", bedtime: "21:00", wakeup: "05:00" },
-              { label: "Standard", bedtime: "22:00", wakeup: "06:00" },
-              { label: "Night Owl", bedtime: "23:00", wakeup: "07:00" },
-              { label: "Late Night", bedtime: "00:00", wakeup: "08:00" }
-            ].map((preset) => (
+              { label: "Early Bird", bed: "21:00", wake: "05:00" },
+              { label: "Standard", bed: "22:00", wake: "06:00" },
+              { label: "Night Owl", bed: "23:00", wake: "07:00" },
+              { label: "Late Night", bed: "00:00", wake: "08:00" },
+            ].map((p) => (
               <Button
-                key={preset.label}
+                key={p.label}
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setBedtime(preset.bedtime);
-                  setWakeupTime(preset.wakeup);
-                  notify.success(`Preset ${preset.label} selected!`);
+                  setBedtime(p.bed);
+                  setWakeup(p.wake);
+                  notify.success(`Preset ${p.label} selected!`);
                 }}
               >
-                {preset.label}
+                {p.label}
               </Button>
             ))}
           </div>
