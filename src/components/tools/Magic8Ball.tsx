@@ -1,115 +1,170 @@
-import { useState } from "react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, HelpCircle } from "lucide-react";
 
-// Max question length
+/* -------------------------------------------------------------------------- */
+/*                               CONFIG CONSTANTS                             */
+/* -------------------------------------------------------------------------- */
+
 const MAX_QUESTION_LENGTH = 500;
 
-// Strip control characters except tab/newline/CR
-const sanitizeInput = (val: string) =>
-  val
-    .split("")
-    .filter((c) => {
-      const code = c.charCodeAt(0);
-      return code >= 32 || code === 9 || code === 10 || code === 13;
-    })
-    .join("")
-    .substring(0, MAX_QUESTION_LENGTH);
+// Official Magic 8-Ball answer categories
+type AnswerCategory = "positive" | "neutral" | "negative";
 
-// Secure random integer
-const secureRandom = (max: number): number => {
+interface MagicAnswer {
+  text: string;
+  category: AnswerCategory;
+}
+
+const MAGIC_ANSWERS: MagicAnswer[] = [
+  // Positive
+  { text: "It is certain.", category: "positive" },
+  { text: "It is decidedly so.", category: "positive" },
+  { text: "Without a doubt.", category: "positive" },
+  { text: "Yes - definitely.", category: "positive" },
+  { text: "You may rely on it.", category: "positive" },
+  { text: "As I see it, yes.", category: "positive" },
+  { text: "Most likely.", category: "positive" },
+  { text: "Outlook good.", category: "positive" },
+  { text: "Yes.", category: "positive" },
+  { text: "Signs point to yes.", category: "positive" },
+
+  // Neutral
+  { text: "Reply hazy, try again.", category: "neutral" },
+  { text: "Ask again later.", category: "neutral" },
+  { text: "Better not tell you now.", category: "neutral" },
+  { text: "Cannot predict now.", category: "neutral" },
+  { text: "Concentrate and ask again.", category: "neutral" },
+
+  // Negative
+  { text: "Don't count on it.", category: "negative" },
+  { text: "My reply is no.", category: "negative" },
+  { text: "My sources say no.", category: "negative" },
+  { text: "Outlook not so good.", category: "negative" },
+  { text: "Very doubtful.", category: "negative" },
+];
+
+/* -------------------------------------------------------------------------- */
+/*                           SECURE RANDOM GENERATORS                         */
+/* -------------------------------------------------------------------------- */
+
+// Unbiased secure random integer using rejection sampling
+const secureRandomInt = (max: number): number => {
+  if (max <= 0) return 0;
+
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
     const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return arr[0] % max;
+    const limit = Math.floor(0xffffffff / max) * max;
+
+    while (true) {
+      crypto.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % max;
+    }
   }
+
+  // Fallback
   return Math.floor(Math.random() * max);
 };
 
+// Sanitizes question input (removes control chars, trims, enforces length)
+const sanitizeInput = (val: string): string => {
+  const cleaned = Array.from(val)
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("")
+    .slice(0, MAX_QUESTION_LENGTH);
+
+  return cleaned;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                MAIN COMPONENT                              */
+/* -------------------------------------------------------------------------- */
+
 export const Magic8Ball = () => {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] = useState<MagicAnswer | null>(null);
   const [isShaking, setIsShaking] = useState(false);
 
-  const answers = [
-    // Positive answers
-    "It is certain.",
-    "It is decidedly so.",
-    "Without a doubt.",
-    "Yes - definitely.",
-    "You may rely on it.",
-    "As I see it, yes.",
-    "Most likely.",
-    "Outlook good.",
-    "Yes.",
-    "Signs point to yes.",
-    
-    // Neutral answers
-    "Reply hazy, try again.",
-    "Ask again later.",
-    "Better not tell you now.",
-    "Cannot predict now.",
-    "Concentrate and ask again.",
-    
-    // Negative answers
-    "Don't count on it.",
-    "My reply is no.",
-    "My sources say no.",
-    "Outlook not so good.",
-    "Very doubtful."
-  ];
+  const timeoutRef = useRef<number | null>(null);
+
+  // Cleanup timeout on unmount (production requirement)
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const askQuestion = () => {
-    if (!question.trim()) {
-      setAnswer("Please ask a question first!");
+    const trimmed = question.trim();
+
+    if (!trimmed) {
+      setAnswer({ text: "Please ask a question first!", category: "neutral" });
       return;
     }
 
+    if (isShaking) return;
+
     setIsShaking(true);
-    
-    setTimeout(() => {
-      const randomIndex = secureRandom(answers.length);
-      setAnswer(answers[randomIndex]);
+    setAnswer(null);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      const index = secureRandomInt(MAGIC_ANSWERS.length);
+      setAnswer(MAGIC_ANSWERS[index]);
       setIsShaking(false);
-    }, 2000);
+      timeoutRef.current = null;
+    }, 1500);
   };
 
   const clearAll = () => {
     setQuestion("");
-    setAnswer("");
+    setAnswer(null);
+    setIsShaking(false);
   };
 
-  const getAnswerColor = (answer: string) => {
-    if (answer.includes("Yes") || answer.includes("certain") || answer.includes("definitely") || answer.includes("good")) {
-      return "text-green-600";
+  /* ------------------------------ Styling helper ----------------------------- */
+
+  const categoryColor = (category: AnswerCategory) => {
+    switch (category) {
+      case "positive":
+        return "text-green-600";
+      case "negative":
+        return "text-red-600";
+      default:
+        return "text-yellow-600";
     }
-    if (answer.includes("No") || answer.includes("doubtful") || answer.includes("not so good")) {
-      return "text-red-600";
-    }
-    if (answer.includes("hazy") || answer.includes("try again") || answer.includes("later") || answer.includes("predict")) {
-      return "text-yellow-600";
-    }
-    return "text-blue-600";
   };
 
-  const getAnswerBgColor = (answer: string) => {
-    if (answer.includes("Yes") || answer.includes("certain") || answer.includes("definitely") || answer.includes("good")) {
-      return "bg-green-50 border-green-200";
+  const categoryBackground = (category: AnswerCategory) => {
+    switch (category) {
+      case "positive":
+        return "bg-green-50 border-green-200";
+      case "negative":
+        return "bg-red-50 border-red-200";
+      default:
+        return "bg-yellow-50 border-yellow-200";
     }
-    if (answer.includes("No") || answer.includes("doubtful") || answer.includes("not so good")) {
-      return "bg-red-50 border-red-200";
-    }
-    if (answer.includes("hazy") || answer.includes("try again") || answer.includes("later") || answer.includes("predict")) {
-      return "bg-yellow-50 border-yellow-200";
-    }
-    return "bg-blue-50 border-blue-200";
   };
+
+  /* -------------------------------------------------------------------------- */
 
   return (
     <div className="space-y-6">
+      {/* Input Card */}
       <Card>
         <CardHeader>
           <CardTitle>Magic 8-Ball</CardTitle>
@@ -122,21 +177,27 @@ export const Magic8Ball = () => {
               placeholder="What would you like to know?"
               value={question}
               onChange={(e) => setQuestion(sanitizeInput(e.target.value))}
-              onKeyPress={(e) => e.key === 'Enter' && askQuestion()}
+              onKeyDown={(e) => e.key === "Enter" && askQuestion()}
               maxLength={MAX_QUESTION_LENGTH}
             />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              onClick={askQuestion} 
+            <Button
+              onClick={askQuestion}
               disabled={!question.trim() || isShaking}
               className="w-full sm:w-auto"
             >
               <HelpCircle className="h-4 w-4 mr-2" />
               {isShaking ? "Shaking..." : "Ask the Magic 8-Ball"}
             </Button>
-            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
+
+            <Button
+              onClick={clearAll}
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={isShaking}
+            >
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -144,87 +205,58 @@ export const Magic8Ball = () => {
         </CardContent>
       </Card>
 
+      {/* Answer Card */}
       {answer && (
         <Card>
           <CardHeader>
             <CardTitle>The Magic 8-Ball Says...</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`p-4 sm:p-8 rounded-lg border-2 text-center ${getAnswerBgColor(answer)}`}>
+            <div
+              className={`p-4 sm:p-8 rounded-lg border-2 text-center ${categoryBackground(
+                answer.category
+              )}`}
+            >
               <div className="mb-4">
-                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full border-4 border-gray-300 flex items-center justify-center text-2xl ${isShaking ? 'animate-bounce' : ''}`}>
+                <div
+                  className={`w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-full border-4 border-gray-300 flex items-center justify-center text-3xl ${
+                    isShaking ? "animate-[shake_0.4s_ease-in-out_infinite]" : ""
+                  }`}
+                >
                   🎱
                 </div>
               </div>
-              <div className={`text-xl sm:text-2xl font-bold ${getAnswerColor(answer)} mb-2 break-words px-2`}>
-                {answer}
+
+              <div
+                className={`text-xl sm:text-2xl font-bold ${
+                  categoryColor(answer.category)
+                } mb-3 break-words px-2`}
+              >
+                {answer.text}
               </div>
+
               {question && (
-                <div className="text-sm text-muted-foreground mt-4">
-                  <strong>Your question:</strong> "{question}"
-                </div>
+                <p className="text-sm text-muted-foreground mt-4 break-words">
+                  <strong>Your question:</strong> “{question.trim()}”
+                </p>
               )}
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Info Card */}
       <Card>
         <CardHeader>
           <CardTitle>How to Use the Magic 8-Ball</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              The Magic 8-Ball is a fortune-telling toy that provides answers to yes-or-no questions.
-            </p>
-            <p>
-              <strong>How it works:</strong>
-            </p>
-            <ul className="list-disc list-inside space-y-1 ml-4">
-              <li>Think of a yes-or-no question</li>
-              <li>Type your question in the input field</li>
-              <li>Click "Ask the Magic 8-Ball"</li>
-              <li>Wait for the answer to appear</li>
-            </ul>
-            <p>
-              <strong>Tips for better results:</strong>
-            </p>
-            <ul className="list-disc list-inside space-y-1 ml-4">
-              <li>Ask clear, specific questions</li>
-              <li>Focus on one question at a time</li>
-              <li>Be patient and wait for the answer</li>
-              <li>Remember, it's just for fun!</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>About the Magic 8-Ball</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              The Magic 8-Ball was invented in 1950 by Albert C. Carter and Abe Bookman. It's a spherical device that resembles a black 8-ball used in pool.
-            </p>
-            <p>
-              The original Magic 8-Ball contains 20 different answers, including positive, neutral, and negative responses. The answers are printed on a 20-sided die inside the ball.
-            </p>
-            <p>
-              While it's meant for entertainment, many people use it as a fun way to make decisions or get a different perspective on their questions.
-            </p>
-            <div className="bg-muted p-3 rounded-lg">
-              <h4 className="font-medium mb-2">Fun Facts</h4>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Over 1 million Magic 8-Balls are sold each year</li>
-                <li>The original answers were written by Albert C. Carter's mother</li>
-                <li>It's been featured in movies, TV shows, and popular culture</li>
-                <li>The ball is filled with blue liquid and a white die</li>
-              </ul>
-            </div>
-          </div>
+          <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+            <li>Think of a yes-or-no question.</li>
+            <li>Type it in the input box above.</li>
+            <li>Press “Ask the Magic 8-Ball”.</li>
+            <li>Wait for your answer!</li>
+          </ul>
         </CardContent>
       </Card>
     </div>

@@ -1,30 +1,42 @@
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Shuffle } from "lucide-react";
 import { notify } from "@/lib/notify";
 
-const MAX_NAMES_LENGTH = 10000; // 10KB max for names list
+const MAX_NAMES_LENGTH = 10000; // limit to ~10KB input
+const SPIN_MIN = 12; // minimum animation steps
+const SPIN_MAX = 28; // maximum animation steps
+const SPIN_SPEED = 80; // ms per spin
 
-// Strip control characters except tab/newline/CR
-const sanitizeInput = (val: string) =>
-  val
-    .split("")
-    .filter((c) => {
-      const code = c.charCodeAt(0);
-      return code >= 32 || code === 9 || code === 10 || code === 13;
+// Remove control characters except newline, tab, carriage return
+const sanitizeInput = (val: string): string =>
+  Array.from(val)
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      // keep tab (9), LF (10), CR (13) and printable chars (>= 32), but drop DEL (127)
+      return code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127);
     })
     .join("")
-    .substring(0, MAX_NAMES_LENGTH);
+    .slice(0, MAX_NAMES_LENGTH);
 
-// Secure random integer
+// Strong random integer (uniform)
 const secureRandom = (max: number): number => {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+  if (crypto?.getRandomValues) {
     const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return arr[0] % max;
+    const limit = Math.floor(0xffffffff / max) * max;
+    while (true) {
+      crypto.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % max;
+    }
   }
   return Math.floor(Math.random() * max);
 };
@@ -33,66 +45,73 @@ export const RandomNamePicker = () => {
   const [names, setNames] = useState("");
   const [selectedName, setSelectedName] = useState("");
   const [isSpinning, setIsSpinning] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup on unmount
+  const intervalRef = useRef<number | null>(null);
+
+  // Cleanup (prevents memory leaks)
   useEffect(() => {
     return () => {
-      const interval = intervalRef.current;
-      if (interval) {
-        clearInterval(interval);
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
       }
     };
   }, []);
 
-  const pickRandomName = () => {
+  const pickRandomName = useCallback(() => {
     const nameList = names
       .split("\n")
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
+      .map((n) => n.trim())
+      .filter((n) => n.length > 0);
 
     if (nameList.length === 0) {
       notify.error("Please enter at least one name");
       return;
     }
 
-    // Clear any existing interval
-    if (intervalRef.current) {
+    if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
     }
 
-    setIsSpinning(true);
-    
-    // Animate the selection
+    const totalSpins = SPIN_MIN + secureRandom(SPIN_MAX - SPIN_MIN + 1);
     let counter = 0;
-    intervalRef.current = setInterval(() => {
+
+    setIsSpinning(true);
+
+    intervalRef.current = window.setInterval(() => {
       const randomIndex = secureRandom(nameList.length);
       setSelectedName(nameList[randomIndex]);
       counter++;
-      
-      if (counter > 20) {
-        if (intervalRef.current) {
+
+      if (counter >= totalSpins) {
+        if (intervalRef.current !== null) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+
         setIsSpinning(false);
-        notify.success("Name selected!");
+
+        // Slight delay for visual polish
+        setTimeout(() => notify.success("Name selected!"), 80);
       }
-    }, 100);
-  };
+    }, SPIN_SPEED);
+  }, [names]);
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle>Random Name Picker</CardTitle>
-        <CardDescription>Randomly select names from a list (one name per line)</CardDescription>
+        <CardDescription>
+          Enter names (one per line) and pick a random one
+        </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-4">
+        {/* Input */}
         <div>
-          <Label htmlFor="names">Enter names (one per line)</Label>
+          <Label htmlFor="names">Enter names</Label>
           <Textarea
             id="names"
-            placeholder="John Doe&#10;Jane Smith&#10;Bob Johnson&#10;Alice Williams"
+            placeholder={`John Doe\nJane Smith\nAlice Johnson\nBob Williams`}
             value={names}
             onChange={(e) => setNames(sanitizeInput(e.target.value))}
             maxLength={MAX_NAMES_LENGTH}
@@ -100,15 +119,26 @@ export const RandomNamePicker = () => {
           />
         </div>
 
-        <Button onClick={pickRandomName} className="w-full" size="lg" disabled={isSpinning}>
+        {/* Pick button */}
+        <Button
+          onClick={pickRandomName}
+          className="w-full"
+          size="lg"
+          disabled={isSpinning}
+        >
           <Shuffle className="mr-2 h-5 w-5" />
           {isSpinning ? "Picking..." : "Pick Random Name"}
         </Button>
 
+        {/* Selected result */}
         {selectedName && (
-          <div className="rounded-lg border-2 border-primary bg-primary/10 p-8 text-center">
-            <div className="text-sm font-medium text-muted-foreground">Selected Name</div>
-            <div className="mt-2 text-3xl font-bold text-primary">{selectedName}</div>
+          <div className="rounded-lg border-2 border-primary bg-primary/10 p-8 text-center animate-fade-in">
+            <div className="text-sm font-medium text-muted-foreground">
+              Selected Name
+            </div>
+            <div className="mt-2 text-3xl font-bold text-primary">
+              {selectedName}
+            </div>
           </div>
         )}
       </CardContent>

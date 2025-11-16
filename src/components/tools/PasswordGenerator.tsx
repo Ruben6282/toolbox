@@ -10,14 +10,30 @@ import { Copy, RefreshCw } from "lucide-react";
 const MIN_LENGTH = 4;
 const MAX_LENGTH = 128;
 
-// Secure random integer
+// 🟦 Rejection sampling to avoid modulo bias
 const secureRandom = (max: number): number => {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return arr[0] % max;
+  if (typeof crypto === "undefined" || !crypto.getRandomValues) {
+    throw new Error("Secure random generator is not available in this environment.");
   }
-  return Math.floor(Math.random() * max);
+
+  const arr = new Uint32Array(1);
+  const range = 0xffffffff;
+  const limit = Math.floor(range / max) * max;
+
+  while (true) {
+    crypto.getRandomValues(arr);
+    if (arr[0] < limit) {
+      return arr[0] % max;
+    }
+  }
+};
+
+// 🟦 Fisher–Yates shuffle (secure + optimal)
+const shuffleArray = (arr: string[]): void => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = secureRandom(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
 };
 
 export const PasswordGenerator = () => {
@@ -28,27 +44,56 @@ export const PasswordGenerator = () => {
   const [useSymbols, setUseSymbols] = useState(true);
   const [password, setPassword] = useState("");
 
-  const generate = () => {
-    let chars = "";
-    if (useUppercase) chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    if (useLowercase) chars += "abcdefghijklmnopqrstuvwxyz";
-    if (useNumbers) chars += "0123456789";
-    if (useSymbols) chars += "!@#$%^&*()_+-=[]{}|;:,.<>?";
+  // Character sets (expanded symbol list)
+  const sets = {
+    uppercase: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    lowercase: "abcdefghijklmnopqrstuvwxyz",
+    numbers: "0123456789",
+    symbols: `!@#$%^&*()_+-=[]{}|;:',.<>/?~"\\`,
+  };
 
-    if (chars === "") {
+  const generate = () => {
+    const selectedSets: string[] = [];
+
+    if (useUppercase) selectedSets.push(sets.uppercase);
+    if (useLowercase) selectedSets.push(sets.lowercase);
+    if (useNumbers) selectedSets.push(sets.numbers);
+    if (useSymbols) selectedSets.push(sets.symbols);
+
+    if (selectedSets.length === 0) {
       notify.error("Select at least one character type!");
       return;
     }
 
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(secureRandom(chars.length));
+    // 🟩 First ensure at least 1 char from each selected category
+    const requiredChars = selectedSets.map(
+      (set) => set[secureRandom(set.length)]
+    );
+
+    // 🟩 Combine everything into a full pool
+    const fullPool = selectedSets.join("");
+
+    // 🟩 Generate remaining random characters
+    const remainingCount = Math.max(0, length - requiredChars.length);
+    const randomChars: string[] = [];
+
+    for (let i = 0; i < remainingCount; i++) {
+      const index = secureRandom(fullPool.length);
+      randomChars.push(fullPool[index]);
     }
-    setPassword(result);
+
+    // 🟩 Merge + shuffle
+    const final = [...requiredChars, ...randomChars];
+    shuffleArray(final);
+
+    const finalPassword = final.join("");
+    setPassword(finalPassword);
     notify.success("Password generated!");
   };
 
   const copyToClipboard = async () => {
+    if (!password) return;
+
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(password);
@@ -56,35 +101,35 @@ export const PasswordGenerator = () => {
         return;
       }
 
-      // Fallback for older browsers/mobile
-      const textArea = document.createElement("textarea");
-      textArea.value = password;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-999999px";
-      textArea.style.top = "-999999px";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      if (successful) {
+      // fallback
+      const textarea = document.createElement("textarea");
+      textarea.value = password;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+
+      if (ok) {
         notify.success("Password copied!");
       } else {
-        notify.error("Failed to copy");
+        notify.error("Copy failed");
       }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
+    } catch {
       notify.error("Failed to copy");
     }
   };
 
   return (
     <div className="space-y-4">
+      {/* Options */}
       <Card>
         <CardHeader>
           <CardTitle>Password Options</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Length */}
           <div className="space-y-2">
             <Label>Password Length: {length}</Label>
             <Input
@@ -93,39 +138,68 @@ export const PasswordGenerator = () => {
               max={MAX_LENGTH}
               value={length}
               onChange={(e) => {
-                const val = parseInt(e.target.value);
-                const clamped = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, val));
-                setLength(clamped);
+                const n = parseInt(e.target.value, 10);
+                setLength(Math.min(MAX_LENGTH, Math.max(MIN_LENGTH, n)));
               }}
             />
           </div>
 
+          {/* Checkboxes */}
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox id="uppercase" checked={useUppercase} onCheckedChange={(c) => setUseUppercase(!!c)} />
-              <Label htmlFor="uppercase" className="cursor-pointer">Uppercase (A-Z)</Label>
+              <Checkbox
+                id="uppercase"
+                checked={useUppercase}
+                onCheckedChange={(v) => setUseUppercase(!!v)}
+              />
+              <Label htmlFor="uppercase" className="cursor-pointer">
+                Uppercase (A-Z)
+              </Label>
             </div>
+
             <div className="flex items-center space-x-2">
-              <Checkbox id="lowercase" checked={useLowercase} onCheckedChange={(c) => setUseLowercase(!!c)} />
-              <Label htmlFor="lowercase" className="cursor-pointer">Lowercase (a-z)</Label>
+              <Checkbox
+                id="lowercase"
+                checked={useLowercase}
+                onCheckedChange={(v) => setUseLowercase(!!v)}
+              />
+              <Label htmlFor="lowercase" className="cursor-pointer">
+                Lowercase (a-z)
+              </Label>
             </div>
+
             <div className="flex items-center space-x-2">
-              <Checkbox id="numbers" checked={useNumbers} onCheckedChange={(c) => setUseNumbers(!!c)} />
-              <Label htmlFor="numbers" className="cursor-pointer">Numbers (0-9)</Label>
+              <Checkbox
+                id="numbers"
+                checked={useNumbers}
+                onCheckedChange={(v) => setUseNumbers(!!v)}
+              />
+              <Label htmlFor="numbers" className="cursor-pointer">
+                Numbers (0-9)
+              </Label>
             </div>
+
             <div className="flex items-center space-x-2">
-              <Checkbox id="symbols" checked={useSymbols} onCheckedChange={(c) => setUseSymbols(!!c)} />
-              <Label htmlFor="symbols" className="cursor-pointer">Symbols (!@#$%...)</Label>
+              <Checkbox
+                id="symbols"
+                checked={useSymbols}
+                onCheckedChange={(v) => setUseSymbols(!!v)}
+              />
+              <Label htmlFor="symbols" className="cursor-pointer">
+                Symbols (!@#$%...)
+              </Label>
             </div>
           </div>
 
-          <Button onClick={generate} className="w-full gap-2">
+          {/* Generate button */}
+          <Button className="w-full gap-2" onClick={generate}>
             <RefreshCw className="h-4 w-4" />
             Generate Password
           </Button>
         </CardContent>
       </Card>
 
+      {/* Output */}
       {password && (
         <Card>
           <CardHeader>
@@ -134,7 +208,7 @@ export const PasswordGenerator = () => {
           <CardContent>
             <div className="flex items-center gap-2">
               <Input value={password} readOnly className="font-mono" />
-              <Button onClick={copyToClipboard} size="icon">
+              <Button size="icon" onClick={copyToClipboard}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>

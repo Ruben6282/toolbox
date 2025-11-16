@@ -1,24 +1,35 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cookie, RotateCcw, Sparkles } from "lucide-react";
 
-// Use crypto.getRandomValues for stronger randomness
-const getSecureRandom = (): number => {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    return array[0] / (0xffffffff + 1);
+/* ----------------------------------------
+   SECURE RANDOM HELPERS (unbiased)
+---------------------------------------- */
+
+// Returns a crypto-secure unbiased integer between 0 and max-1
+const secureRandomInt = (max: number): number => {
+  if (max <= 1) return 0;
+
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    const limit = Math.floor(0xffffffff / max) * max;
+
+    while (true) {
+      crypto.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % max;
+    }
   }
-  return Math.random();
+
+  return Math.floor(Math.random() * max);
 };
 
-export const FortuneCookie = () => {
-  const [fortune, setFortune] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+/* ----------------------------------------
+   THE FORTUNES LIST (memoized once)
+---------------------------------------- */
 
-  const fortunes = [
-    "A beautiful, smart, and loving person will be coming into your life.",
+const ALL_FORTUNES: string[] = [
+  "A beautiful, smart, and loving person will be coming into your life.",
     "A dubious friend may be an enemy in camouflage.",
     "A faithful friend is a strong defense.",
     "A feather in the hand is better than a bird in the air.",
@@ -338,55 +349,113 @@ export const FortuneCookie = () => {
     "Your success will astonish everyone.",
     "Your talents will be recognized and suitably rewarded.",
     "Your work interests can capture the highest status or prestige."
-  ];
+];
 
+/* ----------------------------------------
+   COMPONENT
+---------------------------------------- */
+
+export const FortuneCookie = () => {
+  const [fortune, setFortune] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const timeoutRef = useRef<number | null>(null);
+
+  // Memoize huge list once at mount
+  const fortunes = useMemo(() => ALL_FORTUNES, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  /* ----------------------------------------
+     GENERATE FORTUNE
+  ---------------------------------------- */
   const generateFortune = () => {
+    if (isGenerating) return;
+
     setIsGenerating(true);
-    
-    setTimeout(() => {
-      const randomIndex = Math.floor(getSecureRandom() * fortunes.length);
-      setFortune(fortunes[randomIndex]);
+
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      const index = secureRandomInt(fortunes.length);
+      setFortune(fortunes[index]);
       setIsGenerating(false);
-    }, 1000);
+      timeoutRef.current = null;
+    }, 900);
   };
 
+  /* ----------------------------------------
+     CLEAR FORTUNE
+  ---------------------------------------- */
   const clearFortune = () => {
+    if (isGenerating) return;
     setFortune("");
   };
 
+  /* ----------------------------------------
+     RENDER
+  ---------------------------------------- */
+
   return (
     <div className="space-y-6">
+
+      {/* Controls */}
       <Card>
         <CardHeader>
           <CardTitle>Fortune Cookie</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={generateFortune} disabled={isGenerating} className="w-full sm:w-auto">
+
+            <Button 
+              onClick={generateFortune}
+              disabled={isGenerating}
+              className="w-full sm:w-auto"
+            >
               <Cookie className="h-4 w-4 mr-2" />
-              {isGenerating ? "Opening Fortune Cookie..." : "Open Fortune Cookie"}
+              {isGenerating ? "Opening Cookie..." : "Open Fortune Cookie"}
             </Button>
-            <Button onClick={clearFortune} variant="outline" className="w-full sm:w-auto">
+
+            <Button
+              onClick={clearFortune}
+              disabled={isGenerating}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
+
           </div>
         </CardContent>
       </Card>
 
+      {/* Result */}
       {fortune && (
-        <Card>
+        <Card aria-live="polite">
           <CardHeader>
             <CardTitle>Your Fortune</CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-lg p-4 sm:p-8 text-center">
-              <div className="mb-4">
-                <Sparkles className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-yellow-600 mb-4" />
-              </div>
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-lg p-5 sm:p-8 text-center shadow-sm">
+
+              <Sparkles className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-yellow-600 mb-4" />
+
               <blockquote className="text-xl sm:text-2xl font-medium text-gray-800 italic leading-relaxed break-words px-2">
-                "{fortune}"
+                “{fortune}”
               </blockquote>
+
               <div className="mt-6 text-xs sm:text-sm text-gray-600">
                 — Fortune Cookie
               </div>
@@ -395,24 +464,27 @@ export const FortuneCookie = () => {
         </Card>
       )}
 
+      {/* About */}
       <Card>
         <CardHeader>
           <CardTitle>About Fortune Cookies</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Fortune cookies are crisp cookies usually made from flour, sugar, vanilla, and sesame seed oil with a piece of paper inside, a "fortune", on which is an aphorism, or a vague prophecy.
-            </p>
-            <p>
-              The message inside may also include a Chinese phrase with translation and/or a list of lucky numbers used by some as lottery numbers.
-            </p>
-            <p>
-              Fortune cookies are often served as a dessert in Chinese restaurants in the United States and other Western countries, but they are not found in China.
-            </p>
-          </div>
+
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Fortune cookies are crisp cookies with a hidden message inside —
+            often an inspirational saying or prediction.
+          </p>
+          <p>
+            They are primarily served in Chinese restaurants in the United States
+            and other Western countries.
+          </p>
+          <p>
+            Messages may include lucky numbers or small bits of wisdom.
+          </p>
         </CardContent>
       </Card>
+
     </div>
   );
 };

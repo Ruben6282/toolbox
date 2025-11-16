@@ -3,29 +3,125 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectItem,
+  SelectContent,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+/* -----------------------------
+   CONSTANTS
+----------------------------- */
+
 const MIN_COUNT = 1;
 const MAX_COUNT = 50;
-const MIN_LENGTH = 3;
-const MAX_LENGTH = 30;
 
-// Secure random
-const secureRandom = (max: number): number => {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return arr[0] % max;
-  }
-  return Math.floor(Math.random() * max);
-};
+const MIN_LEN = 3;
+const MAX_LEN = 30;
 
 type Style = "mixed" | "adjective-noun" | "tech" | "nature";
 const ALLOWED_STYLES: Style[] = ["mixed", "adjective-noun", "tech", "nature"];
-const coerceStyle = (val: string): Style => (ALLOWED_STYLES.includes(val as Style) ? (val as Style) : "mixed");
+
+/* -----------------------------
+   SECURE UNBIASED RANDOM
+----------------------------- */
+
+const secureRandom = (max: number): number => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    const limit = Math.floor(0xffffffff / max) * max; // unbiased region
+
+    while (true) {
+      crypto.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % max;
+    }
+  }
+
+  // fallback—uniform but not secure
+  return Math.floor(Math.random() * max);
+};
+
+/* -----------------------------
+   WORD BANKS (deduplicated)
+----------------------------- */
+
+const adjectives = [
+  "cool", "awesome", "amazing", "brilliant", "creative", "dynamic", "epic",
+  "fantastic", "genius", "heroic", "incredible", "jovial", "keen", "legendary",
+  "magnificent", "noble", "outstanding", "powerful", "quick", "radiant", "stellar",
+  "titanic", "ultimate", "vibrant", "wonderful", "xenial", "youthful", "zealous"
+];
+
+const nouns = [
+  "warrior", "ninja", "wizard", "knight", "hero", "champion", "legend", "master",
+  "phoenix", "dragon", "tiger", "eagle", "wolf", "lion", "bear", "hunter",
+  "explorer", "adventurer", "guardian", "protector", "savior", "guru", "sensei",
+  "mentor", "leader"
+];
+
+const techWords = [
+  "code", "byte", "pixel", "data", "cyber", "digital", "virtual", "quantum",
+  "binary", "algorithm", "matrix", "neural", "crypto", "blockchain", "cloud",
+  "server", "client", "database", "network", "protocol", "interface", "system"
+];
+
+const natureWords = [
+  "forest", "mountain", "ocean", "river", "valley", "canyon", "meadow", "garden",
+  "flower", "tree", "leaf", "stone", "crystal", "gem", "star", "moon", "sun",
+  "sky", "cloud", "rain", "snow", "wind", "fire", "earth", "water"
+];
+
+const numbers = "0123456789";
+const specialChars = "!@#$%^&*";
+
+/* -----------------------------
+   GENERATION HELPERS
+----------------------------- */
+
+const coerceStyle = (val: string): Style =>
+  ALLOWED_STYLES.includes(val as Style) ? (val as Style) : "mixed";
+
+const clamp = (val: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, val));
+
+const pick = (arr: string[]) => arr[secureRandom(arr.length)];
+const pickChar = (str: string) => str[secureRandom(str.length)];
+
+function makeBaseName(style: Style): string {
+  switch (style) {
+    case "adjective-noun":
+      return pick(adjectives) + pick(nouns);
+    case "tech":
+      return pick(techWords) + pick(techWords);
+    case "nature":
+      return pick(natureWords) + pick(natureWords);
+    default:
+        {
+          const all = [...adjectives, ...nouns, ...techWords, ...natureWords];
+          return pick(all) + pick(all);
+        }
+  }
+}
+
+function padToLength(name: string, minLength: number): string {
+  while (name.length < minLength) {
+    name += pickChar(numbers);
+  }
+  return name;
+}
+
+function trimToLength(name: string, maxLength: number): string {
+  return name.length > maxLength ? name.slice(0, maxLength) : name;
+}
+
+/* -----------------------------
+   COMPONENT
+----------------------------- */
 
 export const UsernameGenerator = () => {
   const [usernameCount, setUsernameCount] = useState(5);
@@ -34,268 +130,152 @@ export const UsernameGenerator = () => {
   const [includeSpecialChars, setIncludeSpecialChars] = useState(false);
   const [minLength, setMinLength] = useState(6);
   const [maxLength, setMaxLength] = useState(12);
-  const [generatedUsernames, setGeneratedUsernames] = useState<string[]>([]);
+  const [generated, setGenerated] = useState<string[]>([]);
 
-  const adjectives = [
-    "cool", "awesome", "amazing", "brilliant", "creative", "dynamic", "epic", "fantastic",
-    "genius", "heroic", "incredible", "jovial", "keen", "legendary", "magnificent", "noble",
-    "outstanding", "powerful", "quick", "radiant", "stellar", "titanic", "ultimate", "vibrant",
-    "wonderful", "xenial", "youthful", "zealous"
-  ];
+  const generateOne = (): string => {
+    let name = makeBaseName(style);
 
-  const nouns = [
-    "warrior", "ninja", "wizard", "knight", "hero", "champion", "legend", "master",
-    "genius", "phoenix", "dragon", "tiger", "eagle", "wolf", "lion", "bear",
-    "hunter", "explorer", "adventurer", "guardian", "protector", "savior", "hero",
-    "champion", "legend", "master", "guru", "sensei", "mentor", "leader"
-  ];
-
-  const techWords = [
-    "code", "byte", "pixel", "data", "cyber", "digital", "virtual", "quantum",
-    "binary", "algorithm", "matrix", "neural", "crypto", "blockchain", "cloud",
-    "server", "client", "database", "network", "protocol", "interface", "system"
-  ];
-
-  const natureWords = [
-    "forest", "mountain", "ocean", "river", "valley", "canyon", "meadow", "garden",
-    "flower", "tree", "leaf", "stone", "crystal", "gem", "star", "moon", "sun",
-    "sky", "cloud", "rain", "snow", "wind", "fire", "earth", "water"
-  ];
-
-  const numbers = "0123456789";
-  const specialChars = "!@#$%^&*";
-
-  const generateUsername = (): string => {
-    let username = "";
-    
-    switch (style) {
-      case "adjective-noun": {
-        const adj = adjectives[secureRandom(adjectives.length)];
-        const noun = nouns[secureRandom(nouns.length)];
-        username = adj + noun;
-        break;
-      }
-      case "tech": {
-        const tech1 = techWords[secureRandom(techWords.length)];
-        const tech2 = techWords[secureRandom(techWords.length)];
-        username = tech1 + tech2;
-        break;
-      }
-      case "nature": {
-        const nature1 = natureWords[secureRandom(natureWords.length)];
-        const nature2 = natureWords[secureRandom(natureWords.length)];
-        username = nature1 + nature2;
-        break;
-      }
-      case "mixed":
-      default: {
-        const allWords = [...adjectives, ...nouns, ...techWords, ...natureWords];
-        const word1 = allWords[secureRandom(allWords.length)];
-        const word2 = allWords[secureRandom(allWords.length)];
-        username = word1 + word2;
-        break;
-      }
-    }
-
-    // Add numbers if enabled
     if (includeNumbers) {
-      const numCount = secureRandom(3) + 1; // 1-3 numbers
-      for (let i = 0; i < numCount; i++) {
-        username += numbers[secureRandom(numbers.length)];
-      }
+      const count = secureRandom(3) + 1; // 1–3 numbers
+      for (let i = 0; i < count; i++) name += pickChar(numbers);
     }
 
-    // Add special characters if enabled
     if (includeSpecialChars) {
-      const specialCount = secureRandom(2) + 1; // 1-2 special chars
-      for (let i = 0; i < specialCount; i++) {
-        username += specialChars[secureRandom(specialChars.length)];
-      }
+      const count = secureRandom(2) + 1; // 1–2 specials
+      for (let i = 0; i < count; i++) name += pickChar(specialChars);
     }
 
-    // Clamp length constraints
-    const clampedMin = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, minLength));
-    const clampedMax = Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, maxLength));
+    const minL = clamp(minLength, MIN_LEN, MAX_LEN);
+    const maxL = clamp(maxLength, minL, MAX_LEN);
 
-    // Ensure length constraints
-    if (username.length < clampedMin) {
-      const needed = clampedMin - username.length;
-      for (let i = 0; i < needed; i++) {
-        username += numbers[secureRandom(numbers.length)];
-      }
-    }
+    name = padToLength(name, minL);
+    name = trimToLength(name, maxL);
 
-    if (username.length > clampedMax) {
-      username = username.substring(0, clampedMax);
-    }
-
-    return username;
+    return name;
   };
 
-  const generateUsernames = () => {
-    const clampedCount = Math.max(MIN_COUNT, Math.min(MAX_COUNT, usernameCount));
-    const usernames: string[] = [];
-    const maxAttempts = clampedCount * 3; // Prevent infinite loops
-    let attempts = 0;
+  const generateMany = () => {
+    const count = clamp(usernameCount, MIN_COUNT, MAX_COUNT);
+    const result = new Set<string>();
+    const limit = count * 5;
 
-    while (usernames.length < clampedCount && attempts < maxAttempts) {
-      const username = generateUsername();
-      if (!usernames.includes(username)) {
-        usernames.push(username);
-      }
+    let attempts = 0;
+    while (result.size < count && attempts < limit) {
+      result.add(generateOne());
       attempts++;
     }
 
-    setGeneratedUsernames(usernames);
-    notify.success(`Generated ${usernames.length} username${usernames.length > 1 ? 's' : ''}!`);
+    setGenerated([...result]);
+    notify.success(`Generated ${result.size} usernames!`);
   };
 
-  const copyToClipboard = async (username: string) => {
+  const copyOne = async (name: string) => {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(username);
-  notify.success("Username copied!");
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = username;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        if (successful) {
-          notify.success("Username copied!");
-        } else {
-          notify.error("Failed to copy username");
-        }
-      }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-  notify.error("Failed to copy username");
+      await navigator.clipboard.writeText(name);
+      notify.success("Username copied!");
+    } catch {
+      notify.error("Failed to copy");
     }
   };
 
-  const copyAllToClipboard = async () => {
-    const all = generatedUsernames.join('\n');
+  const copyAll = async () => {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(all);
-  notify.success("All usernames copied!");
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = all;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        if (successful) {
-          notify.success("All usernames copied!");
-        } else {
-          notify.error("Failed to copy");
-        }
-      }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-  notify.error("Failed to copy");
+      await navigator.clipboard.writeText(generated.join("\n"));
+      notify.success("All usernames copied!");
+    } catch {
+      notify.error("Failed to copy usernames");
     }
-  };
-
-  const clearUsernames = () => {
-    setGeneratedUsernames([]);
   };
 
   return (
     <div className="space-y-6">
+      {/* INPUT CARD */}
       <Card>
         <CardHeader>
           <CardTitle>Username Generator</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="username-count">Number of Usernames</Label>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            
+            <div>
+              <Label>Number of Usernames</Label>
               <Input
-                id="username-count"
                 type="number"
-                min="1"
-                max="20"
+                min={MIN_COUNT}
+                max={MAX_COUNT}
                 value={usernameCount}
-                onChange={(e) => setUsernameCount(parseInt(e.target.value) || 1)}
+                onChange={(e) =>
+                  setUsernameCount(clamp(parseInt(e.target.value) || 1, MIN_COUNT, MAX_COUNT))
+                }
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="style-select">Style</Label>
-              <Select value={style} onValueChange={(val) => setStyle(coerceStyle(val))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select style" />
-                </SelectTrigger>
+            <div>
+              <Label>Style</Label>
+              <Select value={style} onValueChange={(v) => setStyle(coerceStyle(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mixed">Mixed</SelectItem>
                   <SelectItem value="adjective-noun">Adjective + Noun</SelectItem>
-                  <SelectItem value="tech">Tech-themed</SelectItem>
-                  <SelectItem value="nature">Nature-themed</SelectItem>
+                  <SelectItem value="tech">Tech-Themed</SelectItem>
+                  <SelectItem value="nature">Nature-Themed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="min-length">Minimum Length</Label>
+            <div>
+              <Label>Minimum Length</Label>
               <Input
-                id="min-length"
                 type="number"
-                min="3"
-                max="20"
+                min={MIN_LEN}
+                max={MAX_LEN}
                 value={minLength}
-                onChange={(e) => setMinLength(parseInt(e.target.value) || 6)}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setMinLength(clamp(isNaN(n) ? MIN_LEN : n, MIN_LEN, MAX_LEN));
+                }}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="max-length">Maximum Length</Label>
+            <div>
+              <Label>Maximum Length</Label>
               <Input
-                id="max-length"
                 type="number"
-                min="3"
-                max="30"
+                min={MIN_LEN}
+                max={MAX_LEN}
                 value={maxLength}
-                onChange={(e) => setMaxLength(parseInt(e.target.value) || 12)}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setMaxLength(clamp(isNaN(n) ? MAX_LEN : n, MIN_LEN, MAX_LEN));
+                }}
               />
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="include-numbers"
                 checked={includeNumbers}
-                onCheckedChange={(checked) => setIncludeNumbers(checked as boolean)}
+                onCheckedChange={(v) => setIncludeNumbers(!!v)}
               />
-              <Label htmlFor="include-numbers">Include Numbers</Label>
+              <Label htmlFor="include-numbers" className="cursor-pointer">Include Numbers</Label>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="include-special"
                 checked={includeSpecialChars}
-                onCheckedChange={(checked) => setIncludeSpecialChars(checked as boolean)}
+                onCheckedChange={(v) => setIncludeSpecialChars(!!v)}
               />
-              <Label htmlFor="include-special">Include Special Characters</Label>
+              <Label htmlFor="include-special" className="cursor-pointer">Include Special Characters</Label>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
-            <Button onClick={generateUsernames} className="w-full sm:w-auto">
-              Generate Usernames
-            </Button>
-            <Button onClick={clearUsernames} variant="outline" className="w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={generateMany}>Generate</Button>
+            <Button variant="outline" onClick={() => setGenerated([])}>
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear
             </Button>
@@ -303,52 +283,31 @@ export const UsernameGenerator = () => {
         </CardContent>
       </Card>
 
-      {generatedUsernames.length > 0 && (
+      {/* OUTPUT CARD */}
+      {generated.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Generated Usernames</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {generatedUsernames.map((username, index) => (
-                <div key={index} className="flex items-center justify-between bg-muted p-3 rounded-lg">
-                  <span className="font-mono text-sm">{username}</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(username)}
-                  >
+            <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+              {generated.map((name, i) => (
+                <div key={i} className="flex items-center justify-between bg-muted p-3 rounded-lg">
+                  <span className="font-mono text-sm">{name}</span>
+                  <Button size="sm" variant="outline" onClick={() => copyOne(name)}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={copyAllToClipboard} variant="outline">
-                <Copy className="h-4 w-4 mr-2" />
-                Copy All
-              </Button>
-            </div>
+            <Button variant="outline" onClick={copyAll}>
+              <Copy className="h-4 w-4 mr-2" /> Copy All
+            </Button>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Username Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Choose a username that reflects your personality or interests</li>
-            <li>• Avoid using personal information like your real name or birthdate</li>
-            <li>• Make it memorable but not too common</li>
-            <li>• Consider how it sounds when spoken aloud</li>
-            <li>• Check availability on your desired platforms</li>
-            <li>• Keep it professional if using for business purposes</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 };

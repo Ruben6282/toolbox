@@ -1,42 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 
-// Secure random boolean
+/* -------------------------------------------------------
+   SECURE, UNBIASED RANDOM BOOLEAN
+------------------------------------------------------- */
+
 const secureRandomBoolean = (): boolean => {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return arr[0] % 2 === 0;
-  }
-  return Math.random() < 0.5;
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+
+  // unbiased: reject odd leftover values
+  const limit = Math.floor(0xffffffff / 2) * 2;
+
+  return arr[0] < limit ? arr[0] % 2 === 0 : secureRandomBoolean();
 };
 
+/* -------------------------------------------------------
+   COMPONENT
+------------------------------------------------------- */
+
 export const RandomYesNo = () => {
-  const [result, setResult] = useState("");
+  const [result, setResult] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const timeoutRef = useRef<number | null>(null);
 
   const generateAnswer = () => {
     setIsGenerating(true);
-    
-    setTimeout(() => {
-      const outcome = secureRandomBoolean() ? "Yes" : "No";
-      setResult(outcome);
+
+    timeoutRef.current = window.setTimeout(() => {
+      setResult(secureRandomBoolean() ? "Yes" : "No");
       setIsGenerating(false);
     }, 300);
   };
+
+  // Cleanup for unmount safety
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const isYes = result === "Yes";
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle>Random Yes/No Generator</CardTitle>
-        <CardDescription>Get a random yes or no answer to your questions</CardDescription>
+        <CardDescription>Get a random yes or no answer to your question</CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-6">
         <Button 
-          onClick={generateAnswer} 
-          className="w-full" 
+          onClick={generateAnswer}
+          className="w-full"
           size="lg"
           disabled={isGenerating}
         >
@@ -45,17 +66,21 @@ export const RandomYesNo = () => {
         </Button>
 
         {result && (
-          <div className={`rounded-lg border-2 p-12 text-center transition-all ${
-            result === "Yes" 
-              ? "border-green-500 bg-green-500/10" 
-              : "border-red-500 bg-red-500/10"
-          }`}>
+          <div
+            className={`rounded-lg border-2 p-12 text-center transition-colors ${
+              isYes
+                ? "border-green-500 bg-green-500/10"
+                : "border-red-500 bg-red-500/10"
+            }`}
+          >
             <div className="text-6xl font-bold mb-4">
-              {result === "Yes" ? "✓" : "✗"}
+              {isYes ? "✓" : "✗"}
             </div>
-            <div className={`text-5xl font-bold ${
-              result === "Yes" ? "text-green-500" : "text-red-500"
-            }`}>
+            <div
+              className={`text-5xl font-bold ${
+                isYes ? "text-green-500" : "text-red-500"
+              }`}
+            >
               {result}
             </div>
           </div>

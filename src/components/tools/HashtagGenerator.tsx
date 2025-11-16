@@ -1,348 +1,368 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Copy, RotateCcw, Hash } from "lucide-react";
 import { notify } from "@/lib/notify";
 
+/* -------------------------------------------------------------
+   CONSTANTS
+------------------------------------------------------------- */
+
 const MAX_TOPIC_LENGTH = 200;
-const MIN_HASHTAG_COUNT = 1;
-const MAX_HASHTAG_COUNT = 50;
-const ALLOWED_PLATFORMS = ["instagram", "twitter", "tiktok", "linkedin", "facebook", "pinterest"] as const;
-type Platform = typeof ALLOWED_PLATFORMS[number];
+const MIN_COUNT = 1;
+const MAX_COUNT = 50;
 
-const coercePlatform = (value: string): Platform => {
-  return ALLOWED_PLATFORMS.includes(value as Platform) ? (value as Platform) : "instagram";
+const ALLOWED_PLATFORMS = [
+  "instagram",
+  "twitter",
+  "tiktok",
+  "linkedin",
+  "facebook",
+  "pinterest",
+] as const;
+
+type Platform = (typeof ALLOWED_PLATFORMS)[number];
+
+const PLATFORM_CONFIGS = [
+  { label: "Instagram", value: "instagram", max: 30 },
+  { label: "Twitter", value: "twitter", max: 5 },
+  { label: "TikTok", value: "tiktok", max: 20 },
+  { label: "LinkedIn", value: "linkedin", max: 5 },
+  { label: "Facebook", value: "facebook", max: 10 },
+  { label: "Pinterest", value: "pinterest", max: 20 },
+] satisfies { label: string; value: Platform; max: number }[];
+
+/* -------------------------------------------------------------
+   HASHTAG DATABASE
+------------------------------------------------------------- */
+
+const HASHTAG_DB: Record<string, string[]> = {
+  general: [
+    "#trending", "#viral", "#popular", "#fyp", "#explore", "#discover",
+    "#new", "#latest", "#hot", "#cool", "#amazing", "#awesome", "#incredible",
+    "#fantastic", "#wonderful", "#beautiful", "#stunning", "#gorgeous",
+    "#love", "#like", "#follow", "#share", "#comment", "#instagood",
+    "#photooftheday", "#picoftheday",
+  ],
+  lifestyle: [
+    "#lifestyle", "#life", "#living", "#daily", "#routine", "#motivation",
+    "#inspiration", "#goals", "#dreams", "#success", "#happiness",
+    "#positivity", "#mindset", "#selfcare", "#wellness", "#health",
+    "#fitness", "#food", "#cooking", "#recipe", "#delicious", "#yummy",
+    "#tasty", "#homemade", "#fresh",
+  ],
+  travel: [
+    "#travel", "#wanderlust", "#adventure", "#explore", "#journey", "#trip",
+    "#vacation", "#holiday", "#getaway", "#destination", "#world", "#globe",
+    "#passport", "#suitcase", "#plane", "#flight", "#roadtrip", "#backpack",
+    "#culture", "#local", "#authentic", "#experience", "#memories",
+    "#photography", "#landscape", "#nature",
+  ],
+  fashion: [
+    "#fashion", "#style", "#outfit", "#ootd", "#look", "#trend", "#chic",
+    "#elegant", "#stylish", "#fashionista", "#clothes", "#dress", "#shirt",
+    "#pants", "#shoes", "#accessories", "#jewelry", "#watch", "#bag",
+    "#handbag", "#beauty", "#makeup", "#skincare", "#hair", "#nails",
+    "#glamour", "#glow", "#radiant",
+  ],
+  business: [
+    "#business", "#entrepreneur", "#startup", "#success", "#growth",
+    "#marketing", "#brand", "#branding", "#strategy", "#leadership",
+    "#management", "#innovation", "#technology", "#digital", "#online",
+    "#socialmedia", "#networking", "#investment", "#finance", "#money",
+    "#wealth", "#goals", "#motivation", "#inspiration", "#mindset",
+  ],
+  fitness: [
+    "#fitness", "#workout", "#gym", "#exercise", "#training", "#muscle",
+    "#strength", "#cardio", "#running", "#cycling", "#yoga", "#pilates",
+    "#crossfit", "#bodybuilding", "#health", "#wellness", "#nutrition",
+    "#diet", "#protein", "#motivation", "#goals", "#progress",
+    "#transformation", "#fitspo", "#gains", "#strong", "#fit",
+  ],
+  food: [
+    "#food", "#foodie", "#delicious", "#yummy", "#tasty", "#cooking",
+    "#recipe", "#homemade", "#fresh", "#healthy", "#breakfast", "#lunch",
+    "#dinner", "#snack", "#dessert", "#sweet", "#savory", "#spicy",
+    "#flavor", "#taste", "#restaurant", "#cafe", "#coffee", "#tea",
+    "#drink", "#beverage", "#chef", "#kitchen", "#ingredients",
+  ],
+  technology: [
+    "#tech", "#technology", "#innovation", "#digital", "#ai",
+    "#artificialintelligence", "#machinelearning", "#data", "#programming",
+    "#coding", "#developer", "#software", "#app", "#mobile", "#web",
+    "#design", "#ux", "#ui", "#startup", "#entrepreneur", "#business",
+    "#future", "#smart", "#automation", "#robotics", "#gadgets",
+  ],
+  photography: [
+    "#photography", "#photo", "#picture", "#image", "#camera", "#lens",
+    "#shot", "#capture", "#moment", "#memory", "#portrait", "#landscape",
+    "#nature", "#street", "#urban", "#architecture", "#travel",
+    "#adventure", "#explore", "#art", "#creative", "#aesthetic",
+    "#beautiful", "#stunning", "#gorgeous", "#amazing", "#wow",
+  ],
 };
 
-const clampHashtagCount = (value: number): number => {
-  return Math.max(MIN_HASHTAG_COUNT, Math.min(MAX_HASHTAG_COUNT, Math.floor(value)));
-};
 
-// Sanitize topic input
-const sanitizeTopic = (text: string): string => {
-  const cleaned = text.split('').filter(char => {
-    const code = char.charCodeAt(0);
-    return code >= 32 || code === 9 || code === 10 || code === 13;
-  }).join('');
-  return cleaned.slice(0, MAX_TOPIC_LENGTH);
-};
+/* -------------------------------------------------------------
+   HELPERS (Sanitization + Randomness)
+------------------------------------------------------------- */
 
-// Use crypto.getRandomValues for shuffle
-const secureRandom = (): number => {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    return array[0] / (0xffffffff + 1);
+// Unicode-safe topic sanitizer
+const sanitizeTopic = (input: string): string =>
+  [...input] // spreads into Unicode codepoints
+    .filter((ch) => ch >= " " || ch === "\n" || ch === "\t")
+    .join("")
+    .slice(0, MAX_TOPIC_LENGTH);
+
+// Ensure valid platform
+const coercePlatform = (v: string): Platform =>
+  ALLOWED_PLATFORMS.includes(v as Platform) ? (v as Platform) : "instagram";
+
+// Clamp number safely
+const clamp = (v: number, max: number): number =>
+  Math.max(MIN_COUNT, Math.min(max, Math.floor(v || MIN_COUNT)));
+
+// Crypto-safe random int
+const randInt = (max: number): number => {
+  const arr = new Uint32Array(1);
+  const limit = Math.floor(0xffffffff / max) * max;
+  while (true) {
+    crypto.getRandomValues(arr);
+    if (arr[0] < limit) return arr[0] % max;
   }
-  return Math.random();
 };
+
+// Crypto Fisher-Yates shuffle
+const shuffle = <T,>(a: T[]): T[] => {
+  const arr = [...a];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
+// Clipboard helper
+const copyText = async (text: string, ok: string, err: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    notify.success(ok);
+  } catch (e) {
+    console.error(e);
+    notify.error(err);
+  }
+};
+
+
+/* -------------------------------------------------------------
+   COMPONENT
+------------------------------------------------------------- */
 
 export const HashtagGenerator = () => {
   const [topic, setTopic] = useState("");
-  const [platform, setPlatform] = useState<Platform>("instagram");
-  const [hashtagCount, setHashtagCount] = useState(10);
-  const [generatedHashtags, setGeneratedHashtags] = useState<string[]>([]);
+  const [platform, setPlatformState] = useState<Platform>("instagram");
+  const [count, setCount] = useState(10);
+  const [tags, setTags] = useState<string[]>([]);
 
-  const hashtagDatabase = {
-    general: [
-      "#trending", "#viral", "#popular", "#fyp", "#explore", "#discover", "#new", "#latest", "#hot", "#cool",
-      "#amazing", "#awesome", "#incredible", "#fantastic", "#wonderful", "#beautiful", "#stunning", "#gorgeous",
-      "#love", "#like", "#follow", "#share", "#comment", "#instagood", "#photooftheday", "#picoftheday"
-    ],
-    lifestyle: [
-      "#lifestyle", "#life", "#living", "#daily", "#routine", "#motivation", "#inspiration", "#goals", "#dreams",
-      "#success", "#happiness", "#positivity", "#mindset", "#selfcare", "#wellness", "#health", "#fitness",
-      "#food", "#cooking", "#recipe", "#delicious", "#yummy", "#tasty", "#homemade", "#fresh"
-    ],
-    travel: [
-      "#travel", "#wanderlust", "#adventure", "#explore", "#journey", "#trip", "#vacation", "#holiday", "#getaway",
-      "#destination", "#world", "#globe", "#passport", "#suitcase", "#plane", "#flight", "#roadtrip", "#backpack",
-      "#culture", "#local", "#authentic", "#experience", "#memories", "#photography", "#landscape", "#nature"
-    ],
-    fashion: [
-      "#fashion", "#style", "#outfit", "#ootd", "#look", "#trend", "#chic", "#elegant", "#stylish", "#fashionista",
-      "#clothes", "#dress", "#shirt", "#pants", "#shoes", "#accessories", "#jewelry", "#watch", "#bag", "#handbag",
-      "#beauty", "#makeup", "#skincare", "#hair", "#nails", "#glamour", "#glow", "#radiant"
-    ],
-    business: [
-      "#business", "#entrepreneur", "#startup", "#success", "#growth", "#marketing", "#brand", "#branding", "#strategy",
-      "#leadership", "#management", "#innovation", "#technology", "#digital", "#online", "#socialmedia", "#networking",
-      "#investment", "#finance", "#money", "#wealth", "#goals", "#motivation", "#inspiration", "#mindset"
-    ],
-    fitness: [
-      "#fitness", "#workout", "#gym", "#exercise", "#training", "#muscle", "#strength", "#cardio", "#running", "#cycling",
-      "#yoga", "#pilates", "#crossfit", "#bodybuilding", "#health", "#wellness", "#nutrition", "#diet", "#protein",
-      "#motivation", "#goals", "#progress", "#transformation", "#fitspo", "#gains", "#strong", "#fit"
-    ],
-    food: [
-      "#food", "#foodie", "#delicious", "#yummy", "#tasty", "#cooking", "#recipe", "#homemade", "#fresh", "#healthy",
-      "#breakfast", "#lunch", "#dinner", "#snack", "#dessert", "#sweet", "#savory", "#spicy", "#flavor", "#taste",
-      "#restaurant", "#cafe", "#coffee", "#tea", "#drink", "#beverage", "#chef", "#kitchen", "#ingredients"
-    ],
-    technology: [
-      "#tech", "#technology", "#innovation", "#digital", "#ai", "#artificialintelligence", "#machinelearning", "#data",
-      "#programming", "#coding", "#developer", "#software", "#app", "#mobile", "#web", "#design", "#ux", "#ui",
-      "#startup", "#entrepreneur", "#business", "#future", "#smart", "#automation", "#robotics", "#gadgets"
-    ],
-    photography: [
-      "#photography", "#photo", "#picture", "#image", "#camera", "#lens", "#shot", "#capture", "#moment", "#memory",
-      "#portrait", "#landscape", "#nature", "#street", "#urban", "#architecture", "#travel", "#adventure", "#explore",
-      "#art", "#creative", "#aesthetic", "#beautiful", "#stunning", "#gorgeous", "#amazing", "#wow"
-    ]
+  // Platform config lookup
+  const platformCfg = useMemo(
+    () => PLATFORM_CONFIGS.find((p) => p.value === platform)!,
+    [platform]
+  );
+
+  // Setting platform must also clamp hashtag count (no extra useEffect)
+  const setPlatform = (p: Platform) => {
+    const cfg = PLATFORM_CONFIGS.find((x) => x.value === p)!;
+    setPlatformState(p);
+    setCount((prev) => clamp(prev, cfg.max));
   };
 
-  const platforms = [
-    { label: "Instagram", value: "instagram", maxHashtags: 30 },
-    { label: "Twitter", value: "twitter", maxHashtags: 5 },
-    { label: "TikTok", value: "tiktok", maxHashtags: 20 },
-    { label: "LinkedIn", value: "linkedin", maxHashtags: 5 },
-    { label: "Facebook", value: "facebook", maxHashtags: 10 },
-    { label: "Pinterest", value: "pinterest", maxHashtags: 20 }
-  ];
+  /* -------------------------------------------------------------
+     GENERATE
+  ------------------------------------------------------------- */
+  const generate = useCallback(() => {
+    const clean = topic.trim();
+    if (!clean) return;
 
-  const generateHashtags = () => {
-    if (!topic.trim()) return;
+    const words = clean.toLowerCase().split(/\s+/).filter(Boolean);
 
-    const words = topic.toLowerCase().split(/\s+/);
-    const allHashtags: string[] = [];
-    
-    // Add topic-specific hashtags
-    words.forEach(word => {
-      if (word.length > 2) {
-        allHashtags.push(`#${word}`);
-        allHashtags.push(`#${word}s`);
+    const bucket = new Set<string>();
+
+    // Topic keywords
+    for (const w of words) {
+      if (w.length > 2) {
+        bucket.add(`#${w}`);
+        bucket.add(`#${w}s`);
       }
-    });
-
-    // Add related hashtags based on topic keywords
-    Object.entries(hashtagDatabase).forEach(([category, hashtags]) => {
-      if (words.some(word => category.includes(word) || word.includes(category))) {
-        allHashtags.push(...hashtags);
-      }
-    });
-
-    // Add general hashtags
-    allHashtags.push(...hashtagDatabase.general);
-
-    // Remove duplicates and shuffle with crypto randomness
-    const uniqueHashtags = [...new Set(allHashtags)];
-    const shuffled = uniqueHashtags.sort(() => secureRandom() - 0.5);
-
-    // Limit based on platform
-    const platformMax = platforms.find(p => p.value === platform)?.maxHashtags || 30;
-    const maxCount = Math.min(hashtagCount, platformMax);
-    
-    const result = shuffled.slice(0, maxCount);
-    setGeneratedHashtags(result);
-    notify.success(`Generated ${result.length} hashtags!`);
-  };
-
-  const copyToClipboard = async (hashtags: string[]) => {
-    try {
-      // Modern approach - works on most browsers including mobile
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(hashtags.join(' '));
-        notify.success("Hashtags copied to clipboard!");
-      } else {
-        // Fallback for older browsers or when clipboard API is not available
-        const textArea = document.createElement("textarea");
-        textArea.value = hashtags.join(' ');
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-            notify.success("Hashtags copied to clipboard!");
-          } else {
-            notify.error("Failed to copy!");
-          }
-        } catch (err) {
-          console.error('Fallback: Failed to copy', err);
-          notify.error("Failed to copy to clipboard!");
-        }
-        
-        document.body.removeChild(textArea);
-      }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-      notify.error("Failed to copy to clipboard!");
     }
-  };
 
-  const copyAllToClipboard = async () => {
-    try {
-      // Modern approach - works on most browsers including mobile
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(generatedHashtags.join(' '));
-        notify.success("All hashtags copied to clipboard!");
-      } else {
-        // Fallback for older browsers or when clipboard API is not available
-        const textArea = document.createElement("textarea");
-        textArea.value = generatedHashtags.join(' ');
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-            notify.success("All hashtags copied to clipboard!");
-          } else {
-            notify.error("Failed to copy!");
-          }
-        } catch (err) {
-          console.error('Fallback: Failed to copy', err);
-          notify.error("Failed to copy to clipboard!");
-        }
-        
-        document.body.removeChild(textArea);
+    // Fuzzy category matching
+    for (const [category, list] of Object.entries(HASHTAG_DB)) {
+      if (words.some((w) => w.includes(category) || category.includes(w))) {
+        list.forEach((h) => bucket.add(h));
       }
-    } catch (err) {
-      console.error('Failed to copy: ', err);
-      notify.error("Failed to copy to clipboard!");
     }
-  };
 
-  const clearAll = () => {
+    // Always add general set
+    HASHTAG_DB.general.forEach((h) => bucket.add(h));
+
+    // Shuffle + limit
+    const final = shuffle([...bucket]).slice(0, clamp(count, platformCfg.max));
+
+    setTags(final);
+    notify.success(`Generated ${final.length} hashtags!`);
+  }, [topic, count, platformCfg.max]);
+
+  const clear = () => {
     setTopic("");
-    setGeneratedHashtags([]);
+    setTags([]);
     notify.success("Cleared all hashtags!");
   };
 
-  const getPlatformMax = () => {
-    return platforms.find(p => p.value === platform)?.maxHashtags || 30;
-  };
 
+  /* -------------------------------------------------------------
+     RENDER
+  ------------------------------------------------------------- */
   return (
     <div className="space-y-6">
+      {/* INPUT CARD */}
       <Card>
         <CardHeader>
           <CardTitle>Hashtag Generator</CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
+          {/* TOPIC INPUT */}
           <div className="space-y-2">
             <Label htmlFor="topic">Topic or Keywords</Label>
             <Input
               id="topic"
-              placeholder="e.g., fitness, travel, food, business"
               value={topic}
               onChange={(e) => setTopic(sanitizeTopic(e.target.value))}
               maxLength={MAX_TOPIC_LENGTH}
+              placeholder="e.g., fitness, travel, food, business"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* PLATFORM SELECT */}
             <div className="space-y-2">
-              <Label htmlFor="platform">Social Media Platform</Label>
-              <Select value={platform} onValueChange={(value) => setPlatform(coercePlatform(value))}>
+              <Label>Platform</Label>
+              <Select value={platform} onValueChange={(v) => setPlatform(coercePlatform(v))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {platforms.map((p) => (
+                  {PLATFORM_CONFIGS.map((p) => (
                     <SelectItem key={p.value} value={p.value}>
-                      {p.label} (max {p.maxHashtags})
+                      {p.label} (max {p.max})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* COUNT */}
             <div className="space-y-2">
-              <Label htmlFor="hashtag-count">Number of Hashtags</Label>
+              <Label>Number of Hashtags</Label>
               <Input
-                id="hashtag-count"
                 type="number"
-                inputMode="numeric"
-                min={MIN_HASHTAG_COUNT}
-                max={getPlatformMax()}
-                value={hashtagCount}
-                onChange={(e) => setHashtagCount(clampHashtagCount(parseInt(e.target.value) || 1))}
+                min={MIN_COUNT}
+                max={platformCfg.max}
+                value={count}
+                onChange={(e) =>
+                  setCount(clamp(parseInt(e.target.value, 10), platformCfg.max))
+                }
               />
               <p className="text-xs text-muted-foreground">
-                Max {getPlatformMax()} for {platforms.find(p => p.value === platform)?.label}
+                Max {platformCfg.max} for {platformCfg.label}
               </p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={generateHashtags} disabled={!topic.trim()} className="w-full sm:w-auto">
-              <Hash className="h-4 w-4 mr-2" />
-              Generate Hashtags
+            <Button onClick={generate} disabled={!topic.trim()}>
+              <Hash className="h-4 w-4 mr-2" /> Generate Hashtags
             </Button>
-            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear
+
+            <Button variant="outline" onClick={clear}>
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {generatedHashtags.length > 0 && (
+      {/* RESULTS */}
+      {tags.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Generated Hashtags</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
-            <div className="bg-muted p-3 sm:p-4 rounded-lg">
+            {/* TAG CLOUD */}
+            <div className="bg-muted p-3 rounded-lg">
               <div className="flex flex-wrap gap-2">
-                {generatedHashtags.map((hashtag, index) => (
+                {tags.map((tag, i) => (
                   <span
-                    key={index}
-                    className="inline-block bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium cursor-pointer hover:bg-blue-200 transition-colors break-words"
-                    onClick={() => copyToClipboard([hashtag])}
+                    key={i}
+                    onClick={() =>
+                      copyText(tag, "Hashtag copied!", "Failed to copy hashtag")
+                    }
+                    className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium cursor-pointer hover:bg-blue-200 transition-colors"
                   >
-                    {hashtag}
+                    {tag}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm text-muted-foreground break-words px-2">
-                <strong>As text:</strong> {generatedHashtags.join(' ')}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <strong>Count:</strong> {generatedHashtags.length} hashtags
-              </p>
+            {/* TEXT VIEW */}
+            <div className="text-sm text-muted-foreground space-y-1 px-1 break-all">
+              <p><strong>As text:</strong> {tags.join(" ")}</p>
+              <p><strong>Count:</strong> {tags.length}</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={copyAllToClipboard} variant="outline" className="w-full sm:w-auto">
-                <Copy className="h-4 w-4 mr-2" />
-                Copy All Hashtags
-              </Button>
-            </div>
+            {/* COPY ALL */}
+            <Button
+              variant="outline"
+              onClick={() =>
+                copyText(
+                  tags.join(" "),
+                  "All hashtags copied!",
+                  "Failed to copy hashtags"
+                )
+              }
+            >
+              <Copy className="h-4 w-4 mr-2" /> Copy All
+            </Button>
           </CardContent>
         </Card>
       )}
 
+      {/* TIPS */}
       <Card>
         <CardHeader>
           <CardTitle>Hashtag Tips</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Use a mix of popular and niche hashtags for better reach</li>
-            <li>• Research trending hashtags in your industry</li>
-            <li>• Don't use too many hashtags - it can look spammy</li>
-            <li>• Create branded hashtags for your business</li>
-            <li>• Use location-based hashtags for local businesses</li>
-            <li>• Test different hashtag combinations to see what works</li>
-            <li>• Avoid banned or restricted hashtags</li>
+            <li>• Use a mix of popular and niche hashtags</li>
+            <li>• Research current trends in your niche</li>
+            <li>• Avoid using too many low-quality hashtags</li>
+            <li>• Create unique branded hashtags</li>
+            <li>• Use local hashtags for geographic targeting</li>
             <li>• Keep hashtags relevant to your content</li>
+            <li>• Avoid banned or restricted hashtags</li>
           </ul>
         </CardContent>
       </Card>
