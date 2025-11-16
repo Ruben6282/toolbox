@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { notify } from "@/lib/notify";
@@ -131,16 +132,14 @@ export const PasswordGenerator = () => {
         <CardContent className="space-y-4">
           {/* Length */}
           <div className="space-y-2">
-            <Label>Password Length: {length}</Label>
-            <Input
-              type="range"
+            <Label>Password Length: {length} characters</Label>
+            <Slider
+              value={[length]}
+              onValueChange={(value) => setLength(value[0])}
               min={MIN_LENGTH}
               max={MAX_LENGTH}
-              value={length}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                setLength(Math.min(MAX_LENGTH, Math.max(MIN_LENGTH, n)));
-              }}
+              step={1}
+              className="w-full"
             />
           </div>
 
