@@ -1,176 +1,324 @@
 /**
- * ImageResizer - Enterprise-Grade Hardening
+ * ImageResizer - Final Production-Ready Version
  *
- * Security & UX features:
- * - MIME verification via file.type and magic bytes sniffing to prevent spoofing
- * - File size limit to avoid memory pressure
- * - Output format selection (PNG/JPEG/WEBP) with quality control
- * - Accessibility: aria-live announcements for preview updates
- * - Dimension guardrails using MAX_IMAGE_DIMENSION
+ * Security & Stability:
+ * ✔ MIME allowlist + magic-byte sniffing
+ * ✔ File size limit
+ * ✔ EXIF orientation via createImageBitmap({ imageOrientation: "from-image" })
+ * ✔ Canvas safe dimension guardrail
+ * ✔ Async toBlob encoding (no UI freeze)
+ * ✔ Debounced resizing
+ * ✔ Memory-safe ObjectURL handling
+ * ✔ Safe cleanup
+ *
+ * UX:
+ * ✔ Drag & drop
+ * ✔ Proper quality slider (0–100 UI → 0–1 encoding)
+ * ✔ File metadata
+ * ✔ Smooth previews
  */
-import { useState, useRef, useEffect } from "react";
+
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { notify } from "@/lib/notify";
 import { Upload } from "lucide-react";
-import { ALLOWED_IMAGE_TYPES, validateImageFile, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import {
+  ALLOWED_IMAGE_TYPES,
+  validateImageFile,
+  MAX_IMAGE_DIMENSION,
+} from "@/lib/security";
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
 const MIN_DIMENSION = 1;
 const MAX_DIMENSION_INPUT = 10000;
-const MIN_QUALITY = 0.1;
-const MAX_QUALITY_VALUE = 1.0;
+const SAFE_MAX_CANVAS_DIMENSION = 8192;
+
 const ALLOWED_FORMATS = ["image/png", "image/jpeg", "image/webp"] as const;
-type ImageFormat = typeof ALLOWED_FORMATS[number];
+type ImageFormat = (typeof ALLOWED_FORMATS)[number];
 
-const coerceFormat = (value: string): ImageFormat => {
-  return ALLOWED_FORMATS.includes(value as ImageFormat) ? (value as ImageFormat) : "image/png";
+const MAX_FILE_SIZE_MB = 10;
+
+// Debounce helper
+const useDebouncedValue = <T,>(value: T, delay: number): T => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
 };
 
-const clampDimension = (value: number): number => {
-  return Math.max(MIN_DIMENSION, Math.min(MAX_DIMENSION_INPUT, Math.floor(value)));
-};
+const clamp = (num: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, num));
 
-const clampQuality = (value: number): number => {
-  return Math.max(MIN_QUALITY, Math.min(MAX_QUALITY_VALUE, value));
+const formatFileSize = (bytes: number) => {
+  if (!bytes) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
 };
 
 export const ImageResizer = () => {
-  const [width, setWidth] = useState<number>(800);
-  const [height, setHeight] = useState<number>(600);
-  const [aspectRatioLocked, setAspectRatioLocked] = useState<boolean>(true);
+  const [width, setWidth] = useState(800);
+  const [height, setHeight] = useState(600);
+  const [aspectLocked, setAspectLocked] = useState(true);
   const [format, setFormat] = useState<ImageFormat>("image/png");
-  const [quality, setQuality] = useState<number>(0.92); // applies to jpeg/webp
-  const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
-  const [originalPreview, setOriginalPreview] = useState<string>("");
-  const [resizedPreview, setResizedPreview] = useState<string>("");
+  const [quality, setQuality] = useState(0.92); // internal 0–1
+
+  const [imageSource, setImageSource] = useState<CanvasImageSource | null>(null);
+  const [imageDims, setImageDims] = useState<{ width: number; height: number } | null>(null);
+
+  const [originalPreview, setOriginalPreview] = useState("");
+  const [resizedPreview, setResizedPreview] = useState("");
+  const [fileInfo, setFileInfo] = useState<{ name: string; size: number; type: string } | null>(
+    null
+  );
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bitmapRef = useRef<ImageBitmap | null>(null);
+
   const { createImageUrl } = useObjectUrls();
 
-  // Size guardrail
-  const MAX_FILE_SIZE_MB = 10;
+  // Debounced heavy values
+  const debW = useDebouncedValue(width, 150);
+  const debH = useDebouncedValue(height, 150);
+  const debQ = useDebouncedValue(quality, 150);
 
-  // Quick magic-byte sniff for common formats (best-effort)
-  const sniffMime = async (file: File): Promise<string | null> => {
+  /** Magic-byte sniffing (PNG, JPEG, WEBP) */
+  const sniffMime = useCallback(async (file: File) => {
     try {
-      const slice = file.slice(0, 16);
-      const buf = await slice.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      // PNG: 89 50 4E 47 0D 0A 1A 0A
-      if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47 && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A) {
+      const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+
+      if (
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47
+      )
         return "image/png";
-      }
-      // JPEG: FF D8 FF
-      if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+
+      if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
         return "image/jpeg";
-      }
-      // WEBP (RIFF....WEBP): 52 49 46 46 .... 57 45 42 50
-      if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+
+      if (
+        bytes[0] === 0x52 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        bytes[3] === 0x46 &&
+        bytes[8] === 0x57 &&
+        bytes[9] === 0x45 &&
+        bytes[10] === 0x42 &&
+        bytes[11] === 0x50
+      )
         return "image/webp";
-      }
+
       return null;
     } catch {
       return null;
     }
-  };
+  }, []);
 
-  // Load image when uploaded
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // File size check
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      notify.error(`File too large (max ${MAX_FILE_SIZE_MB}MB)`);
-      return;
-    }
+  /** Central file handler (input & drag/drop) */
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (!file) return;
 
-    // MIME allowlist check
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      notify.error("Unsupported file type. Please upload PNG, JPEG, or WEBP.");
-      return;
-    }
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        notify.error(`File too large (max ${MAX_FILE_SIZE_MB}MB)`);
+        return;
+      }
 
-    // Magic bytes verification (best-effort)
-    const sniffed = await sniffMime(file);
-    if (sniffed && !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
-      notify.error("File signature does not match an allowed image type.");
-      return;
-    }
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        notify.error("Unsupported file type. Please upload PNG, JPEG, or WEBP.");
+        return;
+      }
 
-    const error = validateImageFile(file);
-    if (error) {
-      notify.error(error);
-      return;
-    }
-    // Create validated URL with downscaling for very large images
-  const url = await createImageUrl(file, { downscaleLarge: true, maxDimension: MAX_IMAGE_DIMENSION });
-    if (!url) return;
-    const img = new Image();
-    img.onload = () => {
-      setOriginalImage(img);
-      setWidth(img.width);
-      setHeight(img.height);
+      const sniffed = await sniffMime(file);
+      if (sniffed && !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
+        notify.error("Image signature does not match allowed types.");
+        return;
+      }
+
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        notify.error(validationError);
+        return;
+      }
+
+      // Create preview URL
+      const url = await createImageUrl(file, {
+        downscaleLarge: true,
+        maxDimension: MAX_IMAGE_DIMENSION,
+      });
+
+      if (!url) {
+        notify.error("Failed to create preview URL.");
+        return;
+      }
+
       setOriginalPreview(url);
-      notify.success("Image loaded!");
-    };
-    img.onerror = () => notify.error("Failed to load image");
-    img.src = url;
+      setFileInfo({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+
+      // Cleanup old ImageBitmap
+      if (bitmapRef.current) {
+        bitmapRef.current.close();
+        bitmapRef.current = null;
+      }
+
+      // Try EXIF-correct ImageBitmap first
+      try {
+        if ("createImageBitmap" in window) {
+          const bitmap = await createImageBitmap(file, {
+            imageOrientation: "from-image",
+          });
+
+          bitmapRef.current = bitmap;
+          setImageSource(bitmap);
+          setImageDims({ width: bitmap.width, height: bitmap.height });
+          setWidth(bitmap.width);
+          setHeight(bitmap.height);
+          notify.success("Image loaded!");
+          return;
+        }
+      } catch (err) {
+        // Non-fatal: if ImageBitmap creation fails, fall back to <img> path.
+        // Log for debugging purposes so the empty-block lint rule is satisfied.
+        console.debug("createImageBitmap failed:", err);
+      }
+
+      // Fallback <img>
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        setImageSource(img);
+        setImageDims({ width: img.width, height: img.height });
+        setWidth(img.width);
+        setHeight(img.height);
+        notify.success("Image loaded!");
+      };
+      img.onerror = () => notify.error("Failed to load image");
+      img.src = url;
+    },
+    [createImageUrl, sniffMime]
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
   };
 
-  // Maintain aspect ratio
-  const handleWidthChange = (value: string) => {
-    const newWidth = clampDimension(Number(value) || 1);
-    if (!originalImage) return setWidth(newWidth);
-    if (aspectRatioLocked) {
-      const ratio = originalImage.height / originalImage.width;
-      setHeight(clampDimension(Math.round(newWidth * ratio)));
-    }
-    setWidth(newWidth);
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
   };
 
-  const handleHeightChange = (value: string) => {
-    const newHeight = clampDimension(Number(value) || 1);
-    if (!originalImage) return setHeight(newHeight);
-    if (aspectRatioLocked) {
-      const ratio = originalImage.width / originalImage.height;
-      setWidth(clampDimension(Math.round(newHeight * ratio)));
-    }
-    setHeight(newHeight);
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
+
+  /** Aspect-ratio-respecting input handlers */
+  const onWidth = (v: string) => {
+    const w = clamp(Number(v) || 1, MIN_DIMENSION, MAX_DIMENSION_INPUT);
+    if (!imageDims || !aspectLocked) return setWidth(w);
+    const ratio = imageDims.height / imageDims.width;
+    setWidth(w);
+    setHeight(clamp(Math.round(w * ratio), MIN_DIMENSION, MAX_DIMENSION_INPUT));
   };
 
-  // Update resized preview whenever size changes
+  const onHeight = (v: string) => {
+    const h = clamp(Number(v) || 1, MIN_DIMENSION, MAX_DIMENSION_INPUT);
+    if (!imageDims || !aspectLocked) return setHeight(h);
+    const ratio = imageDims.width / imageDims.height;
+    setHeight(h);
+    setWidth(clamp(Math.round(h * ratio), MIN_DIMENSION, MAX_DIMENSION_INPUT));
+  };
+
+  /** Resize canvas + generate preview */
   useEffect(() => {
-    if (!originalImage || !canvasRef.current) return;
+    if (!imageSource || !canvasRef.current) return;
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = width;
-    canvas.height = height;
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(originalImage, 0, 0, width, height);
-    // Use selected format and quality
-    const q = format === "image/png" ? undefined : Math.min(Math.max(quality, 0), 1);
-    setResizedPreview(canvas.toDataURL(format, q));
-  }, [width, height, originalImage, format, quality]);
+    const W = clamp(debW, MIN_DIMENSION, SAFE_MAX_CANVAS_DIMENSION);
+    const H = clamp(debH, MIN_DIMENSION, SAFE_MAX_CANVAS_DIMENSION);
 
-  // Download resized image
-  const handleDownload = () => {
-    if (!resizedPreview) {
-      notify.error("No resized image to download!");
+    canvas.width = W;
+    canvas.height = H;
+
+    try {
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(imageSource, 0, 0, W, H);
+    } catch (err) {
+      notify.error("Failed to render resized image.");
       return;
     }
-    const link = document.createElement("a");
-    link.href = resizedPreview;
-    const ext = format === "image/png" ? "png" : format === "image/jpeg" ? "jpg" : "webp";
-    link.download = `resized-image.${ext}`;
-    link.click();
+
+    const q = format === "image/png" ? undefined : debQ;
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          notify.error("Failed to generate image.");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+
+        // Revoke previous preview safely
+        setResizedPreview((prev) => {
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+          return url;
+        });
+      },
+      format,
+      q
+    );
+  }, [imageSource, debW, debH, debQ, format]);
+
+  /** Cleanup on unmount */
+  useEffect(() => {
+    return () => {
+      if (bitmapRef.current) {
+        bitmapRef.current.close();
+        bitmapRef.current = null;
+      }
+    };
+  }, []);
+
+  /** Download handler */
+  const download = () => {
+    if (!resizedPreview) {
+      notify.error("No resized image available.");
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = resizedPreview;
+    a.download =
+      format === "image/png"
+        ? "image.png"
+        : format === "image/jpeg"
+        ? "image.jpg"
+        : "image.webp";
+    a.click();
     notify.success("Image downloaded!");
   };
-
-  // Note: Object URL cleanup is handled within useObjectUrls hook automatically on unmount
 
   return (
     <div className="space-y-6">
@@ -180,12 +328,16 @@ export const ImageResizer = () => {
           <CardTitle>Upload Image</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-center rounded-lg border-2 border-dashed p-12">
-            <label className="cursor-pointer">
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="h-12 w-12 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Click to upload image</span>
-              </div>
+          <div
+            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center"
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
+            <label className="cursor-pointer flex flex-col items-center gap-2">
+              <Upload className="h-12 w-12 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Click or drag & drop an image (PNG, JPEG, WEBP)
+              </span>
               <input
                 type="file"
                 accept={ALLOWED_IMAGE_TYPES.join(",")}
@@ -193,83 +345,82 @@ export const ImageResizer = () => {
                 className="hidden"
               />
             </label>
+
+            {fileInfo && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                <span className="font-medium">{fileInfo.name}</span> ·{" "}
+                {formatFileSize(fileInfo.size)} · {fileInfo.type}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Resize Options */}
-      {originalImage && (
+      {imageSource && (
         <Card>
           <CardHeader>
             <CardTitle>Resize Options</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Width / Height */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Width (px)</Label>
-                <Input
-                  type="number"
-                  value={width}
-                  onChange={(e) => handleWidthChange(e.target.value)}
-                />
+                <Input value={width} onChange={(e) => onWidth(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Height (px)</Label>
-                <Input
-                  type="number"
-                  value={height}
-                  onChange={(e) => handleHeightChange(e.target.value)}
-                />
+                <Input value={height} onChange={(e) => onHeight(e.target.value)} />
               </div>
             </div>
 
+            {/* Aspect ratio */}
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={aspectRatioLocked}
-                onChange={(e) => setAspectRatioLocked(e.target.checked)}
-              />
+              <Switch checked={aspectLocked} onCheckedChange={setAspectLocked} />
               <Label>Lock aspect ratio</Label>
             </div>
 
-            {/* Output format & quality */}
+            {/* Format + Quality */}
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* Format */}
               <div className="space-y-2">
                 <Label>Output Format</Label>
-                <select
-                  className="border rounded-md h-10 px-3"
-                  value={format}
-                  onChange={(e) => setFormat(coerceFormat(e.target.value))}
-                >
-                  <option value="image/png">PNG</option>
-                  <option value="image/jpeg">JPEG</option>
-                  <option value="image/webp">WEBP</option>
-                </select>
+                <Select value={format} onValueChange={(v) => setFormat(v as ImageFormat)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="image/png">PNG</SelectItem>
+                    <SelectItem value="image/jpeg">JPEG</SelectItem>
+                    <SelectItem value="image/webp">WEBP</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* Quality */}
               {(format === "image/jpeg" || format === "image/webp") && (
                 <div className="space-y-2">
                   <Label>Quality ({Math.round(quality * 100)}%)</Label>
-                  <input
-                    type="range"
-                    min={MIN_QUALITY}
-                    max={MAX_QUALITY_VALUE}
-                    step={0.01}
-                    value={quality}
-                    onChange={(e) => setQuality(clampQuality(parseFloat(e.target.value) || 0.92))}
+                  <Slider
+                    value={[quality * 100]}
+                    onValueChange={(v) => setQuality(clamp(v[0] / 100, 0.1, 1))}
+                    min={10}
+                    max={100}
+                    step={1}
                   />
                 </div>
               )}
             </div>
 
-            <Button onClick={handleDownload} className="w-full">
+            <Button onClick={download} className="w-full">
               Download Resized Image
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Preview section */}
+      {/* Previews */}
       {originalPreview && (
         <div className="grid gap-6 md:grid-cols-2" aria-live="polite">
           <Card>
@@ -279,12 +430,14 @@ export const ImageResizer = () => {
             <CardContent>
               <img
                 src={originalPreview}
-                alt="Original Preview"
+                alt="Original preview"
                 className="mx-auto rounded-lg max-h-[400px] object-contain"
               />
-              <p className="mt-2 text-center text-sm text-muted-foreground">
-                {originalImage?.width} × {originalImage?.height}px
-              </p>
+              {imageDims && (
+                <p className="mt-2 text-center text-sm text-muted-foreground">
+                  {imageDims.width} × {imageDims.height}px
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -296,11 +449,12 @@ export const ImageResizer = () => {
               <CardContent>
                 <img
                   src={resizedPreview}
-                  alt="Resized Preview"
+                  alt="Resized preview"
                   className="mx-auto rounded-lg max-h-[400px] object-contain"
                 />
                 <p className="mt-2 text-center text-sm text-muted-foreground">
-                  {width} × {height}px
+                  {clamp(width, MIN_DIMENSION, MAX_DIMENSION_INPUT)} ×{" "}
+                  {clamp(height, MIN_DIMENSION, MAX_DIMENSION_INPUT)}px
                 </p>
               </CardContent>
             </Card>
@@ -308,7 +462,6 @@ export const ImageResizer = () => {
         </div>
       )}
 
-      {/* Hidden canvas for processing */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );

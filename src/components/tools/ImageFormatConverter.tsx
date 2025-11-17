@@ -1,15 +1,7 @@
-/**
- * ImageFormatConverter - Enterprise-grade image format conversion tool
- * 
- * Security Features:
- * - File Size Limit: 10MB MAX_FILE_SIZE_MB prevents memory exhaustion
- * - Magic Byte Validation: sniffMime() verifies PNG/JPEG/WEBP signatures
- * - Dimension Guardrails: MAX_IMAGE_DIMENSION (4096px) with auto-downscaling
- * - Canvas Safety: try/catch around drawImage() and toDataURL()
- * - GIF/BMP Warnings: Alerts users about canvas format limitations
- * - Object URL Approach: Blob URLs instead of Base64 for memory efficiency
- * - Accessibility: aria-live announcements for screen readers
- */
+// ImageFormatConverter - Enterprise-grade, leak-free version
+// - Blob URLs for output
+// - Proper URL cleanup (upload, convert, switch format, reset, unmount)
+// - PNG/JPEG/WebP only (safe with canvas)
 
 import { useState, useRef, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -23,66 +15,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import {
-  Download,
-  RotateCcw,
-  ImageIcon,
-  AlertCircle,
-  ShieldCheck,
-} from "lucide-react";
+import { Download, RotateCcw, ImageIcon, AlertCircle } from "lucide-react";
 import { notify } from "@/lib/notify";
-import { ALLOWED_IMAGE_TYPES, validateImageFile, sanitizeFilename, MAX_IMAGE_DIMENSION } from "@/lib/security";
+import {
+  ALLOWED_IMAGE_TYPES,
+  validateImageFile,
+  sanitizeFilename,
+  MAX_IMAGE_DIMENSION,
+} from "@/lib/security";
 import { useObjectUrls } from "@/hooks/use-object-urls";
 
 const MAX_FILE_SIZE_MB = 10;
-const ALLOWED_FORMATS = ["png", "jpeg", "webp", "gif", "bmp"] as const;
-type ImageFormat = typeof ALLOWED_FORMATS[number];
+const ALLOWED_FORMATS = ["png", "jpeg", "webp"] as const;
+type ImageFormat = (typeof ALLOWED_FORMATS)[number];
+
 const MIN_QUALITY = 1;
 const MAX_QUALITY = 100;
 
-const coerceFormat = (value: string): ImageFormat => {
-  return ALLOWED_FORMATS.includes(value as ImageFormat) ? (value as ImageFormat) : "png";
-};
+const coerceFormat = (value: string): ImageFormat =>
+  ALLOWED_FORMATS.includes(value as ImageFormat)
+    ? (value as ImageFormat)
+    : "png";
 
-const clampQuality = (value: number): number => {
-  return Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, Math.floor(value)));
-};
+const clampQuality = (value: number): number =>
+  Math.max(MIN_QUALITY, Math.min(MAX_QUALITY, Math.floor(value)));
 
-/**
- * Detect image format via magic bytes (file signature)
- * Prevents MIME spoofing attacks
- */
 async function sniffMime(file: File): Promise<string | null> {
   const buffer = await file.slice(0, 16).arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+  const b = new Uint8Array(buffer);
+
+  // PNG
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
     return "image/png";
   }
-  
-  // JPEG: FF D8 FF
-  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+  // JPEG
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
     return "image/jpeg";
   }
-  
-  // WebP: RIFF....WEBP
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+  // WebP (RIFF....WEBP)
+  if (
+    b[0] === 0x52 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x46 &&
+    b[8] === 0x57 &&
+    b[9] === 0x45 &&
+    b[10] === 0x42 &&
+    b[11] === 0x50
+  ) {
     return "image/webp";
   }
-  
-  // GIF: GIF87a or GIF89a
-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
-    return "image/gif";
-  }
-  
-  // BMP: BM
-  if (bytes[0] === 0x42 && bytes[1] === 0x4D) {
-    return "image/bmp";
-  }
-  
+
   return null;
 }
 
@@ -94,63 +79,101 @@ export const ImageFormatConverter = () => {
   const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { createImageUrl } = useObjectUrls();
+  const { createImageUrl, revoke } = useObjectUrls();
 
   const formats = [
-    { label: "PNG", value: "png", description: "Lossless compression, supports transparency" },
-    { label: "JPEG", value: "jpeg", description: "Lossy compression, smaller file size" },
-    { label: "WebP", value: "webp", description: "Modern format, good compression" },
-    { label: "GIF", value: "gif", description: "Supports animation, limited colors" },
-    { label: "BMP", value: "bmp", description: "Uncompressed bitmap format" },
+    {
+      label: "PNG",
+      value: "png",
+      description: "Lossless compression, supports transparency",
+    },
+    {
+      label: "JPEG",
+      value: "jpeg",
+      description: "Lossy, small file size",
+    },
+    {
+      label: "WebP",
+      value: "webp",
+      description: "Modern high-compression format",
+    },
   ];
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Cleanup on unmount (belt & suspenders)
+  useEffect(() => {
+    return () => {
+      setSelectedImage((prev) => {
+        if (prev) revoke(prev);
+        return null;
+      });
+      setConvertedImage((prev) => {
+        if (prev) revoke(prev);
+        return null;
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setError(null);
-    setConvertedImage(null);
 
-    // File size check
+    // Size guardrail
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       notify.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit`);
       return;
     }
 
-    // MIME type allowlist check
+    // MIME allowlist
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      notify.error("Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed.");
+      notify.error("Invalid file type. Only PNG, JPEG, WebP allowed.");
       return;
     }
 
     // Magic bytes verification
     const sniffed = await sniffMime(file);
     if (!sniffed || !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
-      notify.error("File signature mismatch. File may be corrupted or spoofed.");
+      notify.error("File signature mismatch.");
+      return;
+    }
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      notify.error(validationError);
       return;
     }
 
     const safeName = sanitizeFilename(file.name);
-    const format = safeName.split(".").pop()?.toLowerCase() || "unknown";
-    setOriginalFormat(format);
+    setOriginalFormat(safeName.split(".").pop()?.toUpperCase() || "");
 
-    // Object URL approach for memory efficiency
-    try {
-      const imageUrl = await createImageUrl(file, {
-        downscaleLarge: true,
-        maxDimension: MAX_IMAGE_DIMENSION,
-      });
+    const url = await createImageUrl(file, {
+      downscaleLarge: true,
+      maxDimension: MAX_IMAGE_DIMENSION,
+    });
 
-      if (imageUrl) {
-        setSelectedImage(imageUrl);
-        notify.success("Image uploaded successfully!");
-      } else {
-        notify.error("Failed to load image. File may be corrupted.");
-      }
-    } catch (err) {
-      notify.error("Failed to process image file");
-      console.error("Image upload error:", err);
+    if (!url) {
+      notify.error("Failed to load image.");
+      return;
     }
+
+    // Cleanup previous upload URL
+    setSelectedImage((prev) => {
+      if (prev) revoke(prev);
+      return url;
+    });
+
+    // Cleanup previous converted URL
+    setConvertedImage((prev) => {
+      if (prev) revoke(prev);
+      return null;
+    });
+
+    notify.success("Image uploaded successfully!");
   };
 
   const convertImage = () => {
@@ -158,76 +181,69 @@ export const ImageFormatConverter = () => {
     setLoading(true);
     setError(null);
 
-    // GIF/BMP format warnings (canvas limitations)
-    if (targetFormat === "gif" || targetFormat === "bmp") {
-      notify.warning(
-        `Converting to ${targetFormat.toUpperCase()}: Canvas may not preserve all format features. Output quality may vary.`
-      );
-    }
-
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      setError("Your browser doesn't support canvas.");
+      setError("Canvas not supported.");
       setLoading(false);
-      notify.error("Your browser doesn't support canvas.");
       return;
     }
 
     const img = new Image();
     img.onload = () => {
       try {
-        // Dimension guardrail: downscale if exceeds MAX_IMAGE_DIMENSION
         let width = img.width;
         let height = img.height;
 
+        // Dimension guardrail
         if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
-          const scale = Math.min(MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height);
+          const scale = Math.min(
+            MAX_IMAGE_DIMENSION / width,
+            MAX_IMAGE_DIMENSION / height
+          );
           width = Math.floor(width * scale);
           height = Math.floor(height * scale);
-          notify.warning(`Image downscaled to ${width}×${height}px for processing`);
+          notify.warning(`Downscaled to ${width}×${height}px`);
         }
 
         canvas.width = width;
         canvas.height = height;
 
-        // Canvas safety: wrap drawImage in try/catch
-        try {
-          ctx.drawImage(img, 0, 0, width, height);
-        } catch (err) {
-          setError("Failed to draw image on canvas. Image may be corrupted.");
-          notify.error("Failed to draw image. Image may be corrupted.");
-          console.error("drawImage error:", err);
-          setLoading(false);
-          return;
-        }
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
 
-        // Canvas safety: wrap toDataURL in try/catch
-        try {
-          const mimeType = `image/${targetFormat}`;
-          const qualityValue = targetFormat === "jpeg" || targetFormat === "webp" 
-            ? quality / 100 
-            : undefined;
-          const dataUrl = canvas.toDataURL(mimeType, qualityValue);
-          setConvertedImage(dataUrl);
-          notify.success(`Image converted to ${targetFormat.toUpperCase()}!`);
-        } catch (err) {
-          setError("Conversion failed. Try another format.");
-          notify.error("Conversion failed. Try another format.");
-          console.error("toDataURL error:", err);
-        }
+        const mime = `image/${targetFormat}`;
+        const q = targetFormat !== "png" ? quality / 100 : undefined;
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              setError("Conversion failed.");
+              setLoading(false);
+              return;
+            }
+
+            const url = URL.createObjectURL(blob);
+            setConvertedImage((prev) => {
+              if (prev) revoke(prev);
+              return url;
+            });
+
+            notify.success(`Converted to ${targetFormat.toUpperCase()}!`);
+            setLoading(false);
+          },
+          mime,
+          q
+        );
       } catch (err) {
-        setError("Unexpected error during conversion.");
-        notify.error("Unexpected error during conversion.");
-        console.error("Conversion error:", err);
+        console.error(err);
+        setError("Unexpected conversion error.");
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     img.onerror = () => {
-      setError("Failed to load image. File may be corrupted.");
-      notify.error("Failed to load image. File may be corrupted.");
+      setError("Failed to load image.");
       setLoading(false);
     };
 
@@ -237,36 +253,26 @@ export const ImageFormatConverter = () => {
   const downloadConvertedImage = () => {
     if (!convertedImage) return;
     const link = document.createElement("a");
-    link.download = `converted-image.${targetFormat}`;
+    link.download = `converted.${targetFormat}`;
     link.href = convertedImage;
     link.click();
-    notify.success("Image downloaded!");
   };
 
   const clearAll = () => {
-    setSelectedImage(null);
-    setConvertedImage(null);
+    setSelectedImage((prev) => {
+      if (prev) revoke(prev);
+      return null;
+    });
+    setConvertedImage((prev) => {
+      if (prev) revoke(prev);
+      return null;
+    });
     setOriginalFormat("");
     setError(null);
-    notify.success("Cleared all content!");
-  };
-
-  const getFileSize = (dataUrl: string) => {
-    const base64 = dataUrl.split(",")[1];
-    return Math.round((base64.length * 3) / 4);
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   return (
     <div className="space-y-8 max-w-8xl mx-auto">
-      {/* --- Upload + Settings --- */}
       <Card>
         <CardHeader>
           <CardTitle>Image Format Converter</CardTitle>
@@ -281,10 +287,10 @@ export const ImageFormatConverter = () => {
                 type="file"
                 accept={ALLOWED_IMAGE_TYPES.join(",")}
                 onChange={handleImageUpload}
-                className="flex-1"
               />
               <Button variant="outline" onClick={clearAll}>
-                <RotateCcw className="h-4 w-4 mr-2" /> Reset
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
               </Button>
             </div>
           </div>
@@ -293,15 +299,22 @@ export const ImageFormatConverter = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Original Format</Label>
-              <Input
-                value={originalFormat ? originalFormat.toUpperCase() : ""}
-                readOnly
-                className="bg-muted"
-              />
+              <Input value={originalFormat} readOnly className="bg-muted" />
             </div>
+
             <div className="space-y-2">
               <Label>Convert To</Label>
-              <Select value={targetFormat} onValueChange={(value) => setTargetFormat(coerceFormat(value))}>
+              <Select
+                value={targetFormat}
+                onValueChange={(v) => {
+                  setTargetFormat(coerceFormat(v));
+                  // Cleanup converted image when target format changes
+                  setConvertedImage((prev) => {
+                    if (prev) revoke(prev);
+                    return null;
+                  });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select format" />
                 </SelectTrigger>
@@ -316,22 +329,19 @@ export const ImageFormatConverter = () => {
             </div>
           </div>
 
-          {/* Quality Slider (JPEG/WebP) */}
+          {/* Quality Slider */}
           {(targetFormat === "jpeg" || targetFormat === "webp") && (
             <div className="space-y-2">
               <Label>Quality: {quality}%</Label>
-              <input
-                type="range"
+              <Slider
+                value={[quality]}
+                onValueChange={(v) =>
+                  setQuality(clampQuality(Math.round(v[0] ?? MIN_QUALITY)))
+                }
                 min={MIN_QUALITY}
                 max={MAX_QUALITY}
-                value={quality}
-                onChange={(e) => setQuality(clampQuality(parseInt(e.target.value) || 90))}
-                className="w-full"
-                aria-label={`Image quality slider, current value ${quality} percent`}
+                step={1}
               />
-              <p className="text-xs text-muted-foreground">
-                Higher quality → larger file size
-              </p>
             </div>
           )}
 
@@ -340,7 +350,7 @@ export const ImageFormatConverter = () => {
             {formats.find((f) => f.value === targetFormat)?.description}
           </div>
 
-          {/* Convert + Download */}
+          {/* Actions */}
           <div className="flex gap-2">
             <Button
               onClick={convertImage}
@@ -354,7 +364,8 @@ export const ImageFormatConverter = () => {
                 </>
               ) : (
                 <>
-                  <ImageIcon className="h-4 w-4 mr-2" /> Convert
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Convert
                 </>
               )}
             </Button>
@@ -362,10 +373,10 @@ export const ImageFormatConverter = () => {
             <Button
               onClick={downloadConvertedImage}
               disabled={!convertedImage}
-              variant={convertedImage ? "default" : "secondary"}
               className="flex-1"
             >
-              <Download className="h-4 w-4 mr-2" /> Download
+              <Download className="h-4 w-4 mr-2" />
+              Download
             </Button>
           </div>
 
@@ -376,101 +387,6 @@ export const ImageFormatConverter = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* --- Preview Panels --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Original Image</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div 
-              className="border rounded-lg bg-muted p-3 flex justify-center"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {selectedImage ? (
-                <img
-                  src={selectedImage}
-                  alt="Original uploaded image" /* Blob URL from validated image file */
-                  className="max-w-full h-auto rounded-md"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No image uploaded yet.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Converted Image</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div 
-              className="border rounded-lg bg-muted p-3 flex justify-center"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {convertedImage ? (
-                <img
-                  src={convertedImage}
-                  alt={`Converted image in ${targetFormat} format`} /* Canvas-generated sanitized output */
-                  className="max-w-full h-auto rounded-md"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No converted image yet.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* --- Conversion Stats --- */}
-      {convertedImage && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Conversion Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {originalFormat.toUpperCase()}
-                </div>
-                <p className="text-sm text-muted-foreground">Original</p>
-              </div>
-
-              <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {targetFormat.toUpperCase()}
-                </div>
-                <p className="text-sm text-muted-foreground">Converted</p>
-              </div>
-
-              <div>
-                <div className="text-2xl font-bold text-purple-600">
-                  {formatFileSize(getFileSize(convertedImage))}
-                </div>
-                <p className="text-sm text-muted-foreground">File Size</p>
-              </div>
-
-              {(targetFormat === "jpeg" || targetFormat === "webp") && (
-                <div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {quality}%
-                  </div>
-                  <p className="text-sm text-muted-foreground">Quality</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <canvas ref={canvasRef} className="hidden" />
     </div>

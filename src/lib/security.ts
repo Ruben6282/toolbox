@@ -12,7 +12,14 @@ export const MAX_TEXT_LENGTH = 1_000_000;
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // Allowed image MIME types
-export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+export const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif'
+];
+
 // Maximum pixel dimension for width or height; larger images will be downscaled for processing/preview
 export const MAX_IMAGE_DIMENSION = 4096; // Guardrail to prevent excessive memory usage
 
@@ -23,7 +30,27 @@ export const MAX_IMAGE_DIMENSION = 4096; // Guardrail to prevent excessive memor
  */
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+    ALLOWED_TAGS: [
+      'b',
+      'i',
+      'em',
+      'strong',
+      'a',
+      'p',
+      'br',
+      'ul',
+      'ol',
+      'li',
+      'code',
+      'pre',
+      'blockquote',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6'
+    ],
     ALLOWED_ATTR: ['href', 'target', 'rel'],
     ALLOW_DATA_ATTR: false,
   });
@@ -48,30 +75,31 @@ export function sanitizeText(text: string): string {
  */
 export function sanitizeUrl(url: string, httpsOnly: boolean = false): string | null {
   try {
-    // Trim whitespace and remove potentially dangerous characters
     const cleanUrl = url.trim();
-    
+
     // Prevent javascript: protocol and other dangerous schemes before URL parsing
     const lowerUrl = cleanUrl.toLowerCase();
-    if (lowerUrl.includes('javascript:') || 
-        lowerUrl.includes('data:') || 
-        lowerUrl.includes('vbscript:') ||
-        lowerUrl.includes('file:') ||
-        lowerUrl.includes('about:')) {
+    if (
+      lowerUrl.includes('javascript:') ||
+      lowerUrl.includes('data:') ||
+      lowerUrl.includes('vbscript:') ||
+      lowerUrl.includes('file:') ||
+      lowerUrl.includes('about:')
+    ) {
       return null;
     }
-    
+
     const urlObj = new URL(cleanUrl);
-    
+
     // Only allow http and https protocols
     if (httpsOnly && urlObj.protocol !== 'https:') {
       return null;
     }
-    
+
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
       return null;
     }
-    
+
     return urlObj.toString();
   } catch {
     return null;
@@ -95,7 +123,10 @@ export const SEO_LIMITS = {
  * @param maxLength - Maximum allowed length
  * @returns true if valid, false otherwise
  */
-export function validateTextLength(text: string, maxLength: number = MAX_TEXT_LENGTH): boolean {
+export function validateTextLength(
+  text: string,
+  maxLength: number = MAX_TEXT_LENGTH
+): boolean {
   return text.length <= maxLength;
 }
 
@@ -132,12 +163,12 @@ export function validateImageFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE) {
     return `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
   }
-  
+
   // Check file type
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     return 'Only JPEG, PNG, WebP, and GIF images are allowed';
   }
-  
+
   return null;
 }
 
@@ -152,7 +183,7 @@ export function createSafeObjectUrl(file: File): string | null {
   if (error) {
     return null;
   }
-  
+
   return URL.createObjectURL(file);
 }
 
@@ -163,7 +194,10 @@ export function createSafeObjectUrl(file: File): string | null {
  * @param url existing object URL pointing to an image
  * @param maxDim maximum allowed dimension (width or height)
  */
-export async function enforceMaxDimensions(url: string, maxDim: number = MAX_IMAGE_DIMENSION): Promise<string> {
+export async function enforceMaxDimensions(
+  url: string,
+  maxDim: number = MAX_IMAGE_DIMENSION
+): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -263,17 +297,17 @@ export function validateRobotsPath(path: string): boolean {
   if (!path.startsWith('/')) {
     return false;
   }
-  
+
   // Check length
   if (path.length > SEO_LIMITS.ROBOTS_PATH) {
     return false;
   }
-  
+
   // Prevent line breaks, null bytes, and other control characters
   if (/[\r\n\0\t]/.test(path)) {
     return false;
   }
-  
+
   // Only allow safe URL path characters
   return /^[a-zA-Z0-9/_.\-*?=&%]+$/.test(path);
 }
@@ -296,24 +330,27 @@ export function sanitizeUserAgent(userAgent: string): string {
  * @param max - Maximum value (optional)
  * @returns Sanitized number or null if invalid or out of range
  */
-export function sanitizeNumber(value: string | number, min?: number, max?: number): number | null {
+export function sanitizeNumber(
+  value: string | number,
+  min?: number,
+  max?: number
+): number | null {
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  
+
   if (isNaN(num) || !isFinite(num)) {
     return null;
   }
-  
+
   if (min !== undefined && num < min) {
     return null;
   }
-  
+
   if (max !== undefined && num > max) {
     return null;
   }
-  
+
   return num;
 }
-
 
 /**
  * Sniff actual MIME type from file header (magic bytes)
@@ -321,25 +358,25 @@ export function sanitizeNumber(value: string | number, min?: number, max?: numbe
  * @param file - File object to inspect
  * @returns { valid: boolean; detected: string | null }
  */
-export async function sniffMime(file: File): Promise<{ valid: boolean; detected: string | null }> {
+export async function sniffMime(
+  file: File
+): Promise<{ valid: boolean; detected: string | null }> {
   const buffer = await file.slice(0, 16).arrayBuffer();
   const bytes = new Uint8Array(buffer);
 
-  // Helper to match sequences
-  const match = (...patterns: number[][]) => {
-    return patterns.some((pattern) =>
-      pattern.every((b, i) => bytes[i] === b)
+  const match = (...patterns: number[][]): boolean =>
+    patterns.some((pattern) =>
+      pattern.every((byte, i) => bytes[i] === byte)
     );
-  };
 
   // JPEG: FF D8 FF
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return { valid: true, detected: "image/jpeg" };
+    return { valid: true, detected: 'image/jpeg' };
   }
 
   // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (match([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
-    return { valid: true, detected: "image/png" };
+    return { valid: true, detected: 'image/png' };
   }
 
   // GIF87a / GIF89a
@@ -349,7 +386,7 @@ export async function sniffMime(file: File): Promise<{ valid: boolean; detected:
       [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]
     )
   ) {
-    return { valid: true, detected: "image/gif" };
+    return { valid: true, detected: 'image/gif' };
   }
 
   // WebP: "RIFF" + "WEBP" within first 12 bytes
@@ -363,10 +400,9 @@ export async function sniffMime(file: File): Promise<{ valid: boolean; detected:
     bytes[10] === 0x42 &&
     bytes[11] === 0x50
   ) {
-    return { valid: true, detected: "image/webp" };
+    return { valid: true, detected: 'image/webp' };
   }
 
   // Unknown / unsupported file type
   return { valid: false, detected: null };
 }
-
