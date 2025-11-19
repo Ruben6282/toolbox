@@ -6,124 +6,84 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Download, RotateCcw } from "lucide-react";
 import { notify } from "@/lib/notify";
+import {
+  minifyHtml,
+  DEFAULT_HTML_MINIFY_OPTIONS,
+} from "@/lib/html-minifier";
+
+type UiOptions = {
+  removeComments: boolean;
+  removeWhitespace: boolean; // maps to removeWhitespaceBetweenTags
+  removeEmptyAttributes: boolean;
+  collapseWhitespace: boolean;
+  removeRedundantAttributes: boolean;
+  removeScriptTypeAttributes: boolean;
+  removeStyleLinkTypeAttributes: boolean;
+  removeOptionalTags: boolean;
+  removeEmptyElements: boolean;
+  minifyCSS: boolean;
+  minifyJS: boolean;
+};
+
+const DEFAULT_UI_OPTIONS: UiOptions = {
+  removeComments: DEFAULT_HTML_MINIFY_OPTIONS.removeComments,
+  removeWhitespace: DEFAULT_HTML_MINIFY_OPTIONS.removeWhitespaceBetweenTags,
+  removeEmptyAttributes: DEFAULT_HTML_MINIFY_OPTIONS.removeEmptyAttributes,
+  collapseWhitespace: DEFAULT_HTML_MINIFY_OPTIONS.collapseWhitespace,
+  removeRedundantAttributes: DEFAULT_HTML_MINIFY_OPTIONS.removeRedundantAttributes,
+  removeScriptTypeAttributes: DEFAULT_HTML_MINIFY_OPTIONS.removeScriptTypeAttributes,
+  removeStyleLinkTypeAttributes: DEFAULT_HTML_MINIFY_OPTIONS.removeStyleLinkTypeAttributes,
+  removeOptionalTags: DEFAULT_HTML_MINIFY_OPTIONS.removeOptionalTags,
+  removeEmptyElements: DEFAULT_HTML_MINIFY_OPTIONS.removeEmptyElements,
+  minifyCSS: DEFAULT_HTML_MINIFY_OPTIONS.minifyCSS,
+  minifyJS: DEFAULT_HTML_MINIFY_OPTIONS.minifyJS,
+};
 
 export const HtmlMinifier = () => {
   const [htmlInput, setHtmlInput] = useState("");
   const [minifiedHtml, setMinifiedHtml] = useState("");
-  const [options, setOptions] = useState({
-    removeComments: true,
-    removeWhitespace: true,
-    removeEmptyAttributes: true,
-    collapseWhitespace: true,
-    removeRedundantAttributes: true,
-    removeScriptTypeAttributes: true,
-    removeStyleLinkTypeAttributes: true,
-    removeOptionalTags: false,
-    removeEmptyElements: false,
-    minifyCSS: false,
-    minifyJS: false
-  });
-
-  const minifyHtml = (html: string): string => {
-    let result = html;
-
-    // Remove HTML comments
-    if (options.removeComments) {
-      result = result.replace(/<!--[\s\S]*?-->/g, '');
-    }
-
-    // Remove script type attributes
-    if (options.removeScriptTypeAttributes) {
-      result = result.replace(/<script(?:\s+[^>]*)?\s+type\s*=\s*["']text\/javascript["'](?:\s+[^>]*)?>/gi, '<script$1>');
-    }
-
-    // Remove style link type attributes
-    if (options.removeStyleLinkTypeAttributes) {
-      result = result.replace(/<link(?:\s+[^>]*)?\s+type\s*=\s*["']text\/css["'](?:\s+[^>]*)?>/gi, '<link$1>');
-    }
-
-    // Remove redundant attributes
-    if (options.removeRedundantAttributes) {
-      result = result.replace(/\s+type\s*=\s*["']text\/css["']/gi, '');
-      result = result.replace(/\s+type\s*=\s*["']text\/javascript["']/gi, '');
-    }
-
-    // Remove empty attributes
-    if (options.removeEmptyAttributes) {
-      result = result.replace(/\s+[a-zA-Z-]+\s*=\s*["']\s*["']/g, '');
-    }
-
-    // Collapse whitespace
-    if (options.collapseWhitespace) {
-      result = result.replace(/\s+/g, ' ');
-    }
-
-    // Remove whitespace between tags
-    if (options.removeWhitespace) {
-      result = result.replace(/>\s+</g, '><');
-    }
-
-    // Remove optional tags
-    if (options.removeOptionalTags) {
-      result = result.replace(/<\/?(?:html|head|body|p|li|dt|dd|option|thead|tbody|tfoot|tr|td|th)>/gi, '');
-    }
-
-    // Remove empty elements
-    if (options.removeEmptyElements) {
-      result = result.replace(/<(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:\s+[^>]*)?\/?>/gi, '');
-    }
-
-    // Basic CSS minification
-    if (options.minifyCSS) {
-      result = result.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (match, css) => {
-        const minifiedCSS = css
-          .replace(/\/\*[\s\S]*?\*\//g, '') // Remove comments
-          .replace(/\s+/g, ' ') // Collapse whitespace
-          .replace(/;\s*}/g, '}') // Remove semicolon before closing brace
-          .replace(/\s*{\s*/g, '{') // Remove spaces around opening brace
-          .replace(/;\s*/g, ';') // Remove spaces after semicolons
-          .trim();
-        return `<style>${minifiedCSS}</style>`;
-      });
-    }
-
-    // Basic JS minification
-    if (options.minifyJS) {
-      result = result.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, (match, js) => {
-        const minifiedJS = js
-          .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
-          .replace(/\/\/.*$/gm, '') // Remove line comments
-          .replace(/\s+/g, ' ') // Collapse whitespace
-          .replace(/\s*([{}();,=])\s*/g, '$1') // Remove spaces around operators
-          .trim();
-        return `<script>${minifiedJS}</script>`;
-      });
-    }
-
-    return result.trim();
-  };
+  const [options, setOptions] = useState<UiOptions>(DEFAULT_UI_OPTIONS);
 
   const handleMinify = () => {
-    if (!htmlInput.trim()) return;
-    
-    const minified = minifyHtml(htmlInput);
+    const input = htmlInput.trim();
+    if (!input) return;
+
+    const minified = minifyHtml(input, {
+      removeComments: options.removeComments,
+      collapseWhitespace: options.collapseWhitespace,
+      removeWhitespaceBetweenTags: options.removeWhitespace,
+      removeEmptyAttributes: options.removeEmptyAttributes,
+      removeRedundantAttributes: options.removeRedundantAttributes,
+      removeScriptTypeAttributes: options.removeScriptTypeAttributes,
+      removeStyleLinkTypeAttributes: options.removeStyleLinkTypeAttributes,
+      removeOptionalTags: options.removeOptionalTags,
+      removeEmptyElements: options.removeEmptyElements,
+      minifyCSS: options.minifyCSS,
+      minifyJS: options.minifyJS,
+    });
+
     setMinifiedHtml(minified);
-    
+
     const originalSize = htmlInput.length;
     const minifiedSize = minified.length;
     const savings = originalSize - minifiedSize;
-    const savingsPercent = originalSize > 0 ? ((savings / originalSize) * 100).toFixed(1) : 0;
+    const savingsPercent =
+      originalSize > 0 ? ((savings / originalSize) * 100).toFixed(1) : "0.0";
+
     notify.success(`HTML minified! ${savingsPercent}% size reduction`);
   };
 
   const copyToClipboard = async () => {
+    if (!minifiedHtml) {
+      notify.error("Nothing to copy yet.");
+      return;
+    }
+
     try {
-      // Modern approach - works on most browsers including mobile
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(minifiedHtml);
         notify.success("Minified HTML copied to clipboard!");
       } else {
-        // Fallback for older browsers or when clipboard API is not available
         const textArea = document.createElement("textarea");
         textArea.value = minifiedHtml;
         textArea.style.position = "fixed";
@@ -132,33 +92,38 @@ export const HtmlMinifier = () => {
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
+
         try {
-          const successful = document.execCommand('copy');
+          const successful = document.execCommand("copy");
           if (successful) {
             notify.success("Minified HTML copied to clipboard!");
           } else {
             notify.error("Failed to copy!");
           }
         } catch (err) {
-          console.error('Fallback: Failed to copy', err);
+          console.error("Fallback: Failed to copy", err);
           notify.error("Failed to copy to clipboard!");
+        } finally {
+          document.body.removeChild(textArea);
         }
-        
-        document.body.removeChild(textArea);
       }
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error("Failed to copy: ", err);
       notify.error("Failed to copy to clipboard!");
     }
   };
 
   const downloadMinified = () => {
-    const blob = new Blob([minifiedHtml], { type: 'text/html' });
+    if (!minifiedHtml) {
+      notify.error("Nothing to download yet.");
+      return;
+    }
+
+    const blob = new Blob([minifiedHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'minified.html';
+    a.download = "minified.html";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -169,13 +134,15 @@ export const HtmlMinifier = () => {
   const clearAll = () => {
     setHtmlInput("");
     setMinifiedHtml("");
+    setOptions(DEFAULT_UI_OPTIONS);
     notify.success("Cleared all content!");
   };
 
   const originalSize = htmlInput.length;
   const minifiedSize = minifiedHtml.length;
   const savings = originalSize - minifiedSize;
-  const savingsPercent = originalSize > 0 ? ((savings / originalSize) * 100).toFixed(1) : 0;
+  const savingsPercent =
+    originalSize > 0 ? ((savings / originalSize) * 100).toFixed(1) : "0.0";
 
   return (
     <div className="space-y-6">
@@ -203,63 +170,161 @@ export const HtmlMinifier = () => {
                 <Checkbox
                   id="remove-comments"
                   checked={options.removeComments}
-                  onCheckedChange={(checked) => setOptions({...options, removeComments: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeComments: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="remove-comments" className="text-sm">Remove Comments</Label>
+                <Label htmlFor="remove-comments" className="text-sm">
+                  Remove Comments
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="remove-whitespace"
                   checked={options.removeWhitespace}
-                  onCheckedChange={(checked) => setOptions({...options, removeWhitespace: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeWhitespace: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="remove-whitespace" className="text-sm">Remove Whitespace</Label>
+                <Label htmlFor="remove-whitespace" className="text-sm">
+                  Normalize Space Between Tags
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="collapse-whitespace"
                   checked={options.collapseWhitespace}
-                  onCheckedChange={(checked) => setOptions({...options, collapseWhitespace: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      collapseWhitespace: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="collapse-whitespace" className="text-sm">Collapse Whitespace</Label>
+                <Label htmlFor="collapse-whitespace" className="text-sm">
+                  Collapse Whitespace
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="remove-empty-attributes"
                   checked={options.removeEmptyAttributes}
-                  onCheckedChange={(checked) => setOptions({...options, removeEmptyAttributes: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeEmptyAttributes: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="remove-empty-attributes" className="text-sm">Remove Empty Attributes</Label>
+                <Label htmlFor="remove-empty-attributes" className="text-sm">
+                  Remove Empty Attributes
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="remove-redundant"
                   checked={options.removeRedundantAttributes}
-                  onCheckedChange={(checked) => setOptions({...options, removeRedundantAttributes: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeRedundantAttributes: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="remove-redundant" className="text-sm">Remove Redundant Attributes</Label>
+                <Label htmlFor="remove-redundant" className="text-sm">
+                  Remove Redundant Type Attributes
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="minify-css"
                   checked={options.minifyCSS}
-                  onCheckedChange={(checked) => setOptions({...options, minifyCSS: checked as boolean})}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      minifyCSS: Boolean(checked),
+                    }))
+                  }
                 />
-                <Label htmlFor="minify-css" className="text-sm">Minify CSS</Label>
+                <Label htmlFor="minify-css" className="text-sm">
+                  Minify CSS (basic)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="minify-js"
+                  checked={options.minifyJS}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      minifyJS: Boolean(checked),
+                    }))
+                  }
+                />
+                <Label htmlFor="minify-js" className="text-sm">
+                  Minify JS (conservative)
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remove-optional-tags"
+                  checked={options.removeOptionalTags}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeOptionalTags: Boolean(checked),
+                    }))
+                  }
+                />
+                <Label htmlFor="remove-optional-tags" className="text-sm">
+                  Remove Optional Tags
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remove-empty-elements"
+                  checked={options.removeEmptyElements}
+                  onCheckedChange={(checked) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      removeEmptyElements: Boolean(checked),
+                    }))
+                  }
+                />
+                <Label htmlFor="remove-empty-elements" className="text-sm">
+                  Remove Empty Elements
+                </Label>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={handleMinify} disabled={!htmlInput.trim()} className="w-full sm:w-auto">
+            <Button
+              onClick={handleMinify}
+              disabled={!htmlInput.trim()}
+              className="w-full sm:w-auto"
+            >
               Minify HTML
             </Button>
-            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
+            <Button
+              onClick={clearAll}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
               <RotateCcw className="h-4 w-4 mr-2" />
               Clear All
             </Button>
@@ -281,29 +346,53 @@ export const HtmlMinifier = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <div className="text-xl sm:text-2xl font-bold text-blue-600 break-words">{originalSize.toLocaleString()}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Original Size</div>
+                <div className="text-xl sm:text-2xl font-bold break-words">
+                  {originalSize.toLocaleString()}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  Original Size
+                </div>
               </div>
               <div>
-                <div className="text-xl sm:text-2xl font-bold text-green-600 break-words">{minifiedSize.toLocaleString()}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Minified Size</div>
+                <div className="text-xl sm:text-2xl font-bold break-words">
+                  {minifiedSize.toLocaleString()}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  Minified Size
+                </div>
               </div>
               <div>
-                <div className="text-xl sm:text-2xl font-bold text-purple-600 break-words">{savings.toLocaleString()}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Bytes Saved</div>
+                <div className="text-xl sm:text-2xl font-bold break-words">
+                  {savings.toLocaleString()}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  Bytes Saved
+                </div>
               </div>
               <div>
-                <div className="text-xl sm:text-2xl font-bold text-orange-600 break-words">{savingsPercent}%</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Reduction</div>
+                <div className="text-xl sm:text-2xl font-bold break-words">
+                  {savingsPercent}%
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  Reduction
+                </div>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={copyToClipboard} variant="outline" className="w-full sm:w-auto">
+              <Button
+                onClick={copyToClipboard}
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Minified HTML
               </Button>
-              <Button onClick={downloadMinified} variant="outline" className="w-full sm:w-auto">
+              <Button
+                onClick={downloadMinified}
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
@@ -320,7 +409,7 @@ export const HtmlMinifier = () => {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>• Always test your minified HTML to ensure it still works correctly</li>
             <li>• Keep a backup of your original HTML before minifying</li>
-            <li>• Some minification options may break certain HTML structures</li>
+            <li>• Some options (like removing empty elements) can be destructive</li>
             <li>• Minified HTML is harder to debug, so use it only for production</li>
             <li>• Consider using build tools for automated minification in your workflow</li>
           </ul>

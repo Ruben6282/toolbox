@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
-import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+import {
+  validateTextLength,
+  truncateText,
+  MAX_TEXT_LENGTH,
+} from "@/lib/security";
+import { minifyCss } from "@/lib/css-minifier";
 
 export const CssMinifier = () => {
   const [input, setInput] = useState("");
@@ -11,15 +16,26 @@ export const CssMinifier = () => {
 
   const handleInputChange = (value: string) => {
     // Strip control chars except tab/newline/CR
-    const cleaned = Array.from(value).filter((ch) => {
-      const code = ch.charCodeAt(0);
-      return code === 9 || code === 10 || code === 13 || (code >= 0x20 && code !== 0x7f);
-    }).join("");
+    const cleaned = Array.from(value)
+      .filter((ch) => {
+        const code = ch.charCodeAt(0);
+        return (
+          code === 9 ||
+          code === 10 ||
+          code === 13 ||
+          (code >= 0x20 && code !== 0x7f)
+        );
+      })
+      .join("");
+
     if (!validateTextLength(cleaned)) {
-      notify.error(`Input too long. Max ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+      notify.error(
+        `Input too long. Max ${MAX_TEXT_LENGTH.toLocaleString()} characters`
+      );
       setInput(truncateText(cleaned));
       return;
     }
+
     setInput(cleaned);
   };
 
@@ -29,16 +45,18 @@ export const CssMinifier = () => {
       notify.error("Please enter some CSS!");
       return;
     }
-    try {
-      const minified = src
-        .replace(/\/\*[\s\S]*?\*\//g, "") // Remove comments
-        .replace(/\s+/g, " ") // Replace multiple spaces with single space
-        .replace(/\s*([{}:;,])\s*/g, "$1") // Remove spaces around special characters
-        .replace(/;}/g, "}") // Remove last semicolon before closing brace
-        .trim();
 
+    try {
+      const minified = minifyCss(src);
       setOutput(minified);
-      const savings = input.length > 0 ? ((1 - minified.length / input.length) * 100).toFixed(1) : "0.0";
+
+      const originalLen = input.length;
+      const minifiedLen = minified.length;
+      const savings =
+        originalLen > 0
+          ? ((1 - minifiedLen / originalLen) * 100).toFixed(1)
+          : "0.0";
+
       notify.success(`CSS minified! ${savings}% reduction`);
     } catch (e) {
       console.error("CSS minify error", e);
@@ -47,7 +65,11 @@ export const CssMinifier = () => {
   };
 
   const copyToClipboard = async () => {
-    if (!output) return;
+    if (!output) {
+      notify.error("Nothing to copy yet.");
+      return;
+    }
+
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(output);
@@ -57,12 +79,17 @@ export const CssMinifier = () => {
         ta.value = output;
         ta.style.position = "fixed";
         ta.style.left = "-999999px";
+        ta.style.top = "-999999px";
         document.body.appendChild(ta);
         ta.focus();
         ta.select();
         const ok = document.execCommand("copy");
         document.body.removeChild(ta);
-        if (ok) notify.success("Copied to clipboard!"); else notify.error("Copy failed");
+        if (ok) {
+          notify.success("Copied to clipboard!");
+        } else {
+          notify.error("Copy failed");
+        }
       }
     } catch (err) {
       console.error("Copy failed", err);
@@ -90,7 +117,9 @@ export const CssMinifier = () => {
         </CardContent>
       </Card>
 
-      <Button onClick={minify} className="w-full">Minify CSS</Button>
+      <Button onClick={minify} className="w-full">
+        Minify CSS
+      </Button>
 
       {output && (
         <Card>

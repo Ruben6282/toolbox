@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
-import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
+import {
+  validateTextLength,
+  truncateText,
+  MAX_TEXT_LENGTH,
+} from "@/lib/security";
+import { minifyJs } from "@/lib/js-minifier";
 
 // Strip control characters except tab, newline, CR
 const sanitizeInput = (val: string) =>
@@ -19,51 +24,83 @@ export const JsMinifier = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
 
+  const handleInputChange = (value: string) => {
+    let val = sanitizeInput(value);
+    if (!validateTextLength(val)) {
+      val = truncateText(val);
+      notify.warning(
+        `Input truncated to ${MAX_TEXT_LENGTH.toLocaleString()} characters`
+      );
+    }
+    setInput(val);
+  };
+
   const minify = () => {
-    if (!input.trim()) {
+    const original = input;
+    const src = original.trim();
+
+    if (!src) {
       notify.error("Please enter some JavaScript!");
       return;
     }
 
-    // Validate and truncate if needed
-    let code = input;
-    if (!validateTextLength(code)) {
-      code = truncateText(code);
-      notify.warning(`Input truncated to ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
+    try {
+      let code = original;
+
+      if (!validateTextLength(code)) {
+        code = truncateText(code);
+        notify.warning(
+          `Input truncated to ${MAX_TEXT_LENGTH.toLocaleString()} characters`
+        );
+      }
+
+      const minified = minifyJs(code);
+      setOutput(minified);
+
+      const originalLen = code.length;
+      const minifiedLen = minified.length;
+      const savings =
+        originalLen > 0
+          ? ((1 - minifiedLen / originalLen) * 100).toFixed(1)
+          : "0.0";
+
+      notify.success(`JavaScript minified! ${savings}% reduction`);
+    } catch (e) {
+      console.error("JS minify error", e);
+      notify.error("Failed to minify JavaScript");
     }
-
-  const minified = code
-      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove multi-line comments
-      .replace(/\/\/.*/g, "") // Remove single-line comments
-      .replace(/\s+/g, " ") // Replace multiple spaces with single space
-      .replace(/\s*([{}();,:])\s*/g, "$1") // Remove spaces around special characters
-      .replace(/;\s*}/g, "}") // Remove last semicolon before closing brace
-      .trim();
-
-    setOutput(minified);
-    const savings = ((1 - minified.length / input.length) * 100).toFixed(1);
-  notify.success(`JavaScript minified! ${savings}% reduction`);
   };
 
   const copyToClipboard = async () => {
+    if (!output) {
+      notify.error("Nothing to copy yet.");
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(output);
-      notify.success("Copied to clipboard!");
-    } catch {
-      // Fallback for older browsers
-      const textarea = document.createElement("textarea");
-      textarea.value = output;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand("copy");
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(output);
         notify.success("Copied to clipboard!");
-      } catch {
-        notify.error("Failed to copy");
+      } else {
+        // Fallback for older browsers / non-secure context
+        const textarea = document.createElement("textarea");
+        textarea.value = output;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(textarea);
+
+        if (ok) {
+          notify.success("Copied to clipboard!");
+        } else {
+          notify.error("Failed to copy");
+        }
       }
-      document.body.removeChild(textarea);
+    } catch (err) {
+      console.error("Copy failed", err);
+      notify.error("Failed to copy to clipboard");
     }
   };
 
@@ -77,13 +114,7 @@ export const JsMinifier = () => {
           <Textarea
             placeholder="Enter JavaScript code..."
             value={input}
-            onChange={(e) => {
-              let val = e.target.value;
-              if (!validateTextLength(val)) {
-                val = truncateText(val);
-              }
-              setInput(sanitizeInput(val));
-            }}
+            onChange={(e) => handleInputChange(e.target.value)}
             maxLength={MAX_TEXT_LENGTH}
             className="min-h-[200px] font-mono text-sm"
           />
@@ -93,7 +124,9 @@ export const JsMinifier = () => {
         </CardContent>
       </Card>
 
-      <Button onClick={minify} className="w-full">Minify JavaScript</Button>
+      <Button onClick={minify} className="w-full">
+        Minify JavaScript
+      </Button>
 
       {output && (
         <Card>
