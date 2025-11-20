@@ -1,18 +1,17 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import type {
+  ChangeEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import {
-  Download,
-  Type,
-  Image as ImageIcon,
-  Trash2,
-  Copy,
-  X,
-} from "lucide-react"
+import { Download, Type, Image as ImageIcon, Trash2, Copy } from "lucide-react"
+
 import { notify } from "@/lib/notify"
 import {
   ALLOWED_IMAGE_TYPES,
@@ -26,22 +25,24 @@ import { useObjectUrls } from "@/hooks/use-object-urls"
 const MAX_FILE_SIZE_MB = 10
 const MAX_WATERMARKS = 50
 
-// Logical base sizing for watermark physics (canvas-pixel space)
+// Safety cap for internal canvas size (prevents iOS Safari crashes)
+const MAX_SAFE_CANVAS_DIM = 4096
+
+// Logical base sizing for watermark drawing (canvas pixel space)
 const TEXT_BASE_FONT_SIZE = 32 // px
-const TEXT_CHAR_WIDTH_FACTOR = 0.6 // rough average width factor per character
-const TEXT_MIN_LOGICAL_WIDTH = 120 // px fallback for very short text
-const LOGO_BASE_SIZE = 128 // px square – logical logo size
+const TEXT_MIN_LOGICAL_WIDTH = 120 // px (fallback for very short text)
+const LOGO_BASE_SIZE = 128 // px square
 
 type Watermark = {
   id: string
   type: "text" | "image"
   text?: string
   src?: string
-  x: number // canvas pixels
-  y: number // canvas pixels
+  x: number // canvas coordinates
+  y: number // canvas coordinates
   scale: number
-  rotation: number
-  opacity: number
+  rotation: number // degrees
+  opacity: number // 0–100
   color?: string
 }
 
@@ -51,8 +52,8 @@ type ImageDims = {
 }
 
 /**
- * Detect image format via magic bytes (file signature)
- * Prevents MIME spoofing attacks
+ * Detect image format via magic bytes (file signature).
+ * Prevents MIME spoofing attacks.
  */
 async function sniffMime(file: File): Promise<string | null> {
   try {
@@ -92,7 +93,7 @@ async function sniffMime(file: File): Promise<string | null> {
       return "image/webp"
     }
 
-    // GIF: GIF87a or GIF89a (we don’t animate, but we allow static first frame input)
+    // GIF: GIF87a or GIF89a
     if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
       return "image/gif"
     }
@@ -109,30 +110,109 @@ async function sniffMime(file: File): Promise<string | null> {
   }
 }
 
-// Compute logical half-width/half-height in canvas pixels for clamping
-// Used as a fallback; we override with real measurements when available.
-function getLogicalHalfSize(wm: Watermark): { halfWidth: number; halfHeight: number } {
-  let logicalWidth: number
-  let logicalHeight: number
+// Font string used both for drawing & measuring text
+const getCanvasFont = () =>
+  `bold ${TEXT_BASE_FONT_SIZE}px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+
+// Base logo size from natural width/height, preserving aspect ratio
+function getLogoBaseSize(img: HTMLImageElement): { baseW: number; baseH: number } {
+  const aspect = img.width / img.height || 1
+  let baseW = LOGO_BASE_SIZE
+  let baseH = LOGO_BASE_SIZE
+
+  if (aspect > 1) {
+    baseH = baseW / aspect
+  } else {
+    baseW = baseH * aspect
+  }
+  return { baseW, baseH }
+}
+
+// Compute rotated bounding box half-size for a watermark (for clamping)
+function getWatermarkHalfSize(
+  wm: Watermark,
+  ctx: CanvasRenderingContext2D,
+  logoImages: Record<string, HTMLImageElement | null>
+): { halfWidth: number; halfHeight: number } {
+  let width = TEXT_MIN_LOGICAL_WIDTH
+  let height = TEXT_BASE_FONT_SIZE * 1.2
 
   if (wm.type === "text") {
     const text = wm.text ?? ""
-    const charCount = text.length || 1
-    const baseWidth = Math.max(
-      TEXT_MIN_LOGICAL_WIDTH,
-      charCount * TEXT_BASE_FONT_SIZE * TEXT_CHAR_WIDTH_FACTOR
-    )
-    logicalWidth = baseWidth
-    // Slightly larger than font size to better match actual rendered box
-    logicalHeight = TEXT_BASE_FONT_SIZE * 1.25
+    ctx.save()
+    ctx.font = getCanvasFont()
+    const metrics = ctx.measureText(text || "A")
+    const measuredWidth = metrics.width || TEXT_MIN_LOGICAL_WIDTH
+    ctx.restore()
+
+    width = Math.max(TEXT_MIN_LOGICAL_WIDTH, measuredWidth)
+    height = TEXT_BASE_FONT_SIZE * 1.2
   } else {
-    logicalWidth = LOGO_BASE_SIZE
-    logicalHeight = LOGO_BASE_SIZE
+    const logo = logoImages[wm.id]
+    if (logo && logo.width > 0 && logo.height > 0) {
+      const { baseW, baseH } = getLogoBaseSize(logo)
+      width = baseW
+      height = baseH
+    } else {
+      width = LOGO_BASE_SIZE
+      height = LOGO_BASE_SIZE
+    }
   }
 
-  const halfWidth = (logicalWidth * wm.scale) / 2
-  const halfHeight = (logicalHeight * wm.scale) / 2
-  return { halfWidth, halfHeight }
+  const ws = width * wm.scale
+  const hs = height * wm.scale
+
+  const theta = (wm.rotation * Math.PI) / 180
+  const cos = Math.cos(theta)
+  const sin = Math.sin(theta)
+
+  const rotatedW = Math.abs(ws * cos) + Math.abs(hs * sin)
+  const rotatedH = Math.abs(ws * sin) + Math.abs(hs * cos)
+
+  return {
+    halfWidth: rotatedW / 2,
+    halfHeight: rotatedH / 2,
+  }
+}
+
+// Unrotated logical (scaled) half-size for hit-testing
+function getWatermarkLogicalHalfSize(
+  wm: Watermark,
+  ctx: CanvasRenderingContext2D,
+  logoImages: Record<string, HTMLImageElement | null>
+): { halfWidth: number; halfHeight: number } {
+  let width = TEXT_MIN_LOGICAL_WIDTH
+  let height = TEXT_BASE_FONT_SIZE * 1.2
+
+  if (wm.type === "text") {
+    const text = wm.text ?? ""
+    ctx.save()
+    ctx.font = getCanvasFont()
+    const metrics = ctx.measureText(text || "A")
+    const measuredWidth = metrics.width || TEXT_MIN_LOGICAL_WIDTH
+    ctx.restore()
+
+    width = Math.max(TEXT_MIN_LOGICAL_WIDTH, measuredWidth)
+    height = TEXT_BASE_FONT_SIZE * 1.2
+  } else {
+    const logo = logoImages[wm.id]
+    if (logo && logo.width > 0 && logo.height > 0) {
+      const { baseW, baseH } = getLogoBaseSize(logo)
+      width = baseW
+      height = baseH
+    } else {
+      width = LOGO_BASE_SIZE
+      height = LOGO_BASE_SIZE
+    }
+  }
+
+  const ws = width * wm.scale
+  const hs = height * wm.scale
+
+  return {
+    halfWidth: ws / 2,
+    halfHeight: hs / 2,
+  }
 }
 
 export const AddWatermark = () => {
@@ -143,57 +223,69 @@ export const AddWatermark = () => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
-  const [isMobile, setIsMobile] = useState(false)
-  const [sheetCollapsed, setSheetCollapsed] = useState(false)
-
-  // Visual scale factor for editor (CSS space vs canvas pixels)
   const [displayScale, setDisplayScale] = useState(1)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const editorRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const wmRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const lastPosRef = useRef<{ x: number; y: number } | null>(null)
 
-  // Hidden span for measuring text in DOM (unscaled by transform)
-  const textMeasureRef = useRef<HTMLSpanElement | null>(null)
+  const baseImageRef = useRef<HTMLImageElement | null>(null)
+  const logoImagesRef = useRef<Record<string, HTMLImageElement | null>>({})
+  const lastCanvasPosRef = useRef<{ x: number; y: number } | null>(null)
+
+  const prevBaseUrlRef = useRef<string | null>(null)
+  const logoBlobUrlsRef = useRef<string[]>([])
 
   const { createImageUrl } = useObjectUrls()
 
-  // ----------- Responsive: detect mobile -----------
+  const activeWatermark = activeId
+    ? watermarks.find((w) => w.id === activeId) || null
+    : null
 
+  // Revoke base image URL and logo URLs on unmount (snapshot refs at mount)
   useEffect(() => {
-    const update = () => setIsMobile(window.innerWidth < 640)
-    update()
-    window.addEventListener("resize", update)
-    return () => window.removeEventListener("resize", update)
+    const initialBaseUrl = prevBaseUrlRef.current
+    const initialLogoUrlsSnapshot = logoBlobUrlsRef.current.slice()
+
+    return () => {
+      if (initialBaseUrl && initialBaseUrl.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(initialBaseUrl)
+        } catch {
+          // ignore
+        }
+      }
+
+      for (const url of initialLogoUrlsSnapshot) {
+        if (url && url.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(url)
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
   }, [])
 
-  // When selecting a WM on mobile, start collapsed to keep canvas visible
-  useEffect(() => {
-    if (activeId && isMobile) setSheetCollapsed(true)
-  }, [activeId, isMobile])
-
-  // ----------- Compute displayScale so image fits nicely on all devices -----------
-
+  // Compute displayScale so canvas fits nicely in the card
   useEffect(() => {
     if (!imageDims) return
 
     const computeScale = () => {
+      if (typeof window === "undefined") return
+
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
 
-      // Approximate horizontal space inside the card
       const containerWidth =
         containerRef.current?.clientWidth ?? Math.max(320, viewportWidth - 32)
 
-      // Reserve some vertical space for header + toolbar + margins
       const maxEditorHeight = Math.max(200, viewportHeight - 260)
 
       const scaleByWidth = containerWidth / imageDims.width
       const scaleByHeight = maxEditorHeight / imageDims.height
 
-      const scale = Math.min(scaleByWidth, scaleByHeight, 1) // never upscale
+      const scale = Math.min(scaleByWidth, scaleByHeight, 1)
       setDisplayScale(scale > 0 && Number.isFinite(scale) ? scale : 1)
     }
 
@@ -202,167 +294,216 @@ export const AddWatermark = () => {
     return () => window.removeEventListener("resize", computeScale)
   }, [imageDims])
 
-  // ----------- Global pointer move/up for dragging (logical coords) -----------
+  // Helper: convert client coords -> canvas coords (internal pixel space)
+  const getCanvasCoords = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+
+    const x = ((clientX - rect.left) / rect.width) * canvas.width
+    const y = ((clientY - rect.top) / rect.height) * canvas.height
+    return { x, y }
+  }, [])
+
+  // Ensure canvas internal size matches imageDims once when dims change
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !imageDims) return
+
+    canvas.width = imageDims.width
+    canvas.height = imageDims.height
+  }, [imageDims])
+
+  // Core drawing routine – can be used for preview or export
+  const drawSceneInternal = useCallback(
+    (showSelectionOutline: boolean) => {
+      const canvas = canvasRef.current
+      const baseImg = baseImageRef.current
+      if (!canvas || !baseImg || !imageDims) return
+
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Draw base image scaled to current canvas size
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height)
+
+      let activeWM: Watermark | null = null
+
+      for (const wm of watermarks) {
+        ctx.save()
+        ctx.globalAlpha = wm.opacity / 100
+
+        ctx.translate(wm.x, wm.y)
+        ctx.rotate((wm.rotation * Math.PI) / 180)
+        ctx.scale(wm.scale, wm.scale)
+
+        if (wm.type === "text" && wm.text) {
+          ctx.font = getCanvasFont()
+          ctx.fillStyle = wm.color || "#000000"
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.fillText(wm.text, 0, 0)
+        } else if (wm.type === "image" && wm.src) {
+          const logo = logoImagesRef.current[wm.id]
+          if (logo && logo.width > 0 && logo.height > 0) {
+            const { baseW, baseH } = getLogoBaseSize(logo)
+            ctx.drawImage(logo, -baseW / 2, -baseH / 2, baseW, baseH)
+          }
+        }
+
+        ctx.restore()
+
+        if (activeId === wm.id) {
+          activeWM = wm
+        }
+      }
+
+      // Draw selection outline for the active watermark (preview only)
+      if (showSelectionOutline && activeWM) {
+        ctx.save()
+
+        const { halfWidth, halfHeight } = getWatermarkHalfSize(
+          activeWM,
+          ctx,
+          logoImagesRef.current
+        )
+
+        ctx.translate(activeWM.x, activeWM.y)
+        ctx.rotate((activeWM.rotation * Math.PI) / 180)
+
+        ctx.lineWidth = 2
+        ctx.setLineDash([6, 4])
+        ctx.strokeStyle = "rgba(59,130,246,0.9)" // Tailwind primary-ish
+
+        ctx.strokeRect(-halfWidth, -halfHeight, halfWidth * 2, halfHeight * 2)
+
+        ctx.restore()
+      }
+    },
+    [activeId, imageDims, watermarks]
+  )
+
+  // Draw preview scene whenever dependencies change
+  const drawScenePreview = useCallback(() => {
+    drawSceneInternal(true)
+  }, [drawSceneInternal])
 
   useEffect(() => {
+    drawScenePreview()
+  }, [drawScenePreview])
+
+  // Global pointer move / up for dragging – throttled with requestAnimationFrame
+  useEffect(() => {
+    if (!draggingId || !imageDims) return
+
+    let frameId: number | null = null
+
     const handlePointerMove = (e: PointerEvent) => {
-      if (!draggingId || !imageDims) return
-      const lastPos = lastPosRef.current
-      if (!lastPos) return
+      if (frameId !== null) return
 
-      const dxScreen = e.clientX - lastPos.x
-      const dyScreen = e.clientY - lastPos.y
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null
 
-      // Convert from screen pixels -> canvas logical pixels
-      const dx = dxScreen / displayScale
-      const dy = dyScreen / displayScale
+        const canvas = canvasRef.current
+        if (!canvas) return
 
-      setWatermarks((prev) =>
-        prev.map((wm) => {
-          if (wm.id !== draggingId) return wm
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
 
-          let newX = wm.x + dx
-          let newY = wm.y + dy
+        const coords = getCanvasCoords(e.clientX, e.clientY)
+        if (!coords) return
+        const { x, y } = coords
 
-          // Base logical size as fallback
-          const logical = getLogicalHalfSize(wm)
-          let halfWidth = logical.halfWidth
-          let halfHeight = logical.halfHeight
+        const last = lastCanvasPosRef.current
+        if (!last) {
+          lastCanvasPosRef.current = { x, y }
+          return
+        }
 
-          const el = wmRefs.current[wm.id]
+        const dx = x - last.x
+        const dy = y - last.y
 
-          // Rotation in radians
-          const theta = (wm.rotation * Math.PI) / 180
-          const cos = Math.cos(theta)
-          const sin = Math.sin(theta)
+        setWatermarks((prev) =>
+          prev.map((wm) => {
+            if (wm.id !== draggingId) return wm
 
-          // Text watermark: measure via hidden span (unaffected by transform)
-          if (wm.type === "text" && textMeasureRef.current) {
-            const m = textMeasureRef.current
-            m.style.fontSize = `${TEXT_BASE_FONT_SIZE * displayScale}px`
-            m.style.fontFamily =
-              "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-            m.style.fontWeight = "bold"
-            m.textContent = wm.text ?? ""
+            const { halfWidth, halfHeight } = getWatermarkHalfSize(
+              wm,
+              ctx,
+              logoImagesRef.current
+            )
 
-            const wScreen = m.offsetWidth
-            const hScreen = m.offsetHeight
+            let newX = wm.x + dx
+            let newY = wm.y + dy
 
-            if (wScreen > 0 && hScreen > 0) {
-              // Convert back to canvas logical pixels
-              const w = wScreen / displayScale
-              const h = hScreen / displayScale
+            newX = Math.max(
+              halfWidth,
+              Math.min(imageDims.width - halfWidth, newX)
+            )
+            newY = Math.max(
+              halfHeight,
+              Math.min(imageDims.height - halfHeight, newY)
+            )
 
-              // Apply scale
-              const ws = w * wm.scale
-              const hs = h * wm.scale
+            return { ...wm, x: newX, y: newY }
+          })
+        )
 
-              // Rotation-aware bounding box
-              const rotatedW = Math.abs(ws * cos) + Math.abs(hs * sin)
-              const rotatedH = Math.abs(ws * sin) + Math.abs(hs * cos)
-
-              halfWidth = rotatedW / 2
-              halfHeight = rotatedH / 2
-            }
-          }
-
-          // Image watermark: approximate using logo base size + natural aspect
-          if (wm.type === "image") {
-            const imgEl = el?.querySelector("img") as HTMLImageElement | null
-            if (imgEl && imgEl.naturalWidth > 0 && imgEl.naturalHeight > 0) {
-              const aspect = imgEl.naturalWidth / imgEl.naturalHeight
-              let baseW = LOGO_BASE_SIZE
-              let baseH = LOGO_BASE_SIZE
-
-              if (aspect > 1) {
-                baseH = baseW / aspect
-              } else {
-                baseW = baseH * aspect
-              }
-
-              const w = baseW
-              const h = baseH
-
-              const ws = w * wm.scale
-              const hs = h * wm.scale
-
-              const rotatedW = Math.abs(ws * cos) + Math.abs(hs * sin)
-              const rotatedH = Math.abs(ws * sin) + Math.abs(hs * cos)
-
-              halfWidth = rotatedW / 2
-              halfHeight = rotatedH / 2
-            }
-          }
-
-          // Clamp center position so rotated, scaled watermark stays fully inside
-          newX = Math.max(halfWidth, Math.min(imageDims.width - halfWidth, newX))
-          newY = Math.max(halfHeight, Math.min(imageDims.height - halfHeight, newY))
-
-          return { ...wm, x: newX, y: newY }
-        })
-      )
-
-      lastPosRef.current = { x: e.clientX, y: e.clientY }
+        lastCanvasPosRef.current = { x, y }
+      })
     }
 
     const handlePointerUp = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+        frameId = null
+      }
       setDraggingId(null)
-      lastPosRef.current = null
+      lastCanvasPosRef.current = null
     }
 
-    if (draggingId) {
-      window.addEventListener("pointermove", handlePointerMove, { passive: true })
-      window.addEventListener("pointerup", handlePointerUp, { passive: true })
-    }
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", handlePointerUp)
+    window.addEventListener("pointercancel", handlePointerUp)
 
     return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+      }
       window.removeEventListener("pointermove", handlePointerMove)
       window.removeEventListener("pointerup", handlePointerUp)
+      window.removeEventListener("pointercancel", handlePointerUp)
     }
-  }, [draggingId, imageDims, displayScale])
+  }, [draggingId, imageDims, getCanvasCoords])
 
-  // ----------- Click-outside closes desktop popup -----------
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!activeId) return
-      const popup = document.getElementById("watermark-popup")
-      const target = e.target as Node | null
-
-      // If click is inside the popup, do nothing
-      if (popup && target && popup.contains(target)) {
-        return
-      }
-
-      // Anywhere else: close the popup
-      setActiveId(null)
-    }
-
-    if (activeId && !isMobile) {
-      window.addEventListener("click", handleClickOutside)
-      return () => window.removeEventListener("click", handleClickOutside)
-    }
-  }, [activeId, isMobile])
-
-  // ----------- Upload handlers -----------
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload base image
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) {
+      e.target.value = ""
+      return
+    }
 
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      notify.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit`)
+      notify.error(`File size exceeds ${MAX_FILE_SIZE_MB}MB limit.`)
+      e.target.value = ""
       return
     }
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      notify.error("Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed.")
+      notify.error(
+        "Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed."
+      )
+      e.target.value = ""
       return
     }
 
     const sniffed = await sniffMime(file)
     if (!sniffed || !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
       notify.error("File signature mismatch. File may be corrupted or spoofed.")
+      e.target.value = ""
       return
     }
 
@@ -377,6 +518,7 @@ export const AddWatermark = () => {
 
     if (validationError) {
       notify.error(validationError)
+      e.target.value = ""
       return
     }
 
@@ -387,43 +529,81 @@ export const AddWatermark = () => {
 
     if (!url) {
       notify.error("Failed to create image URL.")
+      e.target.value = ""
       return
     }
 
     const img = new Image()
+    img.decoding = "async"
     img.onload = () => {
-      setImageDims({ width: img.width, height: img.height })
+      // Apply safety cap for internal canvas resolution
+      const scale = Math.min(
+        1,
+        MAX_SAFE_CANVAS_DIM / img.width,
+        MAX_SAFE_CANVAS_DIM / img.height
+      )
+
+      const internalWidth = Math.round(img.width * scale)
+      const internalHeight = Math.round(img.height * scale)
+
+      baseImageRef.current = img
+      setImageDims({ width: internalWidth, height: internalHeight })
       setBaseImageUrl(url)
       setWatermarks([])
       setActiveId(null)
+      logoImagesRef.current = {}
+
+      if (prevBaseUrlRef.current && prevBaseUrlRef.current !== url) {
+        if (prevBaseUrlRef.current.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(prevBaseUrlRef.current)
+          } catch {
+            // ignore
+          }
+        }
+      }
+      prevBaseUrlRef.current = url
+
       notify.success("Image uploaded successfully!")
     }
     img.onerror = () => {
       notify.error("Failed to read image dimensions.")
     }
     img.src = url
+
+    // Allow re-selecting the same file
+    e.target.value = ""
   }
 
+  // Upload logo for watermark
   const handleLogoUpload = async (
     id: string,
-    e: React.ChangeEvent<HTMLInputElement>
+    e: ChangeEvent<HTMLInputElement>
   ) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) {
+      e.target.value = ""
+      return
+    }
 
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      notify.error(`Logo size exceeds ${MAX_FILE_SIZE_MB}MB limit`)
+      notify.error(`Logo size exceeds ${MAX_FILE_SIZE_MB}MB limit.`)
+      e.target.value = ""
       return
     }
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      notify.error("Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed.")
+      notify.error(
+        "Invalid file type. Only PNG, JPEG, WebP, GIF, and BMP are allowed."
+      )
+      e.target.value = ""
       return
     }
 
     const sniffed = await sniffMime(file)
     if (!sniffed || !ALLOWED_IMAGE_TYPES.includes(sniffed)) {
       notify.error("File signature mismatch. File may be corrupted or spoofed.")
+      e.target.value = ""
       return
     }
 
@@ -438,6 +618,7 @@ export const AddWatermark = () => {
 
     if (validationError) {
       notify.error(validationError)
+      e.target.value = ""
       return
     }
 
@@ -447,17 +628,47 @@ export const AddWatermark = () => {
     })
     if (!url) {
       notify.error("Failed to load logo.")
+      e.target.value = ""
       return
     }
 
-    setWatermarks((prev) =>
-      prev.map((wm) => (wm.id === id ? { ...wm, src: url } : wm))
-    )
-    notify.success("Logo uploaded successfully!")
+    const img = new Image()
+    img.decoding = "async"
+    img.onload = () => {
+      logoImagesRef.current[id] = img
+
+      // Track blob URL for cleanup on unmount
+      if (url.startsWith("blob:")) {
+        logoBlobUrlsRef.current.push(url)
+      }
+
+      // Revoke old logo URL if it was a blob
+      setWatermarks((prev) =>
+        prev.map((wm) => {
+          if (wm.id !== id) return wm
+          if (wm.src && wm.src !== url && wm.src.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(wm.src)
+            } catch {
+              // ignore
+            }
+          }
+          return { ...wm, src: url }
+        })
+      )
+
+      notify.success("Logo uploaded successfully!")
+    }
+    img.onerror = () => {
+      notify.error("Failed to load logo image.")
+    }
+    img.src = url
+
+    // Allow re-selecting the same file
+    e.target.value = ""
   }
 
-  // ----------- Toolbar actions -----------
-
+  // Toolbar actions
   const addWatermark = (type: "text" | "image") => {
     if (!imageDims) {
       notify.error("Upload an image first.")
@@ -469,8 +680,13 @@ export const AddWatermark = () => {
       return
     }
 
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
     const newWM: Watermark = {
-      id: crypto.randomUUID(),
+      id,
       type,
       text: type === "text" ? "Your Text" : undefined,
       x: imageDims.width / 2,
@@ -483,8 +699,6 @@ export const AddWatermark = () => {
 
     setWatermarks((prev) => [...prev, newWM])
     setActiveId(newWM.id)
-    if (isMobile) setSheetCollapsed(false)
-
     notify.success(`${type === "text" ? "Text" : "Image"} watermark added!`)
   }
 
@@ -493,8 +707,21 @@ export const AddWatermark = () => {
       notify.error("No watermarks to remove.")
       return
     }
+
+    // Revoke all blob URLs for watermark logos immediately
+    watermarks.forEach((wm) => {
+      if (wm.src && wm.src.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(wm.src)
+        } catch {
+          // ignore
+        }
+      }
+    })
+
     setWatermarks([])
     setActiveId(null)
+    logoImagesRef.current = {}
     notify.success("All watermarks removed!")
   }
 
@@ -504,322 +731,162 @@ export const AddWatermark = () => {
     )
   }
 
-  // ----------- Dragging -----------
+  const duplicateWatermark = (wm: Watermark) => {
+    if (!imageDims) return
+    if (watermarks.length >= MAX_WATERMARKS) {
+      notify.error(`Maximum of ${MAX_WATERMARKS} watermarks reached.`)
+      return
+    }
 
-  const handlePointerDown = (
-    e: React.PointerEvent<HTMLDivElement>,
-    id: string
-  ) => {
-    e.stopPropagation()
-    e.preventDefault()
-    setDraggingId(id)
-    setActiveId(id)
-    lastPosRef.current = { x: e.clientX, y: e.clientY }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
+    const clone: Watermark = {
+      ...wm,
+      id,
+      x: Math.min(wm.x + 20, imageDims.width - 10),
+      y: Math.min(wm.y + 20, imageDims.height - 10),
+    }
+
+    setWatermarks((prev) => [...prev, clone])
+
+    // Reuse same logo image reference if it's an image watermark
+    if (wm.type === "image") {
+      const existingLogo = logoImagesRef.current[wm.id]
+      if (existingLogo) {
+        logoImagesRef.current[clone.id] = existingLogo
+      }
+    }
+
+    notify.success("Watermark duplicated!")
   }
 
-  // ----------- Generate final image (canvas-sized) -----------
+  const deleteWatermark = (id: string) => {
+    setWatermarks((prev) => {
+      const target = prev.find((w) => w.id === id)
+      if (target?.src && target.src.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(target.src)
+        } catch {
+          // ignore
+        }
+      }
+      return prev.filter((w) => w.id !== id)
+    })
 
+    if (logoImagesRef.current[id]) {
+      delete logoImagesRef.current[id]
+    }
+    setActiveId((current) => (current === id ? null : current))
+    notify.success("Watermark deleted!")
+  }
+
+  // Canvas pointer down: hit-test and start dragging if hit (rotation-aware)
+  const handleCanvasPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!imageDims) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    const coords = getCanvasCoords(e.clientX, e.clientY)
+    if (!coords) return
+
+    const { x, y } = coords
+
+    let hitId: string | null = null
+
+    // Check from topmost watermark (last drawn) to bottom
+    for (let i = watermarks.length - 1; i >= 0; i -= 1) {
+      const wm = watermarks[i]
+
+      // Rotate pointer into watermark's local space
+      const dx = x - wm.x
+      const dy = y - wm.y
+      const theta = (-wm.rotation * Math.PI) / 180
+      const cos = Math.cos(theta)
+      const sin = Math.sin(theta)
+      const localX = dx * cos - dy * sin
+      const localY = dx * sin + dy * cos
+
+      const { halfWidth, halfHeight } = getWatermarkLogicalHalfSize(
+        wm,
+        ctx,
+        logoImagesRef.current
+      )
+
+      if (
+        Math.abs(localX) <= halfWidth &&
+        Math.abs(localY) <= halfHeight
+      ) {
+        hitId = wm.id
+        break
+      }
+    }
+
+    if (hitId) {
+      setActiveId(hitId)
+      setDraggingId(hitId)
+      lastCanvasPosRef.current = { x, y }
+      e.preventDefault()
+    } else {
+      setActiveId(null)
+    }
+  }
+
+  // Export: redraw scene at full resolution and download
   const generateFinalImage = () => {
-    if (!baseImageUrl || !canvasRef.current || !imageDims) {
+    if (!canvasRef.current || !imageDims || !baseImageRef.current) {
       notify.error("No image to export.")
       return
     }
 
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) {
-      notify.error("Canvas not supported.")
+    if (!canvasRef.current.toBlob) {
+      notify.error("Your browser does not support image export.")
       return
     }
 
-    const base = new Image()
-    base.decoding = "async"
+    // Draw without selection outline
+    drawSceneInternal(false)
 
-    base.onload = async () => {
-      canvas.width = imageDims.width
-      canvas.height = imageDims.height
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(base, 0, 0, canvas.width, canvas.height)
-
-      for (const wm of watermarks) {
-        ctx.save()
-        ctx.globalAlpha = wm.opacity / 100
-
-        ctx.translate(wm.x, wm.y)
-        ctx.rotate((wm.rotation * Math.PI) / 180)
-        ctx.scale(wm.scale, wm.scale)
-
-        if (wm.type === "text" && wm.text) {
-          const fontFamily =
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          ctx.font = `bold ${TEXT_BASE_FONT_SIZE}px ${fontFamily}`
-          ctx.fillStyle = wm.color || "#000000"
-          ctx.textAlign = "center"
-          ctx.textBaseline = "middle"
-          ctx.fillText(wm.text, 0, 0)
-        } else if (wm.type === "image" && wm.src) {
-          const img = await new Promise<HTMLImageElement | null>((resolve) => {
-            const i = new Image()
-            i.decoding = "async"
-            i.onload = () => resolve(i)
-            i.onerror = () => resolve(null)
-            i.src = wm.src!
-          })
-
-          if (img) {
-            const aspect = img.width / img.height
-            let drawW = LOGO_BASE_SIZE
-            let drawH = LOGO_BASE_SIZE
-            if (aspect > 1) {
-              drawH = drawW / aspect
-            } else {
-              drawW = drawH * aspect
-            }
-            ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH)
-          }
+    canvasRef.current.toBlob(
+      (blob) => {
+        if (!blob) {
+          notify.error("Failed to create image blob.")
+          return
         }
+        try {
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement("a")
+          link.download = "watermarked-image.png"
+          link.href = url
 
-        ctx.restore()
-      }
+          // Safari-friendly pattern
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            notify.error("Failed to create image blob.")
-            return
-          }
-          try {
-            const url = URL.createObjectURL(blob)
-            const link = document.createElement("a")
-            link.download = "watermarked-image.png"
-            link.href = url
-            link.click()
-            setTimeout(() => URL.revokeObjectURL(url), 0)
-            notify.success("Watermarked image downloaded!")
-          } catch (err) {
-            console.error("Download error:", err)
-            notify.error("Failed to download image.")
-          }
-        },
-        "image/png",
-        0.92
-      )
-    }
+          setTimeout(() => {
+            try {
+              URL.revokeObjectURL(url)
+            } catch {
+              // ignore
+            }
+          }, 0)
 
-    base.onerror = () => {
-      notify.error("Failed to load base image for export.")
-    }
-
-    base.src = baseImageUrl
-  }
-
-  // ----------- Shared controls renderer -----------
-
-  const renderControlsContent = (wm: Watermark, isMobileVariant: boolean) => {
-    const id = wm.id
-
-    return (
-      <div
-        className={
-          isMobileVariant
-            ? "pt-0 pb-6 px-4 space-y-4 overflow-y-auto max-h-[50vh] bg-card"
-            : "space-y-3"
+          notify.success("Watermarked image downloaded!")
+        } catch (err) {
+          console.error("Download error:", err)
+          notify.error("Failed to download image.")
         }
-      >
-        {wm.type === "text" && (
-          <div
-            className={
-              isMobileVariant
-                ? "space-y-3 p-3 bg-muted/30 rounded-lg border border-border"
-                : "space-y-2"
-            }
-          >
-            <div>
-              <Label className={isMobileVariant ? "text-xs mb-1.5 block" : ""}>
-                Text
-              </Label>
-              <Textarea
-                rows={2}
-                value={wm.text}
-                onChange={(e) => {
-                  const safe = truncateText(stripHtml(e.target.value), 200)
-                  updateWatermark(id, { text: safe })
-                }}
-                className={isMobileVariant ? "text-sm resize-none" : ""}
-                placeholder="Enter watermark text"
-              />
-            </div>
-            <div>
-              <Label className={isMobileVariant ? "text-xs mb-1.5 block" : ""}>
-                Text Color
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="color"
-                  value={wm.color}
-                  onChange={(e) =>
-                    updateWatermark(id, { color: e.target.value })
-                  }
-                  className={
-                    isMobileVariant ? "h-10 w-20 p-1 cursor-pointer" : ""
-                  }
-                />
-                {isMobileVariant && (
-                  <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border">
-                    {wm.color}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {wm.type === "image" && !wm.src && (
-          <div
-            className={
-              isMobileVariant
-                ? "p-3 bg-muted/30 rounded-lg border border-border"
-                : "space-y-1"
-            }
-          >
-            <Label className={isMobileVariant ? "text-xs mb-1.5 block" : ""}>
-              Upload Logo
-            </Label>
-            <Input
-              type="file"
-              accept={ALLOWED_IMAGE_TYPES.join(",")}
-              onChange={(e) => handleLogoUpload(id, e)}
-              className={isMobileVariant ? "text-xs cursor-pointer" : ""}
-            />
-          </div>
-        )}
-
-        {/* Opacity */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className={isMobileVariant ? "text-xs" : ""}>Opacity</Label>
-            <span
-              className={
-                isMobileVariant
-                  ? "text-xs font-mono bg-muted px-2 py-0.5 rounded"
-                  : "text-xs font-mono"
-              }
-            >
-              {wm.opacity}%
-            </span>
-          </div>
-          <Slider
-            value={[wm.opacity]}
-            onValueChange={(v) =>
-              updateWatermark(id, { opacity: v[0] ?? wm.opacity })
-            }
-            min={10}
-            max={100}
-          />
-        </div>
-
-        {/* Scale */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className={isMobileVariant ? "text-xs" : ""}>Scale</Label>
-            <span
-              className={
-                isMobileVariant
-                  ? "text-xs font-mono bg-muted px-2 py-0.5 rounded"
-                  : "text-xs font-mono"
-              }
-            >
-              {wm.scale.toFixed(2)}x
-            </span>
-          </div>
-          <Slider
-            value={[wm.scale]}
-            onValueChange={(v) =>
-              updateWatermark(id, { scale: v[0] ?? wm.scale })
-            }
-            min={0.2}
-            max={3}
-            step={0.1}
-          />
-        </div>
-
-        {/* Rotation */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className={isMobileVariant ? "text-xs" : ""}>
-              Rotation
-            </Label>
-            <span
-              className={
-                isMobileVariant
-                  ? "text-xs font-mono bg-muted px-2 py-0.5 rounded"
-                  : "text-xs font-mono"
-              }
-            >
-              {wm.rotation}°
-            </span>
-          </div>
-          <Slider
-            value={[wm.rotation]}
-            onValueChange={(v) =>
-              updateWatermark(id, { rotation: v[0] ?? wm.rotation })
-            }
-            min={-180}
-            max={180}
-          />
-        </div>
-
-        {/* Actions */}
-        <div
-          className={
-            isMobileVariant
-              ? "flex gap-2 pt-2 border-t border-border"
-              : "flex gap-2 mt-2"
-          }
-        >
-          <Button
-            size={isMobileVariant ? "sm" : "default"}
-            variant="outline"
-            className="flex-1"
-            onClick={() => {
-              if (!imageDims) return
-              const clone: Watermark = {
-                ...wm,
-                id: crypto.randomUUID(),
-                x: Math.min(wm.x + 20, imageDims.width - 10),
-                y: Math.min(wm.y + 20, imageDims.height - 10),
-              }
-              setWatermarks((prev) => [...prev, clone])
-              notify.success("Watermark duplicated!")
-            }}
-          >
-            <Copy className="w-4 h-4 mr-1.5" />
-            Duplicate
-          </Button>
-          <Button
-            size={isMobileVariant ? "sm" : "default"}
-            variant="destructive"
-            className="flex-1"
-            onClick={() => {
-              setWatermarks((prev) => prev.filter((w) => w.id !== id))
-              setActiveId((current) => (current === id ? null : current))
-              notify.success("Watermark deleted!")
-            }}
-          >
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            Delete
-          </Button>
-        </div>
-      </div>
+      },
+      "image/png",
+      0.92
     )
   }
-
-  // ----------- Render -----------
-
-  const activeWatermark = activeId
-    ? watermarks.find((w) => w.id === activeId) || null
-    : null
 
   return (
     <div className="space-y-6">
@@ -845,22 +912,14 @@ export const AddWatermark = () => {
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row gap-2">
             <Button
-              onPointerDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                addWatermark("text")
-              }}
+              onClick={() => addWatermark("text")}
               className="w-full sm:w-auto"
             >
               <Type className="w-4 h-4 mr-2" />
               Add Text
             </Button>
             <Button
-              onPointerDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                addWatermark("image")
-              }}
+              onClick={() => addWatermark("image")}
               className="w-full sm:w-auto"
             >
               <ImageIcon className="w-4 h-4 mr-2" />
@@ -868,11 +927,7 @@ export const AddWatermark = () => {
             </Button>
             <Button
               variant="destructive"
-              onPointerDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                removeAll()
-              }}
+              onClick={removeAll}
               className="w-full sm:w-auto"
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -882,255 +937,215 @@ export const AddWatermark = () => {
         </Card>
       )}
 
-      {/* Preview + editor */}
+      {/* Preview + canvas editor */}
       {baseImageUrl && imageDims && (
         <Card>
           <CardHeader>
             <CardTitle>Live Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* No inner scrolling; the card hugs the (scaled) image */}
             <div ref={containerRef} className="w-full flex justify-center">
-              <div
-                ref={editorRef}
-                className="relative"
+              <canvas
+                ref={canvasRef}
+                className="border border-border rounded-md bg-black/5"
                 style={{
-                  width: `${imageDims.width * displayScale}px`,
-                  height: `${imageDims.height * displayScale}px`,
+                  width: imageDims.width * displayScale,
+                  height: imageDims.height * displayScale,
+                  touchAction: "none",
+                  maxWidth: "100%",
+                  maxHeight: "80vh",
                 }}
-              >
-                <img
-                  src={baseImageUrl}
-                  alt="Uploaded"
-                  className="block"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                  }}
-                  draggable={false}
-                />
-
-                {watermarks.map((wm) => (
-                  <div
-                    key={wm.id}
-                    ref={(el) => {
-                      wmRefs.current[wm.id] = el
-                    }}
-                    className={`absolute cursor-move select-none ${
-                      activeId === wm.id ? "outline outline-blue-500" : ""
-                    }`}
-                    style={{
-                      left: wm.x * displayScale,
-                      top: wm.y * displayScale,
-                      transform: `translate(-50%, -50%) scale(${wm.scale}) rotate(${wm.rotation}deg)`,
-                      transformOrigin: "center center",
-                      opacity: wm.opacity / 100,
-                      color: wm.color,
-                      fontSize: `${TEXT_BASE_FONT_SIZE * displayScale}px`,
-                      fontWeight: "bold",
-                      zIndex: 10,
-                      touchAction: "none",
-                      whiteSpace: wm.type === "text" ? "nowrap" : undefined,
-                    }}
-                    data-wm-active={activeId === wm.id ? "true" : undefined}
-                    onPointerDown={(e) => handlePointerDown(e, wm.id)}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setActiveId(wm.id)
-                    }}
-                  >
-                    {wm.type === "text" ? (
-                      <span>{wm.text}</span>
-                    ) : wm.src ? (
-                      <img
-                        src={wm.src}
-                        alt="logo"
-                        className="block"
-                        style={{
-                          width: `${LOGO_BASE_SIZE * displayScale}px`,
-                          height: `${LOGO_BASE_SIZE * displayScale}px`,
-                          objectFit: "contain",
-                        }}
-                        draggable={false}
-                      />
-                    ) : (
-                      <Input
-                        type="file"
-                        accept={ALLOWED_IMAGE_TYPES.join(",")}
-                        onChange={(e) => handleLogoUpload(wm.id, e)}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+                onPointerDown={handleCanvasPointerDown}
+              />
             </div>
 
-            {/* Download button */}
             <div className="mt-4 flex justify-center">
-              <div
-                aria-live="polite"
-                aria-atomic="true"
+              <Button
+                onClick={generateFinalImage}
                 className="w-full sm:w-auto"
               >
-                <Button
-                  onClick={generateFinalImage}
-                  onTouchEnd={(e) => {
-                    e.preventDefault()
-                    generateFinalImage()
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Watermarked Image
-                </Button>
-              </div>
+                <Download className="w-4 h-4 mr-2" />
+                Download Watermarked Image
+              </Button>
             </div>
-
-            <canvas ref={canvasRef} className="hidden" />
           </CardContent>
         </Card>
       )}
 
-      {/* Popups rendered OUTSIDE the scaled editor so they keep normal size */}
+      {/* Controls for selected watermark */}
+      {baseImageUrl && watermarks.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {activeWatermark ? "Selected Watermark" : "Watermark Settings"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!activeWatermark && (
+              <p className="text-sm text-muted-foreground">
+                Click on a watermark in the preview to edit its settings.
+              </p>
+            )}
 
-      {activeWatermark && !draggingId && baseImageUrl && (
-        <>
-          {/* Mobile bottom sheet */}
-          {isMobile && (
-            <div
-              id="watermark-popup"
-              className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
-            >
-              <div className="pointer-events-auto">
-                {!sheetCollapsed && (
-                  <div
-                    className="fixed inset-0 bg-black/30 -z-10"
-                    onClick={() => {
-                      setSheetCollapsed(true)
-                      setActiveId(null)
-                    }}
-                  />
-                )}
-                <Card
-                  className={`border-t rounded-t-3xl shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out bg-card text-card-foreground ${
-                    sheetCollapsed
-                      ? "translate-y-[calc(100%-4rem)]"
-                      : "translate-y-0"
-                  }`}
-                >
-                  <div
-                    className="flex flex-col items-center pt-2 pb-3 px-4 cursor-pointer active:cursor-grabbing touch-none bg-card"
-                    onClick={() => setSheetCollapsed((val) => !val)}
-                  >
-                    <div className="w-12 h-1.5 bg-border rounded-full mb-3 opacity-50" />
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {activeWatermark.type === "text" ? (
-                          <Type className="w-4 h-4 flex-shrink-0" />
-                        ) : (
-                          <ImageIcon className="w-4 h-4 flex-shrink-0" />
-                        )}
-                        <span className="text-sm font-semibold truncate">
-                          {activeWatermark.type === "text"
-                            ? activeWatermark.text || "Text Watermark"
-                            : "Image Watermark"}
-                        </span>
-                        {sheetCollapsed && (
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            Tap to expand
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveId(null)
+            {activeWatermark && (
+              <>
+                {/* Basic type info + actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                  <span className="text-sm font-medium">
+                    {activeWatermark.type === "text"
+                      ? "Text Watermark"
+                      : "Image Watermark"}
+                  </span>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => duplicateWatermark(activeWatermark)}
+                      className="w-full sm:w-auto"
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Duplicate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => deleteWatermark(activeWatermark.id)}
+                      className="w-full sm:w-auto"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Text settings */}
+                {activeWatermark.type === "text" && (
+                  <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
+                    <div className="space-y-2">
+                      <Label>Text</Label>
+                      <Textarea
+                        rows={2}
+                        value={activeWatermark.text ?? ""}
+                        onChange={(e) => {
+                          const sanitized = truncateText(
+                            // remove HTML and collapse whitespace into single spaces
+                            stripHtml(e.target.value).replace(/\s+/g, " "),
+                            200
+                          ).trim()
+                          updateWatermark(activeWatermark.id, {
+                            text: sanitized,
+                          })
                         }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                        className="resize-none text-sm"
+                        placeholder="Enter watermark text"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Text Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="color"
+                          value={activeWatermark.color ?? "#000000"}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            // enforce #RRGGBB pattern
+                            if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return
+                            updateWatermark(activeWatermark.id, {
+                              color: value,
+                            })
+                          }}
+                          className="h-10 w-20 p-1 cursor-pointer"
+                        />
+                        <span className="text-xs font-mono bg-background px-2 py-1 rounded border border-border">
+                          {activeWatermark.color ?? "#000000"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  {!sheetCollapsed && (
-                    <CardContent className="pt-0">
-                      {renderControlsContent(activeWatermark, true)}
-                    </CardContent>
-                  )}
-                </Card>
-              </div>
-            </div>
-          )}
+                )}
 
-          {/* Desktop floating popup */}
-          {!isMobile &&
-            (() => {
-              const wmEl = wmRefs.current[activeWatermark.id]
-              if (!wmEl) return null
-
-              const rect = wmEl.getBoundingClientRect()
-              const popupWidth = 320
-              const popupHeight = 420
-              const viewportWidth = window.innerWidth
-              const viewportHeight = window.innerHeight
-              const spacing = 10
-
-              let left = rect.right + spacing
-              let top = rect.top + rect.height / 2 - popupHeight / 2
-
-              if (left + popupWidth > viewportWidth - spacing) {
-                left = rect.left - popupWidth - spacing
-              }
-              if (left < spacing) {
-                left = Math.max(
-                  spacing,
-                  Math.min(viewportWidth - popupWidth - spacing, rect.left)
-                )
-                top = rect.bottom + spacing
-              }
-              top = Math.max(
-                spacing,
-                Math.min(viewportHeight - popupHeight - spacing, top)
-              )
-
-              return (
-                <Card
-                  id="watermark-popup"
-                  className="fixed z-50 w-80 shadow-lg"
-                  style={{ left, top }}
-                >
-                  <div className="flex justify-end p-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveId(null)}
-                      aria-label="Close watermark controls"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                {/* Logo upload if needed */}
+                {activeWatermark.type === "image" && !activeWatermark.src && (
+                  <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+                    <Label>Upload Logo</Label>
+                    <Input
+                      key={activeWatermark.id}
+                      type="file"
+                      accept={ALLOWED_IMAGE_TYPES.join(",")}
+                      onChange={(e) => handleLogoUpload(activeWatermark.id, e)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      PNG with transparency is recommended for best results.
+                    </p>
                   </div>
-                  <CardContent>
-                    {renderControlsContent(activeWatermark, false)}
-                  </CardContent>
-                </Card>
-              )
-            })()}
-        </>
-      )}
+                )}
 
-      {/* Hidden span for measuring text (used in drag clamping) */}
-      <span
-        ref={textMeasureRef}
-        className="fixed -left-[9999px] top-0 whitespace-nowrap pointer-events-none select-none"
-        style={{
-          visibility: "hidden",
-          fontSize: `${TEXT_BASE_FONT_SIZE * displayScale}px`,
-          fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          fontWeight: "bold",
-        }}
-      />
+                {/* Opacity */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Opacity</Label>
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                      {activeWatermark.opacity}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[activeWatermark.opacity]}
+                    onValueChange={(v) =>
+                      updateWatermark(activeWatermark.id, {
+                        opacity: v[0] ?? activeWatermark.opacity,
+                      })
+                    }
+                    min={10}
+                    max={100}
+                  />
+                </div>
+
+                {/* Scale */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Scale</Label>
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                      {activeWatermark.scale.toFixed(2)}x
+                    </span>
+                  </div>
+                  <Slider
+                    value={[activeWatermark.scale]}
+                    onValueChange={(v) =>
+                      updateWatermark(activeWatermark.id, {
+                        scale: v[0] ?? activeWatermark.scale,
+                      })
+                    }
+                    min={0.2}
+                    max={3}
+                    step={0.1}
+                  />
+                </div>
+
+                {/* Rotation */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Rotation</Label>
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                      {activeWatermark.rotation}°
+                    </span>
+                  </div>
+                  <Slider
+                    value={[activeWatermark.rotation]}
+                    onValueChange={(v) =>
+                      updateWatermark(activeWatermark.id, {
+                        rotation: v[0] ?? activeWatermark.rotation,
+                      })
+                    }
+                    min={-180}
+                    max={180}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
