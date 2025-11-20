@@ -5,69 +5,77 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/lib/notify";
 import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
+// Strip control characters except TAB/NL/CR
+const sanitize = (val: string) =>
+  val
+    .split("")
+    .filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 32 || code === 9 || code === 10 || code === 13;
+    })
+    .join("");
+
 export const UrlEncoder = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value;
-    
-    if (!validateTextLength(newText)) {
-      notify.error(`Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`);
-      setInput(truncateText(newText));
-      return;
+    let text = sanitize(e.target.value);
+
+    if (!validateTextLength(text)) {
+      notify.error(
+        `Text exceeds maximum length of ${MAX_TEXT_LENGTH.toLocaleString()} characters`
+      );
+      text = truncateText(text);
     }
-    
-    setInput(newText);
+
+    setInput(text);
   };
 
   const encode = () => {
-    const encoded = encodeURIComponent(input);
-    setOutput(encoded);
-  notify.success("URL encoded!");
+    try {
+      const encoded = encodeURIComponent(input);
+      setOutput(encoded);
+      notify.success("URL encoded!");
+    } catch {
+      notify.error("Encoding failed!");
+    }
   };
 
   const decode = () => {
     try {
       const decoded = decodeURIComponent(input);
       setOutput(decoded);
-  notify.success("URL decoded!");
-    } catch (e) {
-  notify.error("Decoding failed! Invalid encoded URL.");
+      notify.success("URL decoded!");
+    } catch {
+      notify.error("Decoding failed! Invalid encoded URL.");
     }
   };
 
   const copyToClipboard = async () => {
+    if (!output) return;
+
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(output);
         notify.success("Copied to clipboard!");
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = output;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-            notify.success("Copied to clipboard!");
-          } else {
-            notify.error("Failed to copy!");
-          }
-        } catch (err) {
-          console.error('Fallback: Failed to copy', err);
-          notify.error("Failed to copy to clipboard!");
-        }
-        
-        document.body.removeChild(textArea);
+        return;
       }
+
+      const ta = document.createElement("textarea");
+      ta.value = output;
+      ta.style.position = "fixed";
+      ta.style.left = "-999999px";
+      ta.style.opacity = "0"; // production-quality improvement
+      document.body.appendChild(ta);
+
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+
+      notify[ok ? "success" : "error"](ok ? "Copied!" : "Failed to copy!");
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error("Fallback copy failed:", err);
       notify.error("Failed to copy to clipboard!");
     }
   };
@@ -92,7 +100,15 @@ export const UrlEncoder = () => {
       <div className="flex flex-col sm:flex-row gap-2">
         <Button onClick={encode} className="w-full sm:w-auto">Encode</Button>
         <Button onClick={decode} variant="secondary" className="w-full sm:w-auto">Decode</Button>
-        {output && <Button onClick={copyToClipboard} variant="outline" className="w-full sm:w-auto">Copy Output</Button>}
+        {output && (
+          <Button
+            onClick={copyToClipboard}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            Copy Output
+          </Button>
+        )}
       </div>
 
       {output && (
