@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useCallback } from "react";
 import figlet from "figlet";
 

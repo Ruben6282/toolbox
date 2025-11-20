@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { validateTextLength, truncateText, MAX_TEXT_LENGTH } from "@/lib/security";
 
-const MAX_PATTERN_LENGTH = 500;
-const REGEX_TIMEOUT = 1000; // 1 second timeout for ReDoS protection
+/* -------------------------------------------------------------------------- */
+/*                               CONFIG / LIMITS                               */
+/* -------------------------------------------------------------------------- */
 
-// Strip control characters except tab/newline/CR
+const MAX_PATTERN_LENGTH = 500;
+const REGEX_TIMEOUT = 1000;
+
+/* strip dangerous control characters except tab/newline/CR */
 const sanitizeInput = (val: string) =>
   val
     .split("")
@@ -19,73 +23,135 @@ const sanitizeInput = (val: string) =>
     })
     .join("");
 
-export const RegexTester = () => {
+/* -------------------------------------------------------------------------- */
+/*                           INLINE WEB WORKER SOURCE                          */
+/* -------------------------------------------------------------------------- */
+
+const workerSource = `
+self.onmessage = (event) => {
+  const { pattern, flags, text, timeout } = event.data;
+
+  try {
+    if (!pattern) {
+      self.postMessage({ error: null, matches: null });
+      return;
+    }
+
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+    }, timeout);
+
+    const regex = new RegExp(pattern, flags);
+    const match = text.match(regex);
+
+    clearTimeout(timer);
+
+    if (timedOut) {
+      self.postMessage({
+        error: "Regex execution timed out (possible ReDoS).",
+        matches: null
+      });
+      return;
+    }
+
+    self.postMessage({
+      error: null,
+      matches: match
+    });
+  } catch (err) {
+    self.postMessage({
+      error: err instanceof Error ? err.message : String(err),
+      matches: null,
+    });
+  }
+};
+`;
+
+/* Utility to create worker URL */
+function createInlineWorker() {
+  const blob = new Blob([workerSource], { type: "application/javascript" });
+  return new Worker(URL.createObjectURL(blob));
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            COMPONENT: REGEX TESTER                          */
+/* -------------------------------------------------------------------------- */
+
+export function RegexTester() {
   const [pattern, setPattern] = useState("");
-  const [flags, setFlags] = useState({ g: true, i: false, m: false });
   const [testString, setTestString] = useState("");
+  const [flags, setFlags] = useState({ g: true, i: false, m: false });
+
   const [matches, setMatches] = useState<RegExpMatchArray | null>(null);
   const [error, setError] = useState("");
 
-  const test = (p: string, f: typeof flags, text: string) => {
-    try {
-      if (!p) {
-        setMatches(null);
-        setError("");
-        return;
-      }
+  const workerRef = useRef<Worker | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-      // ReDoS protection: timeout for regex execution
-      let timedOut = false;
+  /* Initialize worker once */
+  useEffect(() => {
+    if (!workerRef.current) workerRef.current = createInlineWorker();
 
-      const flagStr = (f.g ? "g" : "") + (f.i ? "i" : "") + (f.m ? "m" : "");
-      const regex = new RegExp(p, flagStr);
+    const worker = workerRef.current;
+    worker.onmessage = (e) => {
+      setMatches(e.data.matches);
+      setError(e.data.error || "");
+    };
 
-      // Set timeout
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-      }, REGEX_TIMEOUT);
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
 
-      if (timedOut) {
-        clearTimeout(timeoutId);
-        setError("Regex execution timeout (possible ReDoS pattern)");
-        setMatches(null);
-        return;
-      }
+  /* Debounced worker call */
+  const runWorker = (p: string, f: typeof flags, t: string) => {
+    if (!workerRef.current) return;
 
-      const result = text.match(regex);
-      clearTimeout(timeoutId);
-      
-      setMatches(result);
-      setError("");
-    } catch (e) {
-      setError((e as Error).message);
-      setMatches(null);
-    }
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    debounceTimer.current = setTimeout(() => {
+      const flagString =
+        (f.g ? "g" : "") + (f.i ? "i" : "") + (f.m ? "m" : "");
+
+      workerRef.current?.postMessage({
+        pattern: p,
+        flags: flagString,
+        text: t,
+        timeout: REGEX_TIMEOUT,
+      });
+    }, 200);
   };
 
-  const handlePatternChange = (newPattern: string) => {
-    const sanitized = sanitizeInput(newPattern).substring(0, MAX_PATTERN_LENGTH);
-    setPattern(sanitized);
-    if (sanitized) test(sanitized, flags, testString);
+  /* -------------------------------------------------------------------------- */
+  /*                               INPUT HANDLERS                                */
+  /* -------------------------------------------------------------------------- */
+
+  const handlePatternChange = (val: string) => {
+    const clean = sanitizeInput(val).slice(0, MAX_PATTERN_LENGTH);
+    setPattern(clean);
+    if (clean) runWorker(clean, flags, testString);
   };
 
   const handleFlagChange = (flag: keyof typeof flags) => {
     const newFlags = { ...flags, [flag]: !flags[flag] };
     setFlags(newFlags);
-    if (pattern) test(pattern, newFlags, testString);
+    if (pattern) runWorker(pattern, newFlags, testString);
   };
 
-  const handleTestStringChange = (text: string) => {
-    let sanitized = sanitizeInput(text);
-    if (!validateTextLength(sanitized)) {
-      sanitized = truncateText(sanitized);
-    }
-    setTestString(sanitized);
-    if (pattern) test(pattern, flags, sanitized);
+  const handleTestStringChange = (val: string) => {
+    let clean = sanitizeInput(val);
+    if (!validateTextLength(clean)) clean = truncateText(clean);
+    setTestString(clean);
+    if (pattern) runWorker(pattern, flags, clean);
   };
+
+  /* -------------------------------------------------------------------------- */
 
   return (
     <div className="space-y-4">
+      {/* PATTERN */}
       <Card>
         <CardHeader>
           <CardTitle>Regular Expression</CardTitle>
@@ -103,26 +169,25 @@ export const RegexTester = () => {
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
 
+          {/* FLAGS */}
           <div className="space-y-2">
             <Label>Flags</Label>
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox id="g" checked={flags.g} onCheckedChange={() => handleFlagChange("g")} />
-                <Label htmlFor="g" className="cursor-pointer">g (global)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="i" checked={flags.i} onCheckedChange={() => handleFlagChange("i")} />
-                <Label htmlFor="i" className="cursor-pointer">i (case-insensitive)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="m" checked={flags.m} onCheckedChange={() => handleFlagChange("m")} />
-                <Label htmlFor="m" className="cursor-pointer">m (multiline)</Label>
-              </div>
+            <div className="flex gap-6">
+              {(["g", "i", "m"] as const).map((flag) => (
+                <div key={flag} className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={flags[flag]}
+                    onCheckedChange={() => handleFlagChange(flag)}
+                  />
+                  <Label className="cursor-pointer">{flag}</Label>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* TEST STRING */}
       <Card>
         <CardHeader>
           <CardTitle>Test String</CardTitle>
@@ -138,23 +203,26 @@ export const RegexTester = () => {
         </CardContent>
       </Card>
 
+      {/* MATCH RESULTS */}
       {matches && (
         <Card>
           <CardHeader>
             <CardTitle>Matches Found: {matches.length}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {matches.map((match, i) => (
-                <div key={i} className="rounded-lg border bg-primary/5 p-3 font-mono text-sm">
-                  {match}
-                </div>
-              ))}
-            </div>
+          <CardContent className="space-y-2">
+            {matches.map((m, i) => (
+              <div
+                key={i}
+                className="rounded-md border bg-primary/5 p-2 text-sm font-mono"
+              >
+                {m}
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
 
+      {/* NO MATCH */}
       {pattern && testString && !matches && !error && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -164,4 +232,4 @@ export const RegexTester = () => {
       )}
     </div>
   );
-};
+}

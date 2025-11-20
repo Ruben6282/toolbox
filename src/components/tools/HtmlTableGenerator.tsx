@@ -3,75 +3,108 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Copy, RotateCcw, Table, Plus, Minus } from "lucide-react";
 import { notify } from "@/lib/notify";
+
+const MIN_ROWS = 1;
+const MAX_ROWS = 20;
+const MIN_COLS = 1;
+const MAX_COLS = 20;
+
+const createInitialTableData = (
+  rows: number,
+  columns: number,
+  hasHeader: boolean
+): string[][] => {
+  const data: string[][] = [];
+
+  for (let i = 0; i < rows; i++) {
+    const row: string[] = [];
+    for (let j = 0; j < columns; j++) {
+      if (hasHeader && i === 0) {
+        row.push(`Header ${j + 1}`);
+      } else {
+        row.push(`Cell ${i + 1},${j + 1}`);
+      }
+    }
+    data.push(row);
+  }
+
+  return data;
+};
+
+// Escape attribute values to avoid breaking HTML
+const escapeHtmlAttr = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
 export const HtmlTableGenerator = () => {
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(3);
-  const [tableData, setTableData] = useState<string[][]>([]);
   const [hasHeader, setHasHeader] = useState(true);
   const [tableClass, setTableClass] = useState("");
   const [tableId, setTableId] = useState("");
   const [borderWidth, setBorderWidth] = useState(1);
   const [cellPadding, setCellPadding] = useState(8);
-  const [cellSpacing, setCellSpacing] = useState(0);
+  const [cellSpacing, setCellSpacing] = useState(0); // reserved for future use / CSS
+  const [tableData, setTableData] = useState<string[][]>(() =>
+    createInitialTableData(3, 3, true)
+  );
 
-  // Initialize table data
   const initializeTableData = () => {
-    const data: string[][] = [];
-    for (let i = 0; i < rows; i++) {
-      const row: string[] = [];
-      for (let j = 0; j < columns; j++) {
-        if (hasHeader && i === 0) {
-          row.push(`Header ${j + 1}`);
-        } else {
-          row.push(`Cell ${i + 1},${j + 1}`);
-        }
-      }
-      data.push(row);
-    }
+    const safeRows = Math.min(MAX_ROWS, Math.max(MIN_ROWS, rows));
+    const safeCols = Math.min(MAX_COLS, Math.max(MIN_COLS, columns));
+    const data = createInitialTableData(safeRows, safeCols, hasHeader);
+    setRows(safeRows);
+    setColumns(safeCols);
     setTableData(data);
   };
 
-  const updateTableData = (rowIndex: number, colIndex: number, value: string) => {
-    const newData = [...tableData];
-    newData[rowIndex][colIndex] = value;
-    setTableData(newData);
-  };
-
   const generateHTML = () => {
+    const safeRows = Math.min(MAX_ROWS, Math.max(MIN_ROWS, rows));
+    const safeCols = Math.min(MAX_COLS, Math.max(MIN_COLS, columns));
     let html = `<table`;
-    
-    if (tableId) {
-      html += ` id="${tableId}"`;
+
+    if (tableId.trim()) {
+      html += ` id="${escapeHtmlAttr(tableId.trim())}"`;
     }
-    
-    if (tableClass) {
-      html += ` class="${tableClass}"`;
+
+    if (tableClass.trim()) {
+      html += ` class="${escapeHtmlAttr(tableClass.trim())}"`;
     }
-    
-  html += ` style="border-collapse: collapse; border-width: ${borderWidth}px; border-style: solid;"`;
+
+    html += ` style="border-collapse: collapse; border-width: ${borderWidth}px; border-style: solid;"`;
     html += `>\n`;
 
-    // Add header row if specified
+    // Header row
     if (hasHeader && tableData.length > 0) {
       html += `  <thead>\n    <tr>\n`;
-      for (let j = 0; j < columns; j++) {
-        html += `      <th style="border-width: ${borderWidth}px; border-style: solid; padding: ${cellPadding}px;">${tableData[0][j] || ''}</th>\n`;
+      for (let j = 0; j < safeCols; j++) {
+        const content = tableData[0]?.[j] ?? "";
+        html += `      <th style="border-width: ${borderWidth}px; border-style: solid; padding: ${cellPadding}px;">${content}</th>\n`;
       }
       html += `    </tr>\n  </thead>\n`;
     }
 
-    // Add body rows
+    // Body rows
     html += `  <tbody>\n`;
     const startRow = hasHeader ? 1 : 0;
-    for (let i = startRow; i < rows; i++) {
+    for (let i = startRow; i < safeRows; i++) {
       html += `    <tr>\n`;
-      for (let j = 0; j < columns; j++) {
-        const cellContent = tableData[i]?.[j] || '';
+      for (let j = 0; j < safeCols; j++) {
+        const cellContent = tableData[i]?.[j] ?? "";
         html += `      <td style="border-width: ${borderWidth}px; border-style: solid; padding: ${cellPadding}px;">${cellContent}</td>\n`;
       }
       html += `    </tr>\n`;
@@ -88,18 +121,20 @@ export const HtmlTableGenerator = () => {
     css += `  border-width: ${borderWidth}px;\n`;
     css += `  border-style: solid;\n`;
     css += `  border-color: #000;\n`;
-    if (tableClass) {
-      css += `  /* Additional styles for .${tableClass} */\n`;
+    if (tableClass.trim()) {
+      css += `  /* Additional styles for .${tableClass.trim()} */\n`;
     }
     css += `}\n\n`;
-    
+
     css += `th, td {\n`;
-    css += `  border-width: ${cellSpacing === 0 ? borderWidth : Math.max(1, borderWidth)}px;\n`;
+    css += `  border-width: ${
+      cellSpacing === 0 ? borderWidth : Math.max(1, borderWidth)
+    }px;\n`;
     css += `  border-style: solid;\n`;
     css += `  border-color: #000;\n`;
     css += `  padding: ${cellPadding}px;\n`;
     css += `}\n\n`;
-    
+
     if (hasHeader) {
       css += `th {\n`;
       css += `  background-color: #f3f4f6; /* light gray */\n`;
@@ -108,7 +143,6 @@ export const HtmlTableGenerator = () => {
       css += `}\n\n`;
     }
 
-    // Dark mode styles
     css += `@media (prefers-color-scheme: dark) {\n`;
     css += `  table {\n`;
     css += `    border-color: #374151; /* gray-700 */\n`;
@@ -133,11 +167,10 @@ export const HtmlTableGenerator = () => {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-  notify.success("Copied to clipboard!");
+        notify.success("Copied to clipboard!");
         return;
       }
 
-      // Fallback for older browsers/mobile
       const textArea = document.createElement("textarea");
       textArea.value = text;
       textArea.style.position = "fixed";
@@ -146,36 +179,35 @@ export const HtmlTableGenerator = () => {
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      const successful = document.execCommand('copy');
+      const successful = document.execCommand("copy");
       document.body.removeChild(textArea);
+
       if (successful) {
-  notify.success("Copied to clipboard!");
+        notify.success("Copied to clipboard!");
       } else {
-  notify.error("Failed to copy");
+        notify.error("Failed to copy");
       }
     } catch (err) {
-      console.error('Failed to copy: ', err);
-  notify.error("Failed to copy");
+      console.error("Failed to copy: ", err);
+      notify.error("Failed to copy");
     }
   };
 
   const clearAll = () => {
     setRows(3);
     setColumns(3);
-    setTableData([]);
     setHasHeader(true);
     setTableClass("");
     setTableId("");
     setBorderWidth(1);
     setCellPadding(8);
     setCellSpacing(0);
-    notify.success("All fields cleared!");
+    setTableData(createInitialTableData(3, 3, true));
+    notify.success("All fields reset!");
   };
 
-  // Initialize table data when component mounts or when dimensions change
-  useState(() => {
-    initializeTableData();
-  });
+  const safeRows = Math.min(MAX_ROWS, Math.max(MIN_ROWS, rows));
+  const safeCols = Math.min(MAX_COLS, Math.max(MIN_COLS, columns));
 
   return (
     <div className="space-y-6">
@@ -184,29 +216,42 @@ export const HtmlTableGenerator = () => {
           <CardTitle>HTML Table Generator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Rows / Columns */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Rows: {rows}</Label>
+              <Label>Rows: {safeRows}</Label>
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => setRows(Math.max(1, rows - 1))}
+                  onClick={() => setRows((r) => Math.max(MIN_ROWS, r - 1))}
                   size="sm"
                   variant="outline"
+                  type="button"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
                 <Input
                   type="number"
-                  min="1"
-                  max="20"
+                  min={MIN_ROWS}
+                  max={MAX_ROWS}
                   value={rows}
-                  onChange={(e) => setRows(parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    setRows(
+                      Math.min(
+                        MAX_ROWS,
+                        Math.max(
+                          MIN_ROWS,
+                          Number.parseInt(e.target.value, 10) || MIN_ROWS
+                        )
+                      )
+                    )
+                  }
                   className="text-center"
                 />
                 <Button
-                  onClick={() => setRows(Math.min(20, rows + 1))}
+                  onClick={() => setRows((r) => Math.min(MAX_ROWS, r + 1))}
                   size="sm"
                   variant="outline"
+                  type="button"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -214,27 +259,39 @@ export const HtmlTableGenerator = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Columns: {columns}</Label>
+              <Label>Columns: {safeCols}</Label>
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => setColumns(Math.max(1, columns - 1))}
+                  onClick={() => setColumns((c) => Math.max(MIN_COLS, c - 1))}
                   size="sm"
                   variant="outline"
+                  type="button"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
                 <Input
                   type="number"
-                  min="1"
-                  max="20"
+                  min={MIN_COLS}
+                  max={MAX_COLS}
                   value={columns}
-                  onChange={(e) => setColumns(parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    setColumns(
+                      Math.min(
+                        MAX_COLS,
+                        Math.max(
+                          MIN_COLS,
+                          Number.parseInt(e.target.value, 10) || MIN_COLS
+                        )
+                      )
+                    )
+                  }
                   className="text-center"
                 />
                 <Button
-                  onClick={() => setColumns(Math.min(20, columns + 1))}
+                  onClick={() => setColumns((c) => Math.min(MAX_COLS, c + 1))}
                   size="sm"
                   variant="outline"
+                  type="button"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -242,6 +299,7 @@ export const HtmlTableGenerator = () => {
             </div>
           </div>
 
+          {/* Class / ID */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="table-class">CSS Class</Label>
@@ -264,32 +322,34 @@ export const HtmlTableGenerator = () => {
             </div>
           </div>
 
+          {/* Border / Padding / Header */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Border Width: {borderWidth}px</Label>
-              <Input
-                type="range"
-                min="0"
-                max="5"
-                value={borderWidth}
-                onChange={(e) => setBorderWidth(parseInt(e.target.value))}
+              <Slider
+                value={[borderWidth]}
+                onValueChange={(v) => setBorderWidth(v[0] ?? 0)}
+                min={0}
+                max={5}
               />
             </div>
 
             <div className="space-y-2">
               <Label>Cell Padding: {cellPadding}px</Label>
-              <Input
-                type="range"
-                min="0"
-                max="20"
-                value={cellPadding}
-                onChange={(e) => setCellPadding(parseInt(e.target.value))}
+              <Slider
+                value={[cellPadding]}
+                onValueChange={(v) => setCellPadding(v[0] ?? 0)}
+                min={0}
+                max={20}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="has-header">Header Row</Label>
-              <Select value={hasHeader.toString()} onValueChange={(value) => setHasHeader(value === "true")}>
+              <Select
+                value={hasHeader.toString()}
+                onValueChange={(value) => setHasHeader(value === "true")}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select header option" />
                 </SelectTrigger>
@@ -301,18 +361,31 @@ export const HtmlTableGenerator = () => {
             </div>
           </div>
 
-          <Button onClick={() => { initializeTableData(); notify.success("Table generated!"); }} className="w-full">
+          <Button
+            type="button"
+            onClick={() => {
+              initializeTableData();
+              notify.success("Table generated!");
+            }}
+            className="w-full"
+          >
             <Table className="h-4 w-4 mr-2" />
             Generate Table
           </Button>
 
-          <Button onClick={clearAll} variant="outline" className="w-full">
+          <Button
+            type="button"
+            onClick={clearAll}
+            variant="outline"
+            className="w-full"
+          >
             <RotateCcw className="h-4 w-4 mr-2" />
             Clear All
           </Button>
         </CardContent>
       </Card>
 
+      {/* Preview */}
       {tableData.length > 0 && (
         <Card>
           <CardHeader>
@@ -323,51 +396,54 @@ export const HtmlTableGenerator = () => {
               <table
                 className="w-full border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 style={{
-                  borderCollapse: 'collapse',
-                  borderWidth: borderWidth,
-                  borderStyle: 'solid',
+                  borderCollapse: "collapse",
+                  borderWidth,
+                  borderStyle: "solid",
                 }}
               >
                 {hasHeader && (
                   <thead>
                     <tr>
-                      {Array.from({ length: columns }, (_, j) => (
+                      {Array.from({ length: safeCols }, (_, j) => (
                         <th
                           key={j}
                           className="border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 font-semibold"
                           style={{
-                            borderWidth: borderWidth,
-                            borderStyle: 'solid',
+                            borderWidth,
+                            borderStyle: "solid",
                             padding: `${cellPadding}px`,
                           }}
                         >
-                          {tableData[0]?.[j] || ''}
+                          {tableData[0]?.[j] ?? ""}
                         </th>
                       ))}
                     </tr>
                   </thead>
                 )}
                 <tbody>
-                  {Array.from({ length: hasHeader ? rows - 1 : rows }, (_, i) => {
-                    const rowIndex = hasHeader ? i + 1 : i;
-                    return (
-                      <tr key={i}>
-                        {Array.from({ length: columns }, (_, j) => (
-                          <td
-                            key={j}
-                            className="border border-gray-300 dark:border-gray-700"
-                            style={{
-                              borderWidth: borderWidth,
-                              borderStyle: 'solid',
-                              padding: `${cellPadding}px`
-                            }}
-                          >
-                            {tableData[rowIndex]?.[j] || ''}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                  {Array.from(
+                    { length: hasHeader ? safeRows - 1 : safeRows },
+                    (_, i) => {
+                      const rowIndex = hasHeader ? i + 1 : i;
+                      return (
+                        <tr key={i}>
+                          {Array.from({ length: safeCols }, (_, j) => (
+                            <td
+                              key={j}
+                              className="border border-gray-300 dark:border-gray-700"
+                              style={{
+                                borderWidth,
+                                borderStyle: "solid",
+                                padding: `${cellPadding}px`,
+                              }}
+                            >
+                              {tableData[rowIndex]?.[j] ?? ""}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    }
+                  )}
                 </tbody>
               </table>
             </div>
@@ -375,16 +451,18 @@ export const HtmlTableGenerator = () => {
         </Card>
       )}
 
+      {/* Generated HTML & CSS */}
       {tableData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Generated HTML</CardTitle>
+            <CardTitle>Generated HTML & CSS</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label>HTML Code</Label>
               <div className="flex justify-start">
                 <Button
+                  type="button"
                   onClick={() => copyToClipboard(generateHTML())}
                   variant="outline"
                   className="mb-2"
@@ -404,6 +482,7 @@ export const HtmlTableGenerator = () => {
               <Label>CSS Styles</Label>
               <div className="flex justify-start">
                 <Button
+                  type="button"
                   onClick={() => copyToClipboard(generateCSS())}
                   variant="outline"
                   className="mb-2"
