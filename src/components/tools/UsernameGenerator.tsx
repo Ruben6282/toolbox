@@ -239,11 +239,40 @@ export const UsernameGenerator = () => {
                 type="number"
                 min={MIN_COUNT}
                 max={MAX_COUNT}
+                inputMode="numeric"
                 value={usernameCount}
-                onChange={(e) => setUsernameCount(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+
+                  // allow empty temporarily
+                  if (raw === "") {
+                    setUsernameCount("");
+                    return;
+                  }
+
+                  // must be digits only
+                  if (!/^\d+$/.test(raw)) return;
+
+                  const num = Number(raw);
+
+                  // hard block max
+                  if (num > MAX_COUNT) {
+                    setUsernameCount(String(MAX_COUNT));
+                    return;
+                  }
+
+                  // allow any value >= min (do NOT clamp min while typing)
+                  setUsernameCount(raw);
+                }}
                 onBlur={() => {
+                  // empty → fallback to MIN
+                  if (usernameCount.trim() === "") {
+                    setUsernameCount(String(MIN_COUNT));
+                    return;
+                  }
+
                   const n = Number(usernameCount);
-                  setUsernameCount(String(clamp(n || MIN_COUNT, MIN_COUNT, MAX_COUNT)));
+                  setUsernameCount(String(clamp(n, MIN_COUNT, MAX_COUNT)));
                 }}
               />
             </div>
@@ -269,11 +298,36 @@ export const UsernameGenerator = () => {
                 type="number"
                 min={MIN_LEN}
                 max={MAX_LEN}
+                inputMode="numeric"
                 value={minLength}
-                onChange={(e) => setMinLength(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+
+                  if (raw === "") {
+                    setMinLength("");
+                    return;
+                  }
+
+                  if (!/^\d+$/.test(raw)) return;
+
+                  const num = Number(raw);
+
+                  // prevent typing above max
+                  if (num > MAX_LEN) {
+                    setMinLength(String(MAX_LEN));
+                    return;
+                  }
+
+                  setMinLength(raw);
+                }}
                 onBlur={() => {
+                  if (minLength.trim() === "") {
+                    setMinLength(String(MIN_LEN));
+                    return;
+                  }
+
                   const n = Number(minLength);
-                  setMinLength(String(clamp(n || MIN_LEN, MIN_LEN, MAX_LEN)));
+                  setMinLength(String(clamp(n, MIN_LEN, MAX_LEN)));
                 }}
               />
             </div>
@@ -285,13 +339,40 @@ export const UsernameGenerator = () => {
                 type="number"
                 min={MIN_LEN}
                 max={MAX_LEN}
+                inputMode="numeric"
                 value={maxLength}
-                onChange={(e) => setMaxLength(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+
+                  if (raw === "") {
+                    setMaxLength("");
+                    return;
+                  }
+
+                  if (!/^\d+$/.test(raw)) return;
+
+                  const num = Number(raw);
+
+                  // hard block above MAX_LEN
+                  if (num > MAX_LEN) {
+                    setMaxLength(String(MAX_LEN));
+                    return;
+                  }
+
+                  setMaxLength(raw);
+                }}
                 onBlur={() => {
+                  if (maxLength.trim() === "") {
+                    setMaxLength(String(MAX_LEN));
+                    return;
+                  }
+
                   const n = Number(maxLength);
-                  let fixed = clamp(n || MAX_LEN, MIN_LEN, MAX_LEN);
+                  let fixed = clamp(n, MIN_LEN, MAX_LEN);
+
                   const minNum = clamp(Number(minLength) || MIN_LEN, MIN_LEN, MAX_LEN);
-                  if (fixed < minNum) fixed = minNum; // 🔒 ensure max ≥ min
+                  if (fixed < minNum) fixed = minNum; // ensure max ≥ min
+
                   setMaxLength(String(fixed));
                 }}
               />

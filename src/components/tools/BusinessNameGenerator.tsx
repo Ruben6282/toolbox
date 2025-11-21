@@ -388,11 +388,40 @@ export const BusinessNameGenerator = () => {
                 type="number"
                 min={MIN_NAMES}
                 max={MAX_NAMES}
+                inputMode="numeric"
                 value={count}
-                onChange={(e) => setCount(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+
+                  // Allow the user to temporarily delete everything
+                  if (raw === "") {
+                    setCount("");
+                    return;
+                  }
+
+                  // Block non-numeric
+                  if (!/^\d+$/.test(raw)) return;
+
+                  const num = Number(raw);
+
+                  // Prevent typing anything higher than MAX immediately
+                  if (num > MAX_NAMES) {
+                    setCount(String(MAX_NAMES));
+                    return;
+                  }
+
+                  // Allow numbers >= MIN (do NOT clamp min while typing)
+                  setCount(raw);
+                }}
                 onBlur={() => {
+                  // If user leaves it empty, fall back to MIN
+                  if (count.trim() === "") {
+                    setCount(String(MIN_NAMES));
+                    return;
+                  }
+
                   const n = Number(count);
-                  setCount(String(clamp(n || MIN_NAMES, MIN_NAMES, MAX_NAMES)));
+                  setCount(String(clamp(n, MIN_NAMES, MAX_NAMES)));
                 }}
               />
             </div>

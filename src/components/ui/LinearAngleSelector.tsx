@@ -73,21 +73,46 @@ export const LinearAngleSelector = ({ value, onChange }: Props) => {
   }, [stopDrag, updateAngleFromEvent]);
 
   // ---------------------------------------
-  // Manual input
+  // Manual input (with real-time clamp to 360 only on typed input)
   // ---------------------------------------
   const handleInputChange = (val: string) => {
     setInputValue(val);
 
+    // Allow temporary clear
     if (val.trim() === "") {
+      // Don't clamp here — treat empty as 0 but don't clamp circle-driven changes
       onChange(0);
       return;
     }
 
+    // Digits only
+    if (!/^\d+$/.test(val)) return;
+
     const num = Number(val);
-    if (!Number.isNaN(num)) {
-      const clamped = Math.max(0, Math.min(360, num));
-      onChange(clamped);
+
+    // Hard block > 360 while typing (NO clamp below 0)
+    if (num > 360) {
+      setInputValue("360");
+      onChange(360);
+      return;
     }
+
+    // Allow free range 0–360
+    onChange(num);
+  };
+
+  // Enforce final clamp on blur
+  const handleBlur = () => {
+    if (inputValue.trim() === "") {
+      setInputValue("0");
+      onChange(0);
+      return;
+    }
+
+    const num = Number(inputValue);
+    const clamped = Math.max(0, Math.min(360, num));
+    setInputValue(String(clamped));
+    onChange(clamped);
   };
 
   // ---------------------------------------
@@ -129,6 +154,7 @@ export const LinearAngleSelector = ({ value, onChange }: Props) => {
         inputMode="numeric"
         value={inputValue}
         onChange={(e) => handleInputChange(e.target.value)}
+        onBlur={handleBlur}
         className="w-16 text-center"
         placeholder="0"
       />

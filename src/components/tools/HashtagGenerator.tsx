@@ -278,10 +278,41 @@ export const HashtagGenerator = () => {
                 type="number"
                 min={MIN_COUNT}
                 max={platformCfg.max}
-                value={count}
-                onChange={(e) =>
-                  setCount(clamp(parseInt(e.target.value, 10), platformCfg.max))
-                }
+                inputMode="numeric"
+                value={Number.isNaN(count) ? "" : String(count)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+
+                  // allow temporary clearing
+                  if (raw === "") {
+                    setCount(NaN); // still a number, no any
+                    return;
+                  }
+
+                  // digits only
+                  if (!/^\d+$/.test(raw)) return;
+
+                  const num = Number(raw);
+
+                  // hard block above platform max
+                  if (num > platformCfg.max) {
+                    setCount(platformCfg.max);
+                    return;
+                  }
+
+                  // allow ≥ 1 while typing (no min clamp yet)
+                  setCount(num);
+                }}
+                onBlur={() => {
+                  // if empty/NaN after blur → fallback to MIN_COUNT
+                  if (Number.isNaN(count)) {
+                    setCount(MIN_COUNT);
+                    return;
+                  }
+
+                  const fixed = Math.max(MIN_COUNT, Math.min(platformCfg.max, count));
+                  setCount(fixed);
+                }}
               />
               <p className="text-xs text-muted-foreground">
                 Max {platformCfg.max} for {platformCfg.label}
