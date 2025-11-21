@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,66 +28,64 @@ type Style = "mixed" | "adjective-noun" | "tech" | "nature";
 const ALLOWED_STYLES: Style[] = ["mixed", "adjective-noun", "tech", "nature"];
 
 /* -----------------------------
-   SECURE UNBIASED RANDOM
+   SECURE RANDOM
 ----------------------------- */
-
 const secureRandom = (max: number): number => {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
     const arr = new Uint32Array(1);
-    const limit = Math.floor(0xffffffff / max) * max; // unbiased region
-
+    const limit = Math.floor(0xffffffff / max) * max;
     while (true) {
       crypto.getRandomValues(arr);
       if (arr[0] < limit) return arr[0] % max;
     }
   }
-
-  // fallback—uniform but not secure
   return Math.floor(Math.random() * max);
 };
 
 /* -----------------------------
-   WORD BANKS (deduplicated)
+   WORD BANKS (deduped)
 ----------------------------- */
 
-const adjectives = [
-  "cool", "awesome", "amazing", "brilliant", "creative", "dynamic", "epic",
-  "fantastic", "genius", "heroic", "incredible", "jovial", "keen", "legendary",
-  "magnificent", "noble", "outstanding", "powerful", "quick", "radiant", "stellar",
-  "titanic", "ultimate", "vibrant", "wonderful", "xenial", "youthful", "zealous"
-];
+const uniq = (arr: string[]) => Array.from(new Set(arr));
 
-const nouns = [
-  "warrior", "ninja", "wizard", "knight", "hero", "champion", "legend", "master",
-  "phoenix", "dragon", "tiger", "eagle", "wolf", "lion", "bear", "hunter",
-  "explorer", "adventurer", "guardian", "protector", "savior", "guru", "sensei",
-  "mentor", "leader"
-];
+const adjectives = uniq([
+  "cool","awesome","amazing","brilliant","creative","dynamic","epic",
+  "fantastic","genius","heroic","incredible","jovial","keen","legendary",
+  "magnificent","noble","outstanding","powerful","quick","radiant","stellar",
+  "titanic","ultimate","vibrant","wonderful","xenial","youthful","zealous"
+]);
 
-const techWords = [
-  "code", "byte", "pixel", "data", "cyber", "digital", "virtual", "quantum",
-  "binary", "algorithm", "matrix", "neural", "crypto", "blockchain", "cloud",
-  "server", "client", "database", "network", "protocol", "interface", "system"
-];
+const nouns = uniq([
+  "warrior","ninja","wizard","knight","hero","champion","legend","master",
+  "phoenix","dragon","tiger","eagle","wolf","lion","bear","hunter",
+  "explorer","adventurer","guardian","protector","savior","guru","sensei",
+  "mentor","leader"
+]);
 
-const natureWords = [
-  "forest", "mountain", "ocean", "river", "valley", "canyon", "meadow", "garden",
-  "flower", "tree", "leaf", "stone", "crystal", "gem", "star", "moon", "sun",
-  "sky", "cloud", "rain", "snow", "wind", "fire", "earth", "water"
-];
+const techWords = uniq([
+  "code","byte","pixel","data","cyber","digital","virtual","quantum",
+  "binary","algorithm","matrix","neural","crypto","blockchain","cloud",
+  "server","client","database","network","protocol","interface","system"
+]);
+
+const natureWords = uniq([
+  "forest","mountain","ocean","river","valley","canyon","meadow","garden",
+  "flower","tree","leaf","stone","crystal","gem","star","moon","sun",
+  "sky","cloud","rain","snow","wind","fire","earth","water"
+]);
 
 const numbers = "0123456789";
 const specialChars = "!@#$%^&*";
 
 /* -----------------------------
-   GENERATION HELPERS
+   HELPERS
 ----------------------------- */
 
 const coerceStyle = (val: string): Style =>
   ALLOWED_STYLES.includes(val as Style) ? (val as Style) : "mixed";
 
-const clamp = (val: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, val));
+const clamp = (v: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, v));
 
 const pick = (arr: string[]) => arr[secureRandom(arr.length)];
 const pickChar = (str: string) => str[secureRandom(str.length)];
@@ -100,23 +98,21 @@ function makeBaseName(style: Style): string {
       return pick(techWords) + pick(techWords);
     case "nature":
       return pick(natureWords) + pick(natureWords);
-    default:
-        {
-          const all = [...adjectives, ...nouns, ...techWords, ...natureWords];
-          return pick(all) + pick(all);
-        }
+    default: {
+      const all = [...adjectives, ...nouns, ...techWords, ...natureWords];
+      return pick(all) + pick(all);
+    }
   }
 }
 
-function padToLength(name: string, minLength: number): string {
-  while (name.length < minLength) {
-    name += pickChar(numbers);
-  }
+function padToLength(name: string, minLength: number) {
+  while (name.length < minLength) name += pickChar(numbers);
   return name;
 }
 
-function trimToLength(name: string, maxLength: number): string {
-  return name.length > maxLength ? name.slice(0, maxLength) : name;
+function trimToLength(name: string, maxLength: number) {
+  const trimmed = name.slice(0, maxLength);
+  return trimmed.length === 0 ? pick(adjectives) : trimmed;
 }
 
 /* -----------------------------
@@ -124,68 +120,107 @@ function trimToLength(name: string, maxLength: number): string {
 ----------------------------- */
 
 export const UsernameGenerator = () => {
-  const [usernameCount, setUsernameCount] = useState(5);
+  const [usernameCount, setUsernameCount] = useState("5");
   const [style, setStyle] = useState<Style>("mixed");
   const [includeNumbers, setIncludeNumbers] = useState(true);
   const [includeSpecialChars, setIncludeSpecialChars] = useState(false);
-  const [minLength, setMinLength] = useState(6);
-  const [maxLength, setMaxLength] = useState(12);
+  const [minLength, setMinLength] = useState("6");
+  const [maxLength, setMaxLength] = useState("12");
   const [generated, setGenerated] = useState<string[]>([]);
 
-  const generateOne = (): string => {
+  /* -----------------------------
+     GENERATE ONE
+  ----------------------------- */
+  const generateOne = useCallback((overrideMin?: number, overrideMax?: number): string => {
     let name = makeBaseName(style);
 
     if (includeNumbers) {
-      const count = secureRandom(3) + 1; // 1–3 numbers
+      const count = secureRandom(3) + 1;
       for (let i = 0; i < count; i++) name += pickChar(numbers);
     }
 
     if (includeSpecialChars) {
-      const count = secureRandom(2) + 1; // 1–2 specials
+      const count = secureRandom(2) + 1;
       for (let i = 0; i < count; i++) name += pickChar(specialChars);
     }
 
-    const minL = clamp(minLength, MIN_LEN, MAX_LEN);
-    const maxL = clamp(maxLength, minL, MAX_LEN);
+    const parsedMin = typeof overrideMin === "number" ? overrideMin : Number(minLength);
+    const parsedMax = typeof overrideMax === "number" ? overrideMax : Number(maxLength);
 
-    name = padToLength(name, minL);
-    name = trimToLength(name, maxL);
+    const minNum = clamp(parsedMin || MIN_LEN, MIN_LEN, MAX_LEN);
+    let maxNum = clamp(parsedMax || MAX_LEN, MIN_LEN, MAX_LEN);
+
+    if (maxNum < minNum) maxNum = minNum; // 🔒 guarantee max ≥ min
+
+    name = padToLength(name, minNum);
+    name = trimToLength(name, maxNum);
 
     return name;
-  };
+  }, [includeNumbers, includeSpecialChars, minLength, maxLength, style]);
 
-  const generateMany = () => {
-    const count = clamp(usernameCount, MIN_COUNT, MAX_COUNT);
+  /* -----------------------------
+     GENERATE MANY
+  ----------------------------- */
+  const generateMany = useCallback(() => {
+    const parsed = Number(usernameCount);
+    const count = clamp(parsed || MIN_COUNT, MIN_COUNT, MAX_COUNT);
+
+    // Sanitize and enforce min/max length relationship before generating
+    const parsedMin = Number(minLength);
+    const parsedMax = Number(maxLength);
+    const minNum = clamp(parsedMin || MIN_LEN, MIN_LEN, MAX_LEN);
+    let maxNum = clamp(parsedMax || MAX_LEN, MIN_LEN, MAX_LEN);
+    if (maxNum < minNum) maxNum = minNum;
+
+    // Reflect sanitized values back into the inputs so the UI shows corrected values
+    setMinLength(String(minNum));
+    setMaxLength(String(maxNum));
+    setUsernameCount(String(count));
+
     const result = new Set<string>();
-    const limit = count * 5;
+    const attemptsLimit = count * 5;
 
     let attempts = 0;
-    while (result.size < count && attempts < limit) {
-      result.add(generateOne());
+    while (result.size < count && attempts < attemptsLimit) {
+      result.add(generateOne(minNum, maxNum));
       attempts++;
     }
 
     setGenerated([...result]);
-    notify.success(`Generated ${result.size} usernames!`);
-  };
 
-  const copyOne = async (name: string) => {
+    if (result.size < count) {
+      notify.warning(
+        `Generated ${result.size} unique usernames — word bank exhausted.`
+      );
+    } else {
+      notify.success(`Generated ${result.size} usernames!`);
+    }
+  }, [usernameCount, generateOne, minLength, maxLength]);
+
+  /* -----------------------------
+     COPY HANDLERS
+  ----------------------------- */
+  const copyOne = useCallback(async (name: string) => {
     try {
       await navigator.clipboard.writeText(name);
       notify.success("Username copied!");
     } catch {
       notify.error("Failed to copy");
     }
-  };
+  }, []);
 
-  const copyAll = async () => {
+  const copyAll = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(generated.join("\n"));
       notify.success("All usernames copied!");
     } catch {
       notify.error("Failed to copy usernames");
     }
-  };
+  }, [generated]);
+
+  /* -----------------------------
+     RENDER
+  ----------------------------- */
 
   return (
     <div className="space-y-6">
@@ -197,7 +232,7 @@ export const UsernameGenerator = () => {
 
         <CardContent className="space-y-4">
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            
+            {/* COUNT */}
             <div>
               <Label>Number of Usernames</Label>
               <Input
@@ -205,12 +240,15 @@ export const UsernameGenerator = () => {
                 min={MIN_COUNT}
                 max={MAX_COUNT}
                 value={usernameCount}
-                onChange={(e) =>
-                  setUsernameCount(clamp(parseInt(e.target.value) || 1, MIN_COUNT, MAX_COUNT))
-                }
+                onChange={(e) => setUsernameCount(e.target.value)}
+                onBlur={() => {
+                  const n = Number(usernameCount);
+                  setUsernameCount(String(clamp(n || MIN_COUNT, MIN_COUNT, MAX_COUNT)));
+                }}
               />
             </div>
 
+            {/* STYLE */}
             <div>
               <Label>Style</Label>
               <Select value={style} onValueChange={(v) => setStyle(coerceStyle(v))}>
@@ -224,6 +262,7 @@ export const UsernameGenerator = () => {
               </Select>
             </div>
 
+            {/* MIN LENGTH */}
             <div>
               <Label>Minimum Length</Label>
               <Input
@@ -231,13 +270,15 @@ export const UsernameGenerator = () => {
                 min={MIN_LEN}
                 max={MAX_LEN}
                 value={minLength}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  setMinLength(clamp(isNaN(n) ? MIN_LEN : n, MIN_LEN, MAX_LEN));
+                onChange={(e) => setMinLength(e.target.value)}
+                onBlur={() => {
+                  const n = Number(minLength);
+                  setMinLength(String(clamp(n || MIN_LEN, MIN_LEN, MAX_LEN)));
                 }}
               />
             </div>
 
+            {/* MAX LENGTH */}
             <div>
               <Label>Maximum Length</Label>
               <Input
@@ -245,34 +286,44 @@ export const UsernameGenerator = () => {
                 min={MIN_LEN}
                 max={MAX_LEN}
                 value={maxLength}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  setMaxLength(clamp(isNaN(n) ? MAX_LEN : n, MIN_LEN, MAX_LEN));
+                onChange={(e) => setMaxLength(e.target.value)}
+                onBlur={() => {
+                  const n = Number(maxLength);
+                  let fixed = clamp(n || MAX_LEN, MIN_LEN, MAX_LEN);
+                  const minNum = clamp(Number(minLength) || MIN_LEN, MIN_LEN, MAX_LEN);
+                  if (fixed < minNum) fixed = minNum; // 🔒 ensure max ≥ min
+                  setMaxLength(String(fixed));
                 }}
               />
             </div>
           </div>
 
+          {/* OPTIONS */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="include-numbers"
                 checked={includeNumbers}
-                onCheckedChange={(v) => setIncludeNumbers(!!v)}
+                onCheckedChange={(v) => setIncludeNumbers(Boolean(v))}
               />
-              <Label htmlFor="include-numbers" className="cursor-pointer">Include Numbers</Label>
+              <Label htmlFor="include-numbers" className="cursor-pointer">
+                Include Numbers
+              </Label>
             </div>
 
             <div className="flex items-center gap-2">
               <Checkbox
                 id="include-special"
                 checked={includeSpecialChars}
-                onCheckedChange={(v) => setIncludeSpecialChars(!!v)}
+                onCheckedChange={(v) => setIncludeSpecialChars(Boolean(v))}
               />
-              <Label htmlFor="include-special" className="cursor-pointer">Include Special Characters</Label>
+              <Label htmlFor="include-special" className="cursor-pointer">
+                Include Special Characters
+              </Label>
             </div>
           </div>
 
+          {/* BUTTONS */}
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={generateMany}>Generate</Button>
             <Button variant="outline" onClick={() => setGenerated([])}>
@@ -293,11 +344,23 @@ export const UsernameGenerator = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
               {generated.map((name, i) => (
-                <div key={i} className="flex items-center justify-between bg-muted p-3 rounded-lg">
-                  <span className="font-mono text-sm">{name}</span>
-                  <Button size="sm" variant="outline" onClick={() => copyOne(name)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-muted p-3 rounded-lg overflow-hidden"
+                >
+                  <span className="font-mono text-sm break-all pr-2">{name}</span>
+
+                  {/* Mobile-safe button container */}
+                  <div className="flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="whitespace-nowrap"
+                      onClick={() => copyOne(name)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

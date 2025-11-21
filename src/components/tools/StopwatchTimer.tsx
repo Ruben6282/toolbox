@@ -162,15 +162,15 @@ export const StopwatchTimer = () => {
                 <div
                   key={index}
                   className={`flex justify-between p-3 rounded-lg border ${
-                    isFastest
-                      ? "bg-green-50 border-green-200"
-                      : isSlowest
-                      ? "bg-red-50 border-red-200"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
+                      isFastest
+                        ? "bg-green-50 border-green-200 dark:bg-green-900/25 dark:border-green-700"
+                        : isSlowest
+                        ? "bg-red-50 border-red-200 dark:bg-red-900/25 dark:border-red-700"
+                        : "bg-white border-gray-200 dark:bg-slate-900 dark:border-slate-700"
+                    }`}
                 >
-                  <span className="font-medium">Lap {index}</span>
-                  <span className="font-mono text-lg">{format(lap)}</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100">Lap {index}</span>
+                        <span className="font-mono text-lg text-slate-900 dark:text-slate-100">{format(lap)}</span>
                 </div>
               );
             })}
@@ -188,21 +188,21 @@ export const StopwatchTimer = () => {
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-300">
                   {format(stats.fastest)}
                 </div>
                 <div className="text-xs text-muted-foreground">Fastest</div>
               </div>
 
               <div>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-2xl font-bold text-red-600 dark:text-red-300">
                   {format(stats.slowest)}
                 </div>
                 <div className="text-xs text-muted-foreground">Slowest</div>
               </div>
 
               <div>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
                   {format(stats.average)}
                 </div>
                 <div className="text-xs text-muted-foreground">Average</div>

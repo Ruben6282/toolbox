@@ -272,7 +272,8 @@ export const BusinessNameGenerator = () => {
   const [keyword, setKeyword] = useState("");
   const [industry, setIndustry] = useState<Industry>("general");
   const [style, setStyle] = useState<Style>("all");
-  const [count, setCount] = useState(15);
+  // Allow the Number of Results input to be temporarily empty while typing
+  const [count, setCount] = useState<string>("15");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState<GeneratedName[]>([]);
 
@@ -280,7 +281,8 @@ export const BusinessNameGenerator = () => {
     setIsGenerating(true);
 
     setTimeout(() => {
-      const limit = clamp(count, MIN_NAMES, MAX_NAMES);
+      const parsed = Number(count);
+      const limit = clamp(parsed || MIN_NAMES, MIN_NAMES, MAX_NAMES);
       const names = new Map<string, GeneratedName>();
       let tries = 0;
 
@@ -387,7 +389,11 @@ export const BusinessNameGenerator = () => {
                 min={MIN_NAMES}
                 max={MAX_NAMES}
                 value={count}
-                onChange={(e) => setCount(clamp(parseInt(e.target.value) || 15, MIN_NAMES, MAX_NAMES))}
+                onChange={(e) => setCount(e.target.value)}
+                onBlur={() => {
+                  const n = Number(count);
+                  setCount(String(clamp(n || MIN_NAMES, MIN_NAMES, MAX_NAMES)));
+                }}
               />
             </div>
           </div>
@@ -451,30 +457,33 @@ export const BusinessNameGenerator = () => {
               <div
                 key={i}
                 className={`flex flex-col sm:flex-row justify-between gap-3 p-4 rounded-lg border ${
-                  item.favorite ? "bg-amber-50 border-amber-300" : "bg-muted/50"
+                  item.favorite
+                    ? "bg-amber-50 border-amber-300 dark:bg-amber-900/30 dark:border-amber-700"
+                    : "bg-muted/50 dark:bg-muted/800"
                 }`}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-lg break-words">
-                      {item.name}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {item.type}
-                    </Badge>
-                  </div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-lg break-all max-w-full">
+                        {item.name}
+                      </span>
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                        {item.type}
+                      </Badge>
+                    </div>
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="font-mono">{item.domain}</span>
-                    <a
-                      href={`https://${item.domain}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="h-4 w-4 text-primary" />
-                    </a>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                      <span className="font-mono break-all max-w-full">{item.domain}</span>
+                      <a
+                        href={`https://${item.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-1 flex-shrink-0"
+                      >
+                        <ExternalLink className="h-4 w-4 text-primary" />
+                      </a>
+                    </div>
                   </div>
-                </div>
 
                 <div className="flex items-center gap-2">
                   <Button

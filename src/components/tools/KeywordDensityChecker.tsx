@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,25 +11,34 @@ import { notify } from "@/lib/notify";
 import { SEO_LIMITS } from "@/lib/security";
 
 /**
- * KeywordDensityChecker - SEO-Realistic, Unicode-Aware
- *
- * SECURITY & PERFORMANCE:
- * - Max text size enforced via SEO_LIMITS.KEYWORD_TEXT
- * - Graceful truncation with user notification
- * - All rendering is via React text nodes (auto-escaped, XSS-safe)
- * - No dangerous HTML injection / innerHTML usage
- * - Pure in-memory processing, no network calls
- *
- * SEO-REALISTIC WORD MODEL:
- * - Allows letters + digits + hyphens + dots + underscores
- *   e.g. "covid-19", "ai-powered", "node.js", "web3", "gpt-4"
- * - Requires at least one letter to be treated as a keyword
- * - Fully Unicode-aware (supports accents & non-Latin scripts)
+ * PRODUCTION-READY: IMPROVED SEO WORD MODEL
+ * Allows letters/digits + ._-'
+ * Requires at least one letter.
  */
+const WORD_PATTERN = /^(?=.*\p{L})[\p{L}\p{N}._'-]+$/u;
 
-// Allow: letters, numbers, ., _, -
-// Require: at least one letter for SEO relevance
-const WORD_PATTERN = /^(?=.*\p{L})[\p{L}\p{N}._-]+$/u;
+/** English stop words (deduped via Set) */
+const COMMON_WORDS_SET = new Set(
+  Array.from(
+    new Set(
+      [
+        "the","be","to","of","and","a","in","that","have","i","it",
+        "for","not","on","with","he","as","you","do","at","this",
+        "but","his","by","from","they","we","say","her","she","or",
+        "an","will","my","one","all","would","there","their","what",
+        "so","up","out","if","about","who","get","which","go","me",
+        "when","make","can","like","time","no","just","him","know",
+        "take","people","into","year","your","good","some","could",
+        "them","see","other","than","then","now","look","only","come",
+        "its","over","think","also","back","after","use","two","how",
+        "our","work","first","well","way","even","new","want","because",
+        "any","these","give","day","most","us","is","are","was","were",
+        "been","being","has","had","does","did","should","may","might",
+        "must","shall","am"
+      ]
+    )
+  )
+);
 
 interface KeywordData {
   keyword: string;
@@ -44,191 +53,139 @@ export const KeywordDensityChecker = () => {
   const [excludeCommon, setExcludeCommon] = useState(true);
   const [customExclusions, setCustomExclusions] = useState("");
 
-  /**
-   * Handle text input with size limit and graceful truncation
-   */
-  const handleTextChange = (newText: string) => {
+  /** TEXT INPUT HANDLING WITH TRUNCATION */
+  const handleTextChange = useCallback((newText: string) => {
     if (newText.length > SEO_LIMITS.KEYWORD_TEXT) {
       notify.warning(
-        `Text exceeds ${(SEO_LIMITS.KEYWORD_TEXT / 1000).toFixed(
-          1
-        )}KB limit and was truncated`
+        `Text exceeds ${(SEO_LIMITS.KEYWORD_TEXT / 1000).toFixed(1)}KB and was truncated`
       );
-      setText(newText.substring(0, SEO_LIMITS.KEYWORD_TEXT));
+      setText(newText.slice(0, SEO_LIMITS.KEYWORD_TEXT));
     } else {
       setText(newText);
     }
-  };
+  }, []);
 
-  /**
-   * English common/stop words (lowercased)
-   * useMemo to avoid re-allocating the array on every render.
-   */
-  const commonWords = useMemo(
-    () => [
-      "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it",
-      "for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
-      "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
-      "an", "will", "my", "one", "all", "would", "there", "their", "what",
-      "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
-      "when", "make", "can", "like", "time", "no", "just", "him", "know",
-      "take", "people", "into", "year", "your", "good", "some", "could",
-      "them", "see", "other", "than", "then", "now", "look", "only", "come",
-      "its", "over", "think", "also", "back", "after", "use", "two", "how",
-      "our", "work", "first", "well", "way", "even", "new", "want", "because",
-      "any", "these", "give", "day", "most", "us", "is", "are", "was", "were",
-      "been", "being", "have", "has", "had", "do", "does", "did", "will",
-      "would", "could", "should", "may", "might", "must", "can", "shall",
-      "am"
-    ],
-    []
-  );
+  /** PRE-NORMALIZED TEXT (performance) */
+  const normalizedText = useMemo(() => text.toLowerCase(), [text]);
 
-  /**
-   * Core keyword analysis logic
-   */
+  /** CORE KEYWORD ANALYSIS */
   const keywordAnalysis = useMemo(() => {
-    if (!text.trim()) {
-      return { keywords: [] as KeywordData[], totalWords: 0, uniqueWords: 0 };
-    }
-
-    // Clamp minWordLength defensively (in case of weird numeric input)
-    const safeMinWordLength = Number.isFinite(minWordLength)
+    const safeMin = Number.isFinite(minWordLength)
       ? Math.min(Math.max(minWordLength, 1), 50)
       : 3;
 
-    // Normalize text:
-    // - Lowercase for case-insensitive analysis
-    // - Keep letters, digits, dots, underscores, hyphens and whitespace
-    // - Replace anything else with space
-    const cleanText = text
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s._-]+/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (!cleanText) {
+    if (!normalizedText.trim()) {
       return { keywords: [] as KeywordData[], totalWords: 0, uniqueWords: 0 };
     }
 
-    const tokens = cleanText.split(" ");
+    // Unicode-aware sanitization including apostrophes
+    const clean = normalizedText
+      .replace(/[^\p{L}\p{N}\s._'-]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    // Filter tokens to "SEO-realistic" words
+    if (!clean) {
+      return { keywords: [], totalWords: 0, uniqueWords: 0 };
+    }
+
+    const tokens = clean.split(" ");
+
+    // Filter by minimum length and allowed SEO word shape
     const words = tokens.filter(
-      (word) =>
-        word.length >= safeMinWordLength &&
-        WORD_PATTERN.test(word) // unicode-aware pattern
+      (w) => w.length >= safeMin && WORD_PATTERN.test(w)
     );
 
     const totalWords = words.length;
     if (totalWords === 0) {
-      return { keywords: [] as KeywordData[], totalWords: 0, uniqueWords: 0 };
+      return { keywords: [], totalWords: 0, uniqueWords: 0 };
     }
 
-    const wordCount: Record<string, number> = {};
-    const wordPositions: Record<string, number[]> = {};
+    // Count words + store positions
+    const count: Record<string, number> = {};
+    const pos: Record<string, number[]> = {};
 
-    // Count words & track positions (1-based index)
-    words.forEach((word, index) => {
-      if (!wordCount[word]) {
-        wordCount[word] = 0;
-        wordPositions[word] = [];
+    words.forEach((word, i) => {
+      if (!count[word]) {
+        count[word] = 0;
+        pos[word] = [];
       }
-      wordCount[word]++;
-      wordPositions[word].push(index + 1);
+      count[word]++;
+      pos[word].push(i + 1);
     });
 
-    // Build sanitized exclusion list from user input
-    const sanitizedCustomExclusions = customExclusions
-      .trim()
+    // Build exclusion list
+    const customList = customExclusions
       .toLowerCase()
-      .split(/[\s,]+/) // split on whitespace OR commas
-      .map((token) => token.trim())
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
       .filter(Boolean);
 
-    const exclusions = new Set<string>([
-      ...(excludeCommon ? commonWords : []),
-      ...sanitizedCustomExclusions
+    const exclusionSet = new Set([
+      ...(excludeCommon ? COMMON_WORDS_SET : []),
+      ...customList
     ]);
 
-    const keywords: KeywordData[] = Object.entries(wordCount)
-      .filter(([word]) => !exclusions.has(word))
+    const keywordList: KeywordData[] = Object.entries(count)
+      .filter(([word]) => !exclusionSet.has(word))
       .map(([word, count]) => ({
         keyword: word,
         count,
         density: (count / totalWords) * 100,
-        positions: wordPositions[word] ?? []
+        positions: pos[word]
       }))
       .sort((a, b) => b.count - a.count || a.keyword.localeCompare(b.keyword));
 
     return {
-      keywords,
+      keywords: keywordList,
       totalWords,
-      uniqueWords: keywords.length
+      uniqueWords: keywordList.length
     };
-  }, [text, minWordLength, excludeCommon, customExclusions, commonWords]);
+  }, [normalizedText, minWordLength, excludeCommon, customExclusions]);
 
-  /**
-   * Copy top results to clipboard with proper error handling
-   */
-  const copyResults = async () => {
-    if (keywordAnalysis.totalWords === 0 || keywordAnalysis.keywords.length === 0) {
-      notify.error("No analysis results to copy yet.");
+  /** COPY RESULTS */
+  const copyResults = useCallback(async () => {
+    const { keywords, totalWords, uniqueWords } = keywordAnalysis;
+    if (totalWords === 0 || keywords.length === 0) {
+      notify.error("No analysis results to copy.");
       return;
     }
 
-    const results = [
+    const text = [
       "Keyword Density Results (Top 20):",
-      `Total words: ${keywordAnalysis.totalWords}`,
-      `Unique keywords: ${keywordAnalysis.uniqueWords}`,
+      `Total words: ${totalWords}`,
+      `Unique keywords: ${uniqueWords}`,
       ""
     ]
       .concat(
-        keywordAnalysis.keywords.slice(0, 20).map((k) => {
-          return `${k.keyword}: ${k.count} time${
-            k.count !== 1 ? "s" : ""
-          } (${k.density.toFixed(2)}%)`;
-        })
+        keywords.slice(0, 20).map(
+          (k) =>
+            `${k.keyword}: ${k.count} time${k.count !== 1 ? "s" : ""} (${k.density.toFixed(2)}%)`
+        )
       )
       .join("\n");
 
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(results);
-        notify.success("Results copied to clipboard!");
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = results;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        const ok = document.execCommand("copy");
-        document.body.removeChild(textarea);
-        if (ok) {
-          notify.success("Results copied to clipboard!");
-        } else {
-          notify.error("Failed to copy results.");
-        }
-      }
-    } catch (err) {
-      console.error("Failed to copy: ", err);
-      notify.error("Failed to copy to clipboard!");
+      await navigator.clipboard.writeText(text);
+      notify.success("Results copied to clipboard!");
+    } catch {
+      notify.error("Failed to copy to clipboard.");
     }
-  };
+  }, [keywordAnalysis]);
 
-  const clearAll = () => {
+  /** CLEAR ALL */
+  const clearAll = useCallback(() => {
     setText("");
     setMinWordLength(3);
     setExcludeCommon(true);
     setCustomExclusions("");
-  };
+  }, []);
 
+  /** Density color (Dark-mode friendly) */
   const getDensityColor = (density: number) => {
-    if (density > 3) return "bg-red-100 text-red-800 border-red-200";
-    if (density > 2) return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    if (density > 1) return "bg-green-100 text-green-800 border-green-200";
-    return "bg-blue-100 text-blue-800 border-blue-200";
+    if (density > 3) return "bg-red-500/20 text-red-600 border-red-500/30";
+    if (density > 2) return "bg-yellow-500/20 text-yellow-700 border-yellow-500/30";
+    if (density > 1) return "bg-green-500/20 text-green-700 border-green-500/30";
+    return "bg-blue-500/20 text-blue-700 border-blue-500/30";
   };
 
   const getDensityStatus = (density: number) => {
@@ -240,6 +197,7 @@ export const KeywordDensityChecker = () => {
 
   return (
     <div className="space-y-6">
+      {/* INPUT CARD */}
       <Card>
         <CardHeader>
           <CardTitle>Keyword Density Checker</CardTitle>
@@ -252,10 +210,10 @@ export const KeywordDensityChecker = () => {
             </Label>
             <Textarea
               id="text-input"
-              placeholder="Paste or type your content here to analyze keyword density..."
-              value={text}
-              onChange={(e) => handleTextChange(e.target.value)}
               rows={8}
+              value={text}
+              placeholder="Paste or type your content here..."
+              onChange={(e) => handleTextChange(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               {text.length.toLocaleString()} /{" "}
@@ -263,55 +221,54 @@ export const KeywordDensityChecker = () => {
             </p>
           </div>
 
-          {/* CONTROLS */}
+          {/* OPTIONS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Min length */}
             <div className="space-y-2">
               <Label htmlFor="min-length">Minimum Word Length</Label>
               <Input
                 id="min-length"
                 type="number"
+                value={minWordLength}
                 min={1}
                 max={50}
-                value={minWordLength}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (Number.isNaN(val)) {
-                    setMinWordLength(3);
-                    return;
-                  }
-                  const clamped = Math.min(Math.max(val, 1), 50);
-                  setMinWordLength(clamped);
+                  const raw = e.target.value.trim();
+                  if (!raw) return setMinWordLength(3);
+                  const num = Number(raw);
+                  setMinWordLength(
+                    Number.isFinite(num) ? Math.min(Math.max(num, 1), 50) : 3
+                  );
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                Ignore very short tokens like “a”, “an”, “of”, etc. Default is 3.
+                Ignore tiny tokens like “a”, “to”, etc. Default: 3.
               </p>
             </div>
 
+            {/* Custom exclusions */}
             <div className="space-y-2">
-              <Label htmlFor="exclusions">Custom Exclusions (comma or space separated)</Label>
+              <Label htmlFor="exclusions">Custom Exclusions</Label>
               <Input
                 id="exclusions"
-                placeholder="brand, company, name, etc"
+                placeholder="brand, company, name..."
                 value={customExclusions}
                 onChange={(e) => setCustomExclusions(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                These words will be ignored in the analysis.
+                Words here will be ignored.
               </p>
             </div>
           </div>
 
-          {/* EXCLUDE COMMON WORDS TOGGLE */}
-          <div className="flex items-center space-x-2">
+          {/* Stop words toggle */}
+          <div className="flex items-center gap-2">
             <Checkbox
               id="exclude-common"
               checked={excludeCommon}
-              onCheckedChange={(checked) => setExcludeCommon(!!checked)}
+              onCheckedChange={(v) => setExcludeCommon(Boolean(v))}
             />
-            <Label htmlFor="exclude-common">
-              Exclude common English stop words (the, and, or, etc.)
-            </Label>
+            <Label htmlFor="exclude-common">Exclude common English stop words</Label>
           </div>
 
           {/* ACTIONS */}
@@ -322,16 +279,10 @@ export const KeywordDensityChecker = () => {
               className="flex items-center gap-2 w-full sm:w-auto"
               disabled={keywordAnalysis.totalWords === 0}
             >
-              <Copy className="h-4 w-4" />
-              Copy Results
+              <Copy className="h-4 w-4" /> Copy Results
             </Button>
-            <Button
-              onClick={clearAll}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear All
+            <Button onClick={clearAll} variant="outline" className="w-full sm:w-auto">
+              <RotateCcw className="h-4 w-4 mr-2" /> Clear All
             </Button>
           </div>
         </CardContent>
@@ -349,29 +300,19 @@ export const KeywordDensityChecker = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">
-                    {keywordAnalysis.totalWords.toLocaleString()}
+                {[
+                  ["Total Words", keywordAnalysis.totalWords],
+                  ["Unique Keywords", keywordAnalysis.uniqueWords],
+                  [
+                    "Highest Density",
+                    keywordAnalysis.keywords[0]?.density.toFixed(1) + "%"
+                  ]
+                ].map(([label, value]) => (
+                  <div key={label} className="text-center p-4 bg-muted rounded-lg">
+                    <div className="text-2xl font-bold">{value}</div>
+                    <div className="text-sm text-muted-foreground">{label}</div>
                   </div>
-                  <div className="text-sm text-muted-foreground">Total Words</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">
-                    {keywordAnalysis.uniqueWords.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Unique Keywords</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold">
-                    {keywordAnalysis.keywords.length > 0
-                      ? keywordAnalysis.keywords[0].density.toFixed(1)
-                      : 0}
-                    %
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Highest Keyword Density
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -387,35 +328,30 @@ export const KeywordDensityChecker = () => {
             <CardContent>
               {keywordAnalysis.keywords.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No keywords found with the current filters. Try lowering the minimum
-                  word length or disabling some exclusions.
+                  No keywords found with current filters.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {keywordAnalysis.keywords.slice(0, 50).map((keyword, index) => (
+                  {keywordAnalysis.keywords.slice(0, 50).map((k) => (
                     <div
-                      key={index}
+                      key={k.keyword}
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{keyword.keyword}</span>
-                          <Badge
-                            variant="outline"
-                            className={getDensityColor(keyword.density)}
-                          >
-                            {keyword.density.toFixed(2)}%
+                          <span className="font-medium break-all">{k.keyword}</span>
+                          <Badge variant="outline" className={getDensityColor(k.density)}>
+                            {k.density.toFixed(2)}%
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            {getDensityStatus(keyword.density)}
+                            {getDensityStatus(k.density)}
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          Appears {keyword.count} time
-                          {keyword.count !== 1 ? "s" : ""} at positions:{" "}
-                          {keyword.positions.slice(0, 5).join(", ")}
-                          {keyword.positions.length > 5 &&
-                            ` (+${keyword.positions.length - 5} more)`}
+                          Appears {k.count} time{k.count !== 1 ? "s" : ""} at positions:{" "}
+                          {k.positions.slice(0, 5).join(", ")}
+                          {k.positions.length > 5 &&
+                            ` (+${k.positions.length - 5} more)`}
                         </div>
                       </div>
                     </div>
@@ -435,23 +371,19 @@ export const KeywordDensityChecker = () => {
         <CardContent>
           <div className="space-y-3 text-sm">
             <div>
-              <strong>Optimal Density:</strong> 1–3% for primary keywords, around 0.5–1% for
-              secondary keywords.
+              <strong>Optimal:</strong> 1–3% for primary keywords, 0.5–1% for secondary.
             </div>
             <div>
-              <strong>Too High:</strong> Above 3% may look like keyword stuffing to search
-              engines.
+              <strong>Too high:</strong> Over 3% can appear spammy to search engines.
             </div>
             <div>
-              <strong>Too Low:</strong> Below 0.5% may not provide enough relevance signal.
+              <strong>Too low:</strong> Under 0.5% provides weak relevance.
             </div>
             <div>
-              <strong>Best Practice:</strong> Write naturally for humans first, then use this
-              tool to spot extremes, not to chase exact percentages.
+              <strong>Best practice:</strong> Write naturally, use this tool to detect extremes.
             </div>
             <div>
-              <strong>Related Terms:</strong> Include synonyms and related phrases (LSI
-              keywords) for stronger topical coverage.
+              <strong>Tip:</strong> Include synonyms & related terms (LSI keywords).
             </div>
           </div>
         </CardContent>
