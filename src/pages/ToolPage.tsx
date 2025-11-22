@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import Canonical from "@/components/Canonical";
 import { tools, categories } from "@/data/tools";
 import { ArrowLeft, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -134,128 +135,57 @@ const ToolPage = () => {
       navigate(`/${tool.category}/${tool.id}`, { replace: true });
     }
   }, [tool, categoryId, navigate]);
-
-  // Set/update a canonical link for SEO to the correct URL for this tool
-  useEffect(() => {
-    if (!tool) return;
-    const canonicalUrl = `${window.location.origin}/${tool.category}/${tool.id}`;
-    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement('link');
-      link.setAttribute('rel', 'canonical');
-      document.head.appendChild(link);
-    }
-    link.setAttribute('href', canonicalUrl);
-  }, [tool]);
-
-  // Set the page title and metadata dynamically based on the tool
-  useEffect(() => {
-    if (tool && category) {
-      const title = `${tool.name} - Free Online Tool | ToolCheetah`;
-      const description = `${tool.description} Use our free ${tool.name.toLowerCase()} tool online. No registration required, works directly in your browser.`;
-      
-      document.title = title;
-      
-      // Meta description
-      let metaDescription = document.querySelector('meta[name="description"]');
-      if (!metaDescription) {
-        metaDescription = document.createElement('meta');
-        metaDescription.setAttribute('name', 'description');
-        document.head.appendChild(metaDescription);
-      }
-      metaDescription.setAttribute('content', description);
-
-      // Open Graph tags
-      let ogTitle = document.querySelector('meta[property="og:title"]');
-      if (!ogTitle) {
-        ogTitle = document.createElement('meta');
-        ogTitle.setAttribute('property', 'og:title');
-        document.head.appendChild(ogTitle);
-      }
-      ogTitle.setAttribute('content', title);
-
-      let ogDescription = document.querySelector('meta[property="og:description"]');
-      if (!ogDescription) {
-        ogDescription = document.createElement('meta');
-        ogDescription.setAttribute('property', 'og:description');
-        document.head.appendChild(ogDescription);
-      }
-      ogDescription.setAttribute('content', description);
-
-      let ogUrl = document.querySelector('meta[property="og:url"]');
-      if (!ogUrl) {
-        ogUrl = document.createElement('meta');
-        ogUrl.setAttribute('property', 'og:url');
-        document.head.appendChild(ogUrl);
-      }
-      ogUrl.setAttribute('content', `https://toolcheetah.com/${tool.category}/${tool.id}`);
-
-      let ogType = document.querySelector('meta[property="og:type"]');
-      if (!ogType) {
-        ogType = document.createElement('meta');
-        ogType.setAttribute('property', 'og:type');
-        document.head.appendChild(ogType);
-      }
-      ogType.setAttribute('content', 'website');
-    }
-  }, [tool, category]);
-
-  // Handle "Tool Not Found" case metadata
-  useEffect(() => {
-    if (!tool || !category) {
-      document.title = "Tool Not Found | ToolCheetah";
-      
-      let metaDescription = document.querySelector('meta[name="description"]');
-      if (!metaDescription) {
-        metaDescription = document.createElement('meta');
-        metaDescription.setAttribute('name', 'description');
-        document.head.appendChild(metaDescription);
-      }
-      metaDescription.setAttribute('content', "The tool you're looking for doesn't exist. Search our collection of free online tools.");
-
-      // Tell search engines not to index this error page
-      let metaRobots = document.querySelector('meta[name="robots"]');
-      if (!metaRobots) {
-        metaRobots = document.createElement('meta');
-        metaRobots.setAttribute('name', 'robots');
-        document.head.appendChild(metaRobots);
-      }
-      metaRobots.setAttribute('content', 'noindex, follow');
-    }
-  }, [tool, category]);
+  // Head management handled via `Canonical` (react-helmet-async).
 
   if (!tool || !category) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <div className="container flex flex-1 items-center justify-center px-4 py-8">
-          <div className="text-center max-w-md">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-              <Icons.SearchX className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h1 className="mb-3 text-3xl sm:text-4xl font-bold">Tool Not Found</h1>
-            <p className="mb-8 text-base sm:text-lg text-muted-foreground">
-              The tool you're looking for doesn't exist or may have been removed.
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link to="/">
-                <Button size="lg" className="w-full sm:w-auto">
-                  <Icons.Home className="mr-2 h-4 w-4" />
-                  Go Home
-                </Button>
-              </Link>
-              <Link to="/search">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                  <Icons.Search className="mr-2 h-4 w-4" />
-                  Search Tools
-                </Button>
-              </Link>
+      <>
+        <Canonical
+          title={"Tool Not Found | ToolCheetah"}
+          description={"The tool you're looking for doesn't exist. Search our collection of free online tools."}
+          noindex
+        />
+        <div className="min-h-screen bg-background flex flex-col">
+          <Header />
+          <div className="container flex flex-1 items-center justify-center px-4 py-8">
+            <div className="text-center max-w-md">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+                <Icons.SearchX className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <h1 className="mb-3 text-3xl sm:text-4xl font-bold">Tool Not Found</h1>
+              <p className="mb-8 text-base sm:text-lg text-muted-foreground">
+                The tool you're looking for doesn't exist or may have been removed.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Link to="/">
+                  <Button size="lg" className="w-full sm:w-auto">
+                    <Icons.Home className="mr-2 h-4 w-4" />
+                    Go Home
+                  </Button>
+                </Link>
+                <Link to="/search">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                    <Icons.Search className="mr-2 h-4 w-4" />
+                    Search Tools
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
+
+  const pageTitle = `${tool.name} - Free Online Tool | ToolCheetah`;
+  const pageDescription = `${tool.description} Use our free ${tool.name.toLowerCase()} tool online. No registration required, works directly in your browser.`;
+  const canonicalUrl = `https://toolcheetah.com/${tool.category}/${tool.id}`;
+  const og = {
+    title: pageTitle,
+    description: pageDescription,
+    url: canonicalUrl,
+    type: "website",
+  };
 
   const IconComponent = (Icons[tool.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
   const CategoryIconComponent = (Icons[category.icon as keyof typeof Icons] as LucideIcon) || Icons.Wrench;
@@ -1161,6 +1091,7 @@ const ToolPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <Canonical title={pageTitle} description={pageDescription} canonical={canonicalUrl} og={og} />
 
       <section className="bg-gradient-to-br from-primary/5 via-accent/5 to-background py-6 sm:py-12">
         <div className="container">

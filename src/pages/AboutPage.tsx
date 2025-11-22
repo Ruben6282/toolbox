@@ -207,42 +207,192 @@ const AboutPage = () => {
             <CardTitle>What We Offer</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-2">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
                 <h4 className="font-semibold text-sm">Text & Content Tools</h4>
-                <p className="text-xs text-muted-foreground">
-                  Word counters, case converters, text generators, and more utilities for working with text.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Fast helpers for writers and editors — analyze, transform, and generate content with ease.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Word & character counters, readability stats</li>
+                  <li>• Case converters, slug generators, minifiers</li>
+                  <li>• Generators: Lorem ipsum, titles, usernames</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Word Counter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Case Converter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Keyword Density</span>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <h4 className="font-semibold text-sm">Image Tools</h4>
-                <p className="text-xs text-muted-foreground">
-                  Image converters, resizers, croppers, and editors for all your image processing needs.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Quick, in-browser image editing and conversions without uploads.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Resize, crop, and convert between formats (JPG, PNG, WebP)</li>
+                  <li>• Watermark, compress, and basic photo edits</li>
+                  <li>• Extract colors and generate gradients</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Image Resizer</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Add Watermark</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Image Cropper</span>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <h4 className="font-semibold text-sm">Developer Tools</h4>
-                <p className="text-xs text-muted-foreground">
-                  Code formatters, minifiers, encoders, decoders, and other essential developer utilities.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Utilities for developers to inspect, transform, and optimize code and data.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• HTML/CSS/JS minifiers and formatters</li>
+                  <li>• Encoders/decoders (Base64, HTML entities, JWT)</li>
+                  <li>• JSON formatting and regex testing</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">HTML Minifier</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">JSON Formatter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Regex Tester</span>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <h4 className="font-semibold text-sm">Calculators</h4>
-                <p className="text-xs text-muted-foreground">
-                  Financial calculators, unit converters, math tools, and specialized calculators for various needs.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Practical calculators for finance, conversions, and everyday math.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Loan, mortgage, and ROI calculators</li>
+                  <li>• Unit converters and currency tools</li>
+                  <li>• Health & fitness calculators (BMI, calorie)</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Loan Calculator</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Unit Converter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">BMI</span>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <h4 className="font-semibold text-sm">SEO Tools</h4>
-                <p className="text-xs text-muted-foreground">
-                  Meta tag generators, URL analyzers, keyword tools, and other SEO optimization utilities.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Tools to help you optimize pages, preview SERP snippets, and manage canonicalization.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Meta tag and Open Graph generators</li>
+                  <li>• Canonical URL helpers and sitemap/XML tools</li>
+                  <li>• Keyword analysis and SERP preview</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Meta Tag Generator</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Canonical URL</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Sitemap</span>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <h4 className="font-semibold text-sm">Media Tools</h4>
-                <p className="text-xs text-muted-foreground">
-                  Audio and video tools for editing, converting, and processing multimedia files.
+                <p className="text-xs text-muted-foreground mb-2">
+                  Process audio and video assets directly in the browser — trim, convert, and extract media.
                 </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Audio trimming and format conversion</li>
+                  <li>• Thumbnail extraction and image downloads</li>
+                  <li>• Voice recording and basic editing</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Audio Cutter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">MP3 → WAV</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">YouTube Thumbnails</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-sm">Number Tools</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Precise numeric utilities for conversions, checks, and format transformations.
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Binary, hex, and decimal converters</li>
+                  <li>• Prime checks, LCM/GCD, Roman numeral conversions</li>
+                  <li>• Random number generation</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Binary Converter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Prime Checker</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Random Number</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-sm">Random Generators</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Quickly generate random values for testing, naming, and decision making.
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• UUIDs, passwords, and random names</li>
+                  <li>• Dice rolls, coin flips, and yes/no pickers</li>
+                  <li>• Business name and username ideas</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Password Generator</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">UUID</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Username Generator</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-sm">Social Media Tools</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Create and preview social posts with platform-specific guidance and previews.
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Twitter character/preview tools</li>
+                  <li>• Facebook post preview and hashtag analysis</li>
+                  <li>• YouTube title & description helpers</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Twitter Counter</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Facebook Preview</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">YouTube Tools</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-sm">Date & Time Tools</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Tools to help with scheduling, time zone conversions, and date arithmetic.
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Time zone converter and world clock</li>
+                  <li>• Stopwatch, countdowns, and timestamp converters</li>
+                  <li>• Age and date difference calculators</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Time Zone</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Stopwatch</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Countdown</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-sm">Security Tools</h4>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Keep your data safe with tools for password generation, hashing, and URL safety checks.
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• Secure password & hash generators</li>
+                  <li>• Email validation and URL safety checks</li>
+                  <li>• Fake data generators for testing</li>
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">Password Generator</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">MD5 Hash</span>
+                  <span className="px-2 py-0.5 bg-muted rounded-full text-xs">URL Safety</span>
+                </div>
               </div>
             </div>
           </CardContent>
